@@ -10,7 +10,6 @@ export function loadGrpcServiceDefinition(
   const packageDefinition = protoLoader.loadSync(join(__dirname, protoPath), {
     keepCase: true,
     longs: String,
-    enums: String,
     defaults: true,
     oneofs: true,
     includeDirs: [
@@ -53,7 +52,6 @@ export function loadGrpcClient(
   const packageDefinition = protoLoader.loadSync(join(__dirname, protoPath), {
     keepCase: true,
     longs: String,
-    enums: String,
     defaults: true,
     oneofs: true,
     includeDirs: [

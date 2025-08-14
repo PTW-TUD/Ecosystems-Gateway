@@ -56,7 +56,6 @@ async function bootstrap() {
         loader: {
           keepCase: true,
           longs: String,
-          enums: String,
           defaults: true,
           oneofs: true,
           includeDirs: [

@@ -5,7 +5,7 @@ jest.mock('axios');
 import {
   CreateOfferingRequest,
   CreateOfferingResponse,
-} from '../../src/generated/src/_proto/spp_v2';
+} from '../generated/spp_v2';
 
 jest.mock('axios');
 describe('Xfsc service', () => {

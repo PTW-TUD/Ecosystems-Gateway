@@ -1,18 +1,21 @@
 services:
-  so-publisher:
+  so-gateway:
     build:
       context: .
-    container_name: so-publisher-1
+    container_name: so-gateway-1
     restart: unless-stopped
     environment:
       - PRIVATE_KEY=0x... # Create your own via https://gchq.github.io/CyberChef/#recipe=Generate_ECDSA_Key_Pair('P-256','DER')
       - NETWORK=PONTUSXDEV
+      - NESTJS_LOG_LEVELS=log,debug
+      - NAUTILUS_LOG_LEVEL=verbose
+      - ENABLE_GRPC_GATEWAY=true
       - REDIS_ADDRESS=redis-pub:6379
       - PROVIDER_URL=https://provider.dev.pontus-x.eu
       - PROVIDER_ADDRESS=0x68C24FA5b2319C81b34f248d1f928601D2E5246B
     ports:
       - '5002:5002'
-      - '5001:5001'
+      - '3000:3000'
     labels:
       traefik.enable: true
       traefik.docker.network: proxy
