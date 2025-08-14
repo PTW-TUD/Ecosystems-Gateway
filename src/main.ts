@@ -85,7 +85,7 @@ async function bootstrap() {
   // ===========================================================
   const openapiPathCandidates = [
     // when running from compiled dist/
-    resolve(__dirname, '..', 'openapi', 'spp_v2.swagger.json'),
+    resolve(__dirname, 'openapi', 'spp_v2.swagger.json'),
     // when running directly from project root
     resolve(process.cwd(), 'openapi', 'spp_v2.swagger.json'),
   ];

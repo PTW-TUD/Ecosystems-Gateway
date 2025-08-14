@@ -8,7 +8,7 @@ plugins:
       - logtostderr=true
 
   # TypeScript via ts-proto
-  - remote: buf.build/community/stephenh-ts-proto
+  - remote: buf.build/community/stephenh-ts-proto:v2.3.0
     out: src/generated
     opt:
       - esModuleInterop=true
