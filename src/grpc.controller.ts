@@ -15,7 +15,7 @@ import {
   CreateComputeToDataResultRequest,
   CreateComputeToDataRequest,
   ComputeToDataResponse,
-} from './generated/src/_proto/spp_v2';
+} from './generated/spp_v2';
 import { status as GrpcStatusCode } from '@grpc/grpc-js';
 import { LifecycleStates } from '@deltadao/nautilus';
 

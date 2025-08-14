@@ -19,7 +19,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "pretty": "prettier --write \"./**/*.{js,jsx,mjs,cjs,ts,tsx,json}\""
+    "pretty": "prettier --write \"./**/*.{js,jsx,mjs,cjs,ts,tsx,json}\"",
+    "proto:gen": "buf generate"
   },
   "pre-commit": [
     "pretty"
@@ -43,16 +44,19 @@
     "axios-oauth-client": "2.2.0",
     "dprint-node": "1.0.8",
     "ethers": "5.7.2",
+    "google-proto-files": "^5.0.0",
     "ioredis": "5.4.1",
     "openid-client": "5.7.0",
     "redis": "4.7.0",
     "reflect-metadata": "0.1.14",
     "rxjs": "7.8.1",
+    "swagger-ui-express": "^5.0.1",
     "ts-proto": "2.2.1",
     "ts-protoc-gen": "0.15.0",
     "uuid": "10.0.0"
   },
   "devDependencies": {
+    "@bufbuild/buf": "^1.56.0",
     "@nestjs/cli": "10.4.5",
     "@nestjs/schematics": "10.1.4",
     "@nestjs/testing": "10.4.4",
@@ -60,6 +64,7 @@
     "@types/jest": "29.5.13",
     "@types/node": "22.7.4",
     "@types/supertest": "6.0.2",
+    "@types/swagger-ui-express": "^4.1.8",
     "@typescript-eslint/eslint-plugin": "8.7.0",
     "@typescript-eslint/parser": "8.7.0",
     "eslint": "9.11.1",

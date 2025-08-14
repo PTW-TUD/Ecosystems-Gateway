@@ -40,7 +40,7 @@ import {
   ComputeToDataResponse,
   GetComputeToDataResultResponse,
   ComputeToDataResponseState,
-} from '../generated/src/_proto/spp_v2';
+} from '../generated/spp_v2';
 import { CredentialEventServiceService } from '../credential-event-service/credential-event-service.service';
 import { RpcException } from '@nestjs/microservices';
 import { status as GrpcStatusCode } from '@grpc/grpc-js';

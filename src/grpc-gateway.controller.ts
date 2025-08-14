@@ -25,14 +25,14 @@ export class GrpcGatewayController {
   constructor(private readonly configService: ConfigService) {
     this.logger = new Logger(GrpcGatewayController.name);
     this.grpcClient = loadGrpcClient(
-      './_proto/spp_v2.proto',
+      './_proto_runtime/spp_v2.runtime.proto',
       'eupg.serviceofferingpublisher',
       'serviceofferingPublisher',
       configService.get('GRPC_BIND', '0.0.0.0:5002'), // TODO: Fix default values
     );
 
     this.grpcDefinitions = loadGrpcServiceDefinition(
-      './_proto/spp_v2.proto',
+      './_proto_runtime/spp_v2.runtime.proto',
       'eupg.serviceofferingpublisher',
       'serviceofferingPublisher',
     );

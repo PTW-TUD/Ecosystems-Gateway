@@ -1,0 +1,1137 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ecosystem Gateway API",
+    "description": "Interconnectivity by desing",
+    "version": "1.0"
+  },
+  "tags": [
+    {
+      "name": "serviceofferingPublisher"
+    }
+  ],
+  "basePath": "/",
+  "schemes": [
+    "http"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/grpc/CreateOffering": {
+      "post": {
+        "summary": "Create a service offering",
+        "operationId": "serviceofferingPublisher_CreateOffering",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/serviceofferingpublisherCreateOfferingResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/serviceofferingpublisherCreateOfferingRequest"
+            }
+          }
+        ],
+        "tags": [
+          "serviceofferingPublisher"
+        ]
+      }
+    },
+    "/grpc/GetComputeToDataResult": {
+      "post": {
+        "summary": "GetComputeToDataResult",
+        "operationId": "serviceofferingPublisher_GetComputeToDataResult",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/serviceofferingpublisherGetComputeToDataResultResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/serviceofferingpublisherCreateComputeToDataResultRequest"
+            }
+          }
+        ],
+        "tags": [
+          "serviceofferingPublisher"
+        ]
+      }
+    },
+    "/grpc/GetOffering": {
+      "post": {
+        "summary": "GetOffering",
+        "operationId": "serviceofferingPublisher_GetOffering",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/serviceofferingpublisherGetOfferingResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/serviceofferingpublisherGetOfferingRequest"
+            }
+          }
+        ],
+        "tags": [
+          "serviceofferingPublisher"
+        ]
+      }
+    },
+    "/grpc/RunComputeToDataJob": {
+      "post": {
+        "summary": "RunComputeToDataJob",
+        "operationId": "serviceofferingPublisher_RunComputeToDataJob",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/serviceofferingpublisherComputeToDataResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/serviceofferingpublisherCreateComputeToDataRequest"
+            }
+          }
+        ],
+        "tags": [
+          "serviceofferingPublisher"
+        ]
+      }
+    },
+    "/grpc/UpdateOffering": {
+      "post": {
+        "summary": "UpdateOffering",
+        "operationId": "serviceofferingPublisher_UpdateOffering",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/serviceofferingpublisherUpdateOfferingResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/serviceofferingpublisherUpdateOfferingRequest"
+            }
+          }
+        ],
+        "tags": [
+          "serviceofferingPublisher"
+        ]
+      }
+    },
+    "/grpc/UpdateOfferingLifecycle": {
+      "post": {
+        "summary": "UpdateOfferingLifecycle",
+        "operationId": "serviceofferingPublisher_UpdateOfferingLifecycle",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/serviceofferingpublisherUpdateOfferingLifecycleResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/serviceofferingpublisherUpdateOfferingLifecycleRequest"
+            }
+          }
+        ],
+        "tags": [
+          "serviceofferingPublisher"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "PontusxUpdateOfferingUpdateService": {
+      "type": "object",
+      "properties": {
+        "service": {
+          "$ref": "#/definitions/serviceofferingpublisherService"
+        },
+        "index": {
+          "type": "integer",
+          "format": "int32",
+          "title": "Optional index of the service of the asset that is to be updated according to the information in the service field above\r\nIf no index is given the first service [index = 0] is updated"
+        }
+      },
+      "title": "Updated Services that are exposed by the asset to interact with it"
+    },
+    "PricingPricingType": {
+      "type": "string",
+      "enum": [
+        "FREE",
+        "FIXED_OCEAN",
+        "FIXED_EUROE"
+      ],
+      "default": "FREE"
+    },
+    "XfscUpdateOfferingLifecycleXfscLifecycleStates": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "REVOKED_BY_PUBLISHER",
+        "DELETED"
+      ],
+      "default": "ACTIVE",
+      "description": "- ACTIVE: Fully functional asset\r\nDiscoverable in Portal\r\nDefault value meaning nothing has to be changed\n - REVOKED_BY_PUBLISHER: Publisher has explicitly revoked access or ownership rights to the asset\r\nAsset will stay in the catalogue but an expiration date will be added\n - DELETED: Asset will be completely deleted from the catalogue",
+      "title": "Possible lifecycle states of asset in the XFSC ecosystem"
+    },
+    "gaiaXServiceSelfDescription": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "title": "Static URL of the self-description"
+        },
+        "isVerified": {
+          "type": "boolean",
+          "title": "Optional identifier if the self-description has been verified against a Gaia-X Compliance Service\r\nMainly used by the deltaDAO portal"
+        }
+      },
+      "title": "Endpoint to the Gaia-X compliant Self-Description (VP) of the offering"
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "protobufNullValue": {
+      "type": "string",
+      "enum": [
+        "NULL_VALUE"
+      ],
+      "default": "NULL_VALUE",
+      "description": "`NullValue` is a singleton enumeration to represent the null value for the\n`Value` type union.\n\nThe JSON representation for `NullValue` is JSON `null`.\n\n - NULL_VALUE: Null value."
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "serviceofferingpublisherAdditionalInformation": {
+      "type": "object",
+      "properties": {
+        "termsAndConditions": {
+          "type": "boolean",
+          "title": "Boolean to indicate if the publisher specifies it's own terms and conditions for consumption of the asset"
+        },
+        "gaiaXInformation": {
+          "$ref": "#/definitions/serviceofferingpublishergaiaX",
+          "title": "Information in the context of Gaia-X compliance including the link to the Self-Description of the offering (VP)"
+        }
+      },
+      "title": "Additional information about the asset used in CreateOfferingRequest and UpdateOfferingRequest\r\nTaylored for Pontus-X Ecosystem and workaround for Gaia-X Framework implementation (normally customizable)"
+    },
+    "serviceofferingpublisherAlgorithmMetadata": {
+      "type": "object",
+      "properties": {
+        "language": {
+          "type": "string",
+          "title": "Language used to implement the software, e.g. \"python\""
+        },
+        "version": {
+          "type": "string",
+          "description": "Version of the software preferably in SemVer notation, e.g. 1.0.0."
+        },
+        "consumerParameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/serviceofferingpublisherConsumerParameter"
+          },
+          "title": "Optional consumer parameters similar as in Service\r\nImplemented here to gain access to user input at algorithm runtime"
+        },
+        "container": {
+          "$ref": "#/definitions/serviceofferingpublisherContainer",
+          "title": "Information about the Docker image for running the algorithm"
+        }
+      }
+    },
+    "serviceofferingpublisherComputeOptions": {
+      "type": "object",
+      "properties": {
+        "allowRawAlgorithm": {
+          "type": "boolean",
+          "title": "If true, any passed raw text will be allowed to run. Useful for an algorithm drag \u0026 drop use case, but increases risk of data escape through malicious user input.\r\nOptional because default value in connector is false"
+        },
+        "allowNetworkAccess": {
+          "type": "boolean",
+          "title": "If true, the algorithm job will have network access.\r\nOptional because default value in connector is false"
+        },
+        "trustedAlgorithms": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/serviceofferingpublisherTrustedAlgorihm"
+          },
+          "description": "Algorithm that is allowed/trusted by the publisher to be used on asset/service\r\nIf not defined, then any published algorithm is allowed. If empty array, then no algorithm is allowed."
+        },
+        "trustedPublishers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Define publishers with their wallet address (0x...) from which all published algorithms are allowed\r\nIf not defined, then any published algorithm is allowed. If empty array, then no algorithm is allowed."
+        }
+      }
+    },
+    "serviceofferingpublisherComputeToDataResponse": {
+      "type": "object",
+      "properties": {
+        "jobId": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "serviceofferingpublisherComputeToDataResponseState": {
+      "type": "string",
+      "enum": [
+        "QUEUED",
+        "IN_PROGRESS",
+        "FINISHED"
+      ],
+      "default": "QUEUED"
+    },
+    "serviceofferingpublisherComputeToDataResultType": {
+      "type": "string",
+      "enum": [
+        "C2D_DATA",
+        "C2D_URI"
+      ],
+      "default": "C2D_DATA"
+    },
+    "serviceofferingpublisherConsumerParameter": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "title": "The parameter name (this is sent as HTTP param or key towards algo)"
+        },
+        "type": {
+          "type": "string",
+          "title": "The field type (text, number, boolean, select)"
+        },
+        "label": {
+          "type": "string",
+          "title": "The field label which is displayed"
+        },
+        "required": {
+          "type": "boolean",
+          "title": "Boolean which indicates if customer input for this field is mandatory"
+        },
+        "description": {
+          "type": "string"
+        },
+        "default": {
+          "type": "string",
+          "title": "The field default value. Has to match the transmitted type transmitted as string"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "title": "For select types, a list of options as JSON objects containing a single key-value-pair\r\nThe key represents the option name, and the value is the option value\r\ne.g. {\"nodejs\": \"I love NodeJS\"}"
+        }
+      },
+      "title": "Additional input parameter that the asset needs before downloading or running a Compute-to-Data job at algorithm runtime"
+    },
+    "serviceofferingpublisherContainer": {
+      "type": "object",
+      "properties": {
+        "entrypoint": {
+          "type": "string",
+          "title": "The command to execute, or script to run inside the Docker image, e.g. \"node $ALGO\"\r\n$ALGO is a macro that gets replaced inside the compute job, depending where your algorithm code is downloaded"
+        },
+        "image": {
+          "type": "string",
+          "title": "The Docker image name the algorithm will run with\r\ne.g. \"node\""
+        },
+        "tag": {
+          "type": "string",
+          "title": "The Docker image tag that you are going to use\r\ne.g. \"latest\""
+        },
+        "checksum": {
+          "type": "string",
+          "title": "Digest of the Docker image (e.g: sha256:xxxx)"
+        }
+      }
+    },
+    "serviceofferingpublisherCreateComputeToDataRequest": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string"
+        },
+        "algorithm": {
+          "type": "string"
+        },
+        "userData": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "serviceofferingpublisherCreateComputeToDataResultRequest": {
+      "type": "object",
+      "properties": {
+        "jobId": {
+          "type": "string"
+        },
+        "jobIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "computeToDataReturnType": {
+          "$ref": "#/definitions/serviceofferingpublisherComputeToDataResultType"
+        }
+      },
+      "title": "The compute to data result request can be used to get the results from a job.\r\nWith the jobindex a specific result files (ordered by name 0-n) can be fetched\r\nBy default only the first result file will be returned"
+    },
+    "serviceofferingpublisherCreateOfferingRequest": {
+      "type": "object",
+      "example": {
+        "offerings": [
+          {
+            "pontusxOffering": {
+              "metadata": {
+                "type": "anim",
+                "name": "Excepteur ex dolor",
+                "description": "eu consequat",
+                "author": "qui occaecat officia Ut sint",
+                "licence": "incididunt",
+                "tags": [
+                  "exercitation tempor in irure veniam",
+                  "consequat"
+                ],
+                "algorithm": {
+                  "language": "dolore esse adipisicing",
+                  "version": "in",
+                  "consumerParameters": [
+                    {
+                      "name": "deserunt ex sunt",
+                      "type": "do labore Excepteur consectetur",
+                      "label": "reprehenderit proident nostrud",
+                      "required": false,
+                      "description": "velit",
+                      "default": "commodo est in ex aliquip",
+                      "options": [
+                        {
+                          "fields": {}
+                        }
+                      ]
+                    }
+                  ],
+                  "container": {
+                    "entrypoint": "in",
+                    "image": "reprehenderit velit",
+                    "tag": "ut",
+                    "checksum": "anim dolor sed elit"
+                  }
+                }
+              },
+              "additionalInformation": {
+                "termsAndConditions": false,
+                "gaiaXInformation": {
+                  "containsPII": false,
+                  "termsAndConditions": [
+                    {
+                      "url": "Lorem nostrud magna incididunt officia"
+                    }
+                  ],
+                  "serviceSD": {
+                    "url": "sunt voluptate eu",
+                    "isVerified": false
+                  }
+                }
+              },
+              "services": [
+                {
+                  "name": "reprehenderit qui nostrud",
+                  "description": "culpa consequat pariatur",
+                  "type": "occaecat laborum sunt ipsum",
+                  "pricing": {
+                    "pricingType": 1,
+                    "fixedRate": 3599842091
+                  },
+                  "files": [
+                    {
+                      "url": "et mollit eu ullamco",
+                      "method": "exercitation dolor",
+                      "headers": {
+                        "key": "",
+                        "value": ""
+                      }
+                    }
+                  ],
+                  "timeout": 3474029621,
+                  "tokenName": "sit",
+                  "tokenSymbol": "nisi consequat dolore dolor eiusmod",
+                  "serviceEndpoint": "elit sunt et ipsum in",
+                  "computeOptions": {
+                    "allowRawAlgorithm": true,
+                    "allowNetworkAccess": true,
+                    "trustedAlgorithms": [
+                      {
+                        "did": "sint dolor Lorem",
+                        "filesChecksum": "officia culpa mollit",
+                        "containerSectionChecksum": "nisi laboris eu ex"
+                      }
+                    ],
+                    "trustedPublishers": [
+                      "in sint",
+                      "aliqua eu eiusmod voluptate irure"
+                    ]
+                  },
+                  "consumerParameters": []
+                }
+              ],
+              "credentials": {
+                "allow": [
+                  "aliquip"
+                ],
+                "deny": [
+                  "minim elit"
+                ]
+              }
+            },
+            "xfscOffering": {
+              "VP": "deserunt adipisicing"
+            }
+          }
+        ]
+      },
+      "properties": {
+        "offerings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/serviceofferingpublisherCreateOfferingRequestOffering"
+          }
+        }
+      },
+      "title": "Create message to publish a Offering with the given information to different ecosystems\r\nAt the moment Pontus-X and XFSC are supported"
+    },
+    "serviceofferingpublisherCreateOfferingRequestOffering": {
+      "type": "object",
+      "properties": {
+        "pontusxOffering": {
+          "$ref": "#/definitions/serviceofferingpublisherPontusxOffering"
+        },
+        "xfscOffering": {
+          "$ref": "#/definitions/serviceofferingpublisherXfscOffering"
+        }
+      }
+    },
+    "serviceofferingpublisherCreateOfferingResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "List of identifier of the successfully published offering(s) \r\nexample: did:op:123 in Pontus-X ecosystem"
+        },
+        "DebugInformation": {
+          "type": "object",
+          "title": "Debug information"
+        }
+      },
+      "title": "Response to CreateOfferingRequest"
+    },
+    "serviceofferingpublisherCredentialLists": {
+      "type": "object",
+      "properties": {
+        "allow": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "List of allowed credentials"
+        },
+        "deny": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "List of denied credentials"
+        }
+      },
+      "title": "Message for credential allow- and denylists in PontusX"
+    },
+    "serviceofferingpublisherFiles": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "title": "File URL"
+        },
+        "method": {
+          "type": "string",
+          "title": "HTTP Method used to access the file \r\nexample: 'GET'"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Optional headers field e.g. for basic access control"
+        }
+      },
+      "title": "Information about a file related to a offering used in Main\r\nAt the moment only files that are accessible over a Static URL (HTTP) are accepted\r\n(possible alternatives: Arweave, GraphQL, IPFS, Smart Contract)"
+    },
+    "serviceofferingpublisherGetComputeToDataResultResponse": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "$ref": "#/definitions/serviceofferingpublisherComputeToDataResponseState"
+        },
+        "data": {
+          "type": "string"
+        }
+      },
+      "title": "The result can either be a URL or a full data, see CreateComputeToDataResultRequest"
+    },
+    "serviceofferingpublisherGetOfferingRequest": {
+      "type": "object",
+      "properties": {
+        "offerings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/serviceofferingpublisherGetOfferingRequestOffering"
+          }
+        }
+      },
+      "title": "---------------------------------------------- GetOffering ----------------------------------------------"
+    },
+    "serviceofferingpublisherGetOfferingRequestOffering": {
+      "type": "object",
+      "properties": {
+        "pontusxOffering": {
+          "$ref": "#/definitions/serviceofferingpublisherPontusxGetOffering"
+        },
+        "xfscOffering": {
+          "$ref": "#/definitions/serviceofferingpublisherXfscGetOffering"
+        }
+      }
+    },
+    "serviceofferingpublisherGetOfferingResponse": {
+      "type": "object",
+      "properties": {
+        "offerings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "DebugInformation": {
+          "type": "object",
+          "title": "Debug information"
+        }
+      }
+    },
+    "serviceofferingpublisherMetadata": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "title": "type of the asset\r\nCan be either 'dataset' or 'algorithm'"
+        },
+        "name": {
+          "type": "string",
+          "title": "Descriptive name or title of the asset\r\nThis information is displayed in the portal"
+        },
+        "description": {
+          "type": "string",
+          "title": "Details of what the resource is. For a dataset, this attribute explains what the data represents and what it can be used for.\r\nThis information is displayed in the portal\r\nSupports markdown"
+        },
+        "author": {
+          "type": "string",
+          "title": "Name of the entity generating this data"
+        },
+        "licence": {
+          "type": "string",
+          "title": "Short name referencing the license of the asset\r\nexample: CC-BY, Public Domain"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Optional keywords or tags used to describe the content of the offering"
+        },
+        "algorithm": {
+          "$ref": "#/definitions/serviceofferingpublisherAlgorithmMetadata",
+          "title": "Information about asset of type algorithm\r\nOnly optional for dataset -\u003e Non-optional for algorithm"
+        }
+      },
+      "title": "Main metadata information for the asset used in CreateOfferingRequest and UpdateOfferingRequest \r\nin the Pontus-X Ecosystem (Ocean Protocol)"
+    },
+    "serviceofferingpublisherPontusxGetOffering": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string"
+        }
+      }
+    },
+    "serviceofferingpublisherPontusxLifecycleStates": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "END_OF_LIFE",
+        "DEPRECATED",
+        "REVOKED_BY_PUBLISHER",
+        "ORDERING_DISABLED_TEMPORARILY",
+        "ASSET_UNLISTED"
+      ],
+      "default": "ACTIVE",
+      "description": "- ACTIVE: Fully functional asset\r\nDiscoverable in Portal and Ordering allowed\r\nListed under the owner's profile\n - END_OF_LIFE: This state indicates that the asset is usually deprecated or outdated\r\nDiscoverable, but not orderable\r\nNot listed under the owner's profile\n - DEPRECATED: This state indicates that another asset has deprecated the current asset\r\nNot discoverable and not orderable\r\nNot listed under the owner's profile\n - REVOKED_BY_PUBLISHER: Publisher has explicitly revoked access or ownership rights to the asset\r\nNot discoverable and not orderable\n - ORDERING_DISABLED_TEMPORARILY: Users can view the asset and gather information, but they cannot place orders at that moment\r\nDiscoverable, but not orderable\r\nListed under the owner's profile.\n - ASSET_UNLISTED: Not discoverable, but orderable\r\nListed under the owner's profile",
+      "title": "Possible lifecycle states of asset in the pontus-x ecosystem"
+    },
+    "serviceofferingpublisherPontusxOffering": {
+      "type": "object",
+      "properties": {
+        "metadata": {
+          "$ref": "#/definitions/serviceofferingpublisherMetadata",
+          "title": "The main information about the asset to publish"
+        },
+        "additionalInformation": {
+          "$ref": "#/definitions/serviceofferingpublisherAdditionalInformation",
+          "title": "Additional information regarding the offering\r\nExclusively used for terms \u0026 conditions and link to Gaia-X VPs"
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/serviceofferingpublisherService"
+          },
+          "title": "Services that are exposed by the asset to interact with it\r\nCardinality: 1..n -\u003e At least one service has to be passed for publishing"
+        },
+        "credentials": {
+          "$ref": "#/definitions/serviceofferingpublisherCredentialLists",
+          "title": "Allowlist \u0026 Denylist of Credentials for the offering"
+        }
+      },
+      "title": "Message for publication into the Pontus-X ecosystem"
+    },
+    "serviceofferingpublisherPontusxUpdateOffering": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string",
+          "title": "Decentralised identifier for the already published offering\r\nexample: did:op:1234"
+        },
+        "metadata": {
+          "$ref": "#/definitions/serviceofferingpublisherMetadata",
+          "title": "The main information about the asset to publish"
+        },
+        "additionalInformation": {
+          "$ref": "#/definitions/serviceofferingpublisherAdditionalInformation",
+          "title": "Additional information regarding the offering\r\nExclusively used for terms \u0026 conditions and link to Gaia-X VPs"
+        },
+        "updateServices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/PontusxUpdateOfferingUpdateService"
+          }
+        },
+        "credentials": {
+          "$ref": "#/definitions/serviceofferingpublisherCredentialLists",
+          "title": "Allowlist \u0026 Denylist of Credentials for the offering"
+        }
+      }
+    },
+    "serviceofferingpublisherPontusxUpdateOfferingLifecycle": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string",
+          "title": "Decentralised identifier for the already published offering\r\nexample: did:op:1234"
+        },
+        "to": {
+          "$ref": "#/definitions/serviceofferingpublisherPontusxLifecycleStates",
+          "title": "Pontus-X lifecycle state to which the offering should be changed"
+        }
+      }
+    },
+    "serviceofferingpublisherPricing": {
+      "type": "object",
+      "properties": {
+        "pricingType": {
+          "$ref": "#/definitions/PricingPricingType",
+          "title": "Definition if the asset is free or has to be payed with a fixed currency"
+        },
+        "fixedRate": {
+          "type": "integer",
+          "format": "int64",
+          "title": "The actual amount of currency (according to Pricing Type) that has to be payed"
+        }
+      },
+      "title": "Information about the price for the asset for consumption in the ecosystem"
+    },
+    "serviceofferingpublisherPublishInfo": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "title": "The source where to find the published offering\r\nexample: https://www.pontus-x.eu/asset/did:op:ac74139fa102d32f326ccdab3727a95299f1c2b6add9158385439e5b06810833"
+        },
+        "data": {
+          "type": "string",
+          "title": "The data that is submitted to the credential event service\r\nAt the moment: Has to be a (Compliance) VC issued by the Gaia-X compliance engine"
+        }
+      },
+      "title": "Publish info used in UpdateOfferingRequest\r\nUsed for additionally publishing Offering to Credential Event Service"
+    },
+    "serviceofferingpublisherService": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "title": "Type of service: access or compute"
+        },
+        "pricing": {
+          "$ref": "#/definitions/serviceofferingpublisherPricing",
+          "title": "Information about the pricing model and amount for consumption"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/serviceofferingpublisherFiles"
+          },
+          "title": "Files that contain the data related to the asset/service\r\nAt least one file is required for publication"
+        },
+        "timeout": {
+          "type": "integer",
+          "format": "int64",
+          "title": "Describing how long the service can be used after consumption is initiated.\r\nExpressed in seconds; where 0 represents no time limit"
+        },
+        "tokenName": {
+          "type": "string",
+          "title": "Name for the access token that is generated for consuming the asset/service\r\nImportant for following access token transactions in the explorer"
+        },
+        "tokenSymbol": {
+          "type": "string",
+          "title": "Corresponding Symbol (Abbreviation) for the access token that is generated for consuming the asset/service\r\nImportant for following access token transactions in the explorer"
+        },
+        "serviceEndpoint": {
+          "type": "string",
+          "title": "URL (schema + host) of the Provider responsible for provisioning of the data service\r\nIf no value is given the standard provider given in the network config is used (i.e. deltaDAO provider)"
+        },
+        "computeOptions": {
+          "$ref": "#/definitions/serviceofferingpublisherComputeOptions",
+          "title": "Compute options for a compute asset/service\r\nOnly optional if the offering is of type 'access' and not 'compute'"
+        },
+        "consumerParameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/serviceofferingpublisherConsumerParameter"
+          },
+          "title": "Optional message that defines required consumer input before consuming the asset/service"
+        }
+      },
+      "title": "Services define the access for an asset"
+    },
+    "serviceofferingpublisherTerms": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        }
+      },
+      "title": "Static URL to Terms and Conditions defined by the publisher of the asset used in gaiaX"
+    },
+    "serviceofferingpublisherTrustedAlgorihm": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string",
+          "title": "Decentralised identifier of the already published algorithm\r\nexample did:op:456"
+        },
+        "filesChecksum": {
+          "type": "string",
+          "title": "Hash of trusted algorithm's files\r\nCan be created over Ocean Provider FileInfoEndpoint with parameter withChecksum = True\r\nIf the algorithm has multiple files, filesChecksum is a concatenated string of all files checksums\r\nOptional because this is already handled by nautilus"
+        },
+        "containerSectionChecksum": {
+          "type": "string",
+          "title": "Hash of algorithm's image details (entrypoint and image checksum)\r\nProduced by: sha256(algorithm_ddo.metadata.algorithm.container.entrypoint + algorithm_ddo.metadata.algorithm.container.checksum)"
+        }
+      }
+    },
+    "serviceofferingpublisherUpdateOfferingLifecycleRequest": {
+      "type": "object",
+      "properties": {
+        "offerings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/serviceofferingpublisherUpdateOfferingLifecycleRequestUpdateOfferingLifecycle"
+          }
+        }
+      },
+      "title": "Update message for changing the LifecycleState of an already published offering"
+    },
+    "serviceofferingpublisherUpdateOfferingLifecycleRequestUpdateOfferingLifecycle": {
+      "type": "object",
+      "properties": {
+        "pontusxUpdateOfferingLifecycle": {
+          "$ref": "#/definitions/serviceofferingpublisherPontusxUpdateOfferingLifecycle"
+        },
+        "xfscUpdateOfferingLifecycle": {
+          "$ref": "#/definitions/serviceofferingpublisherXfscUpdateOfferingLifecycle"
+        }
+      }
+    },
+    "serviceofferingpublisherUpdateOfferingLifecycleResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "List of identifier of the successfully changed offering(s) \r\nexample: did:op:123 in Pontus-X ecosystem"
+        },
+        "DebugInformation": {
+          "type": "object"
+        }
+      }
+    },
+    "serviceofferingpublisherUpdateOfferingRequest": {
+      "type": "object",
+      "properties": {
+        "offerings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/serviceofferingpublisherUpdateOfferingRequestUpdateOffering"
+          }
+        }
+      },
+      "title": "Update message for an already published Offering\r\nTODO only hash of VP for XFSC"
+    },
+    "serviceofferingpublisherUpdateOfferingRequestUpdateOffering": {
+      "type": "object",
+      "properties": {
+        "pontusxUpdateOffering": {
+          "$ref": "#/definitions/serviceofferingpublisherPontusxUpdateOffering"
+        },
+        "xfscUpdateOffering": {
+          "$ref": "#/definitions/serviceofferingpublisherXfscUpdateOffering"
+        },
+        "publishInfo": {
+          "$ref": "#/definitions/serviceofferingpublisherPublishInfo",
+          "title": "Optional information about the published asset\r\nIf this Information is set, it is used to publish the offering to the Credential Event Service"
+        }
+      }
+    },
+    "serviceofferingpublisherUpdateOfferingResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "List of identifier of the successfully updated offering(s) \r\nexample: did:op:123 in Pontus-X ecosystem"
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Locations of the offering which where published to the Credential Event Service"
+        },
+        "DebugInformation": {
+          "type": "object"
+        }
+      },
+      "title": "Response to UpdateOfferingRequest"
+    },
+    "serviceofferingpublisherXfscGetOffering": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "serviceofferingpublisherXfscOffering": {
+      "type": "object",
+      "properties": {
+        "VP": {
+          "type": "string",
+          "title": "String containing the Gaia-X conformant Verifiable Presentation as JSON-LD for the Service Offering"
+        }
+      },
+      "title": "Message for publication into the Cross Federation Services Catalogue"
+    },
+    "serviceofferingpublisherXfscUpdateOffering": {
+      "type": "object",
+      "properties": {
+        "hash": {
+          "type": "string",
+          "title": "String containing the hash of the original Verifiable Presentation published to the catalogue"
+        },
+        "VP": {
+          "type": "string",
+          "title": "String containing the Gaia-X conformant Verifiable Presentation as JSON-LD for the Service Offering"
+        }
+      }
+    },
+    "serviceofferingpublisherXfscUpdateOfferingLifecycle": {
+      "type": "object",
+      "properties": {
+        "hash": {
+          "type": "string",
+          "title": "String containing the hash of the original Verifiable Presentation published to the catalogue"
+        },
+        "to": {
+          "$ref": "#/definitions/XfscUpdateOfferingLifecycleXfscLifecycleStates",
+          "title": "XFSC lifecycle state to which the offering should be changed"
+        }
+      }
+    },
+    "serviceofferingpublishergaiaX": {
+      "type": "object",
+      "properties": {
+        "containsPII": {
+          "type": "boolean",
+          "title": "Identifier if the asset contains personally identifiable information"
+        },
+        "termsAndConditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/serviceofferingpublisherTerms"
+          },
+          "title": "Terms and conditions additionally set by the publisher of the asset\r\nShould only be passed if boolean in AdditionalInformation is true"
+        },
+        "serviceSD": {
+          "$ref": "#/definitions/gaiaXServiceSelfDescription"
+        }
+      },
+      "title": "Information related to Gaia-X compliance used in AdditionalInformation"
+    }
+  }
+}

@@ -9,22 +9,8 @@ package eupg.serviceofferingpublisher;
 
 import "google/protobuf/struct.proto";
 import "google/api/annotations.proto";
-import "protoc-gen-openapiv2/options/annotations.proto";
 
 option go_package = "serviceofferingpublisher/pb";
-
-option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
-    info: {
-        title: "Ecosystem Gateway API";
-        version: "1.0";
-        description: "Interconnectivity by desing";
-    };
-    // Host intentionally omitted to allow same-origin usage from Swagger UI
-    base_path: "/";
-    schemes: HTTP; //add HTTPS in prod
-    consumes: "application/json";
-    produces: "application/json";
-};
 
 //service definition for publisher
 service serviceofferingPublisher{
@@ -33,19 +19,11 @@ service serviceofferingPublisher{
             post: "/grpc/CreateOffering";
             body: "*";
         };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "Create a service offering";
-            tags: "serviceofferingPublisher";
-        };
     }
     rpc UpdateOffering(UpdateOfferingRequest) returns (UpdateOfferingResponse){
         option (google.api.http) = {
             post: "/grpc/UpdateOffering";
             body: "*";
-        };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "UpdateOffering";
-            tags: "serviceofferingPublisher";
         };
     }
     rpc GetOffering(GetOfferingRequest) returns (GetOfferingResponse) {
@@ -53,19 +31,11 @@ service serviceofferingPublisher{
             post: "/grpc/GetOffering";
             body: "*";
         };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "GetOffering";
-            tags: "serviceofferingPublisher";
-        };
     }
     rpc UpdateOfferingLifecycle(UpdateOfferingLifecycleRequest) returns (UpdateOfferingLifecycleResponse){
         option (google.api.http) = {
             post: "/grpc/UpdateOfferingLifecycle";
             body: "*";
-        };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "UpdateOfferingLifecycle";
-            tags: "serviceofferingPublisher";
         };
     }
 
@@ -74,19 +44,11 @@ service serviceofferingPublisher{
             post: "/grpc/RunComputeToDataJob";
             body: "*";
         };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "RunComputeToDataJob";
-            tags: "serviceofferingPublisher";
-        };
     }
     rpc GetComputeToDataResult(CreateComputeToDataResultRequest) returns (GetComputeToDataResultResponse){
         option (google.api.http) = {
             post: "/grpc/GetComputeToDataResult";
             body: "*";
-        };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "GetComputeToDataResult";
-            tags: "serviceofferingPublisher";
         };
     }
 }
@@ -97,9 +59,6 @@ service serviceofferingPublisher{
 // Create message to publish a Offering with the given information to different ecosystems
 // At the moment Pontus-X and XFSC are supported
 message CreateOfferingRequest {
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
-        example: "{\n    \"offerings\": [\n        {\n            \"pontusxOffering\": {\n                \"metadata\": {\n                    \"type\": \"anim\",\n                    \"name\": \"Excepteur ex dolor\",\n                    \"description\": \"eu consequat\",\n                    \"author\": \"qui occaecat officia Ut sint\",\n                    \"licence\": \"incididunt\",\n                    \"tags\": [\n                        \"exercitation tempor in irure veniam\",\n                        \"consequat\"\n                    ],\n                    \"algorithm\": {\n                        \"language\": \"dolore esse adipisicing\",\n                        \"version\": \"in\",\n                        \"consumerParameters\": [\n                            {\n                                \"name\": \"deserunt ex sunt\",\n                                \"type\": \"do labore Excepteur consectetur\",\n                                \"label\": \"reprehenderit proident nostrud\",\n                                \"required\": false,\n                                \"description\": \"velit\",\n                                \"default\": \"commodo est in ex aliquip\",\n                                \"options\": [\n                                    {\n                                        \"fields\": {}\n                                    }\n                                ]\n                            }\n                        ],\n                        \"container\": {\n                            \"entrypoint\": \"in\",\n                            \"image\": \"reprehenderit velit\",\n                            \"tag\": \"ut\",\n                            \"checksum\": \"anim dolor sed elit\"\n                        }\n                    }\n                },\n                \"additionalInformation\": {\n                    \"termsAndConditions\": false,\n                    \"gaiaXInformation\": {\n                        \"containsPII\": false,\n                        \"termsAndConditions\": [\n                            {\n                                \"url\": \"Lorem nostrud magna incididunt officia\"\n                            }\n                        ],\n                        \"serviceSD\": {\n                            \"url\": \"sunt voluptate eu\",\n                            \"isVerified\": false\n                        }\n                    }\n                },\n                \"services\": [\n                    {\n                        \"name\": \"reprehenderit qui nostrud\",\n                        \"description\": \"culpa consequat pariatur\",\n                        \"type\": \"occaecat laborum sunt ipsum\",\n                        \"pricing\": {\n                            \"pricingType\": 1,\n                            \"fixedRate\": 3599842091\n                        },\n                        \"files\": [\n                            {\n                                \"url\": \"et mollit eu ullamco\",\n                                \"method\": \"exercitation dolor\",\n                                \"headers\": {\n                                    \"key\": \"\",\n                                    \"value\": \"\"\n                                }\n                            }\n                        ],\n                        \"timeout\": 3474029621,\n                        \"tokenName\": \"sit\",\n                        \"tokenSymbol\": \"nisi consequat dolore dolor eiusmod\",\n                        \"serviceEndpoint\": \"elit sunt et ipsum in\",\n                        \"computeOptions\": {\n                            \"allowRawAlgorithm\": true,\n                            \"allowNetworkAccess\": true,\n                            \"trustedAlgorithms\": [\n                                {\n                                    \"did\": \"sint dolor Lorem\",\n                                    \"filesChecksum\": \"officia culpa mollit\",\n                                    \"containerSectionChecksum\": \"nisi laboris eu ex\"\n                                }\n                            ],\n                            \"trustedPublishers\": [\n                                \"in sint\",\n                                \"aliqua eu eiusmod voluptate irure\"\n                            ]\n                        },\n                        \"consumerParameters\": []\n                    }\n                ],\n                \"credentials\": {\n                    \"allow\": [\n                        \"aliquip\"\n                    ],\n                    \"deny\": [\n                        \"minim elit\"\n                    ]\n                }\n            },\n            \"xfscOffering\": {\n                \"VP\": \"deserunt adipisicing\"\n            }\n        }\n    ]\n}"
-    };
     reserved 1 to 5;
 
     message Offering {
