@@ -118,7 +118,7 @@ async function bootstrap() {
   // HTTP Gateway listen (env-gated)
   // ===========================================================
   const ENABLE_GRPC_GATEWAY = toBool(
-    process.env.ENABLE_GRPC_SERVER ?? configService.get('ENABLE_GRPC_GATEWAY'),
+    process.env.ENABLE_GRPC_GATEWAY ?? configService.get('ENABLE_GRPC_GATEWAY'),
     false,
   );
 
