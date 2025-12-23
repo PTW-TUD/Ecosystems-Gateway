@@ -2,7 +2,7 @@ import { RpcException } from '@nestjs/microservices';
 import { Metadata, status as GrpcStatusCode } from '@grpc/grpc-js';
 
 export type GrpcErrorObject = {
-  code?: number;                   // gRPC status code (from @grpc/grpc-js status enum)
+  code?: number; // gRPC status code (from @grpc/grpc-js status enum)
   message?: string;
   details?: string;
   metadata?: Metadata;
@@ -17,7 +17,9 @@ export function isGrpcErrorObject(v: unknown): v is GrpcErrorObject {
 }
 
 /** Normalize RpcException#getError() into a consistent shape */
-export function extractRpcError(e: RpcException): Required<Pick<GrpcErrorObject, 'message'>> & GrpcErrorObject {
+export function extractRpcError(
+  e: RpcException,
+): Required<Pick<GrpcErrorObject, 'message'>> & GrpcErrorObject {
   const payload = typeof e.getError === 'function' ? e.getError() : undefined;
 
   if (typeof payload === 'string') {
@@ -25,7 +27,10 @@ export function extractRpcError(e: RpcException): Required<Pick<GrpcErrorObject,
   }
   if (isGrpcErrorObject(payload)) {
     return {
-      code: typeof (payload as any).code === 'number' ? (payload as any).code : undefined,
+      code:
+        typeof (payload as any).code === 'number'
+          ? (payload as any).code
+          : undefined,
       message:
         typeof (payload as any).message === 'string'
           ? (payload as any).message
@@ -41,11 +46,10 @@ export function extractRpcError(e: RpcException): Required<Pick<GrpcErrorObject,
   return { message: 'Internal error' };
 }
 
-
 export type MapToRpcExceptionArgs = {
-  service: string;          // e.g. "pontusx" / "grpc.controller"
-  where: string;            // e.g. method name
-  defaultCode?: number;     // fallback, default INTERNAL
+  service: string; // e.g. "pontusx" / "grpc.controller"
+  where: string; // e.g. method name
+  defaultCode?: number; // fallback, default INTERNAL
 };
 
 /**
@@ -55,12 +59,17 @@ export type MapToRpcExceptionArgs = {
  * - optional details (JSON for HTTP response bodies)
  * - metadata (x-service, x-where)
  */
-export function mapToRpcException(err: any, ctx: MapToRpcExceptionArgs): RpcException {
+export function mapToRpcException(
+  err: any,
+  ctx: MapToRpcExceptionArgs,
+): RpcException {
   const defaultCode = ctx.defaultCode ?? GrpcStatusCode.INTERNAL;
 
   // Axios-ish: err.response.status / err.response.data
   const httpStatus: number | undefined =
-    (typeof err?.response?.status === 'number' ? err.response.status : undefined) ??
+    (typeof err?.response?.status === 'number'
+      ? err.response.status
+      : undefined) ??
     (typeof err?.status === 'number' ? err.status : undefined);
 
   const rawMessage =
@@ -73,7 +82,9 @@ export function mapToRpcException(err: any, ctx: MapToRpcExceptionArgs): RpcExce
 
   // Prefer structured response body as "details"
   const details =
-    err?.response?.data != null ? safeStringify(err.response.data) : err?.details;
+    err?.response?.data != null
+      ? safeStringify(err.response.data)
+      : err?.details;
 
   // Map to gRPC status codes
   let code = defaultCode;
