@@ -3,7 +3,6 @@ import {
   Injectable,
   Logger,
   Module,
-  NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -43,7 +42,7 @@ import {
 } from '../generated/spp_v2';
 import { CredentialEventServiceService } from '../credential-event-service/credential-event-service.service';
 import { RpcException } from '@nestjs/microservices';
-import { isRpcException, mapToRpcException } from 'src/grpc-error.util';
+import { isRpcException, mapToRpcException } from '../grpc-error.util';
 import { status as GrpcStatusCode, Metadata } from '@grpc/grpc-js';
 import Redis from 'ioredis';
 import { InjectRedis } from '@nestjs-modules/ioredis';
