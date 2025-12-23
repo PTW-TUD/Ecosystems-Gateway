@@ -43,7 +43,8 @@ import {
 } from '../generated/spp_v2';
 import { CredentialEventServiceService } from '../credential-event-service/credential-event-service.service';
 import { RpcException } from '@nestjs/microservices';
-import { status as GrpcStatusCode } from '@grpc/grpc-js';
+import { isRpcException, mapToRpcException } from 'src/grpc-error.util';
+import { status as GrpcStatusCode, Metadata} from '@grpc/grpc-js';
 import Redis from 'ioredis';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -153,6 +154,10 @@ export class PontusxService implements OnModuleInit {
 
       const result = await this.nautilus.publish(asset);
       return result;
+    } catch (err: any) {
+      this.logger.error(`publishAsset failed: ${err?.message ?? err}`, err?.stack);
+      if (isRpcException(err)) throw err;
+      throw mapToRpcException(err, { service: 'pontusx', where: 'publishAsset'});
     } finally {
       release();
     }
@@ -182,9 +187,13 @@ export class PontusxService implements OnModuleInit {
           if (updateService.index in aquariusAsset.services) {
             serviceInd = updateService.index;
           } else {
+            const metadata = new Metadata();
+            metadata.set('x-service', 'pontusx');
+            metadata.set('x-where', 'updateOffering');
             throw new RpcException({
               code: GrpcStatusCode.OUT_OF_RANGE,
               message: `The requested service index ${updateService.index} is out of range of the existing services of the asset`,
+              metadata
             });
           }
         }
@@ -232,20 +241,30 @@ export class PontusxService implements OnModuleInit {
         pontus: result,
         ces: cesResult,
       };
+    } catch (err: any) {
+      this.logger.error(`updateOffering failed: ${err?.message ?? err}`, err?.stack);
+      if (isRpcException(err)) throw err;
+      throw mapToRpcException(err, { service: 'pontusx', where: 'updateOffering'});
     } finally {
       release();
     }
   }
 
   async setState(did: string, state: LifecycleStates) {
-    const aquariusAsset = await this.nautilus.getAquariusAsset(did);
+    try {
+      const aquariusAsset = await this.nautilus.getAquariusAsset(did);
 
-    const result = await this.nautilus.setAssetLifecycleState(
-      aquariusAsset,
-      state,
-    );
+      const result = await this.nautilus.setAssetLifecycleState(
+        aquariusAsset,
+        state,
+      );
 
-    return result;
+      return result;
+    } catch (err: any) {
+      this.logger.error(`setState failed: ${err?.message ?? err}`, err?.stack);
+      if (isRpcException(err)) throw err;
+      throw mapToRpcException(err, { service: 'pontusx', where: 'setState'});
+    }
   }
 
   fillAsset(
@@ -319,9 +338,13 @@ export class PontusxService implements OnModuleInit {
             `Not updating Algorithm Metadata as it is missing in the request`,
           );
         } else {
+          const metadata = new Metadata();
+          metadata.set('x-service', 'pontusx');
+          metadata.set('x-where', 'fillAsset');
           throw new RpcException({
-            code: GrpcStatusCode.INTERNAL,
+            code: GrpcStatusCode.INVALID_ARGUMENT,
             message: 'The message type does not fit a known Pontus-X request',
+            metadata,
           });
         }
       }
@@ -350,6 +373,10 @@ export class PontusxService implements OnModuleInit {
     offering: PontusxOffering | PontusxUpdateOffering,
     service: Service,
   ) {
+    const metadata = new Metadata();
+    metadata.set('x-service', 'pontusx');
+    metadata.set('x-where', 'buildService');
+
     serviceBuilder
       .setServiceEndpoint(this.networkConfig.providerUri)
       .setTimeout(service.timeout ?? 86400);
@@ -387,8 +414,9 @@ export class PontusxService implements OnModuleInit {
             );
           } else {
             throw new RpcException({
-              code: GrpcStatusCode.INTERNAL,
-              message: 'The message type does not fit a known Pontus-X request',
+              code: GrpcStatusCode.INVALID_ARGUMENT,
+              message: 'The message type does not fit a known Pontus-X request - when trying to resolve computeOptions.allowRawAlgorithm undefined',
+              metadata,
             });
           }
         }
@@ -408,8 +436,9 @@ export class PontusxService implements OnModuleInit {
             );
           } else {
             throw new RpcException({
-              code: GrpcStatusCode.INTERNAL,
-              message: 'The message type does not fit a known Pontus-X request',
+              code: GrpcStatusCode.INVALID_ARGUMENT,
+              message: 'The message type does not fit a known Pontus-X request - when trying to resolve computeOptions.allowNetworkAccess undefined',
+              metadata,
             });
           }
         }
@@ -425,16 +454,22 @@ export class PontusxService implements OnModuleInit {
       } else {
         if (pxOffering && !pxUpdateOffering) {
           this.logger.error(
-            `Compute Options are missing in service for asset ${offering.metadata.name} of type algorithm`,
+            `Compute Options are missing in service for asset ${offering.metadata.name} of type compute`,
           );
+          throw new RpcException({
+            code: GrpcStatusCode.INVALID_ARGUMENT,
+            message: `Compute Options are missing in service for asset ${offering.metadata.name} of type compute`,
+            metadata,
+          });
         } else if (pxUpdateOffering) {
           this.logger.debug(
             `Not updating Compute options of service for asset ${offering.did} as they are missing in the request`,
           );
         } else {
           throw new RpcException({
-            code: GrpcStatusCode.INTERNAL,
-            message: 'The message type does not fit a known Pontus-X request',
+            code: GrpcStatusCode.INVALID_ARGUMENT,
+            message: 'The message type does not fit a known Pontus-X request - when trying to resolve computeOptions undefined',
+            metadata,
           });
         }
       }
@@ -500,6 +535,10 @@ export class PontusxService implements OnModuleInit {
     userdata: {},
   ): Promise<string[]> {
     const release = await this.mutex.acquire();
+    const metadata = new Metadata();
+    metadata.set('x-service', 'pontusx');
+    metadata.set('x-where', 'requestComputeToData');
+
     try {
       const computeConfig: Omit<ComputeConfig, 'signer' | 'chainConfig'> = {
         dataset: {
@@ -511,7 +550,11 @@ export class PontusxService implements OnModuleInit {
 
       const dataset = await this.getOffering(computeConfig.dataset.did).catch(
         (_reason) => {
-          throw new NotFoundException('Asset not found');
+          throw new RpcException({
+            code: GrpcStatusCode.NOT_FOUND,
+            message: 'Asset not found',
+            metadata,
+          });
         },
       );
 
@@ -520,15 +563,21 @@ export class PontusxService implements OnModuleInit {
         return obj.type === 'compute';
       });
       if (compute_objects.length < 1) {
-        throw new NotFoundException('No algorithms are available');
+        throw new RpcException({
+          code: GrpcStatusCode.NOT_FOUND,
+          message: 'No algorithms are available',
+          metadata,
+        });
       }
 
       const computeJob = await this.nautilus
         .compute(computeConfig)
         .catch((error) => {
-          throw new NotFoundException(
-            `Compute to Data job cant start: ${error}`,
-          );
+          throw new RpcException({
+            code: GrpcStatusCode.NOT_FOUND,
+            message: `Compute to Data job cant start: ${error}`,
+            metadata,
+          });
         });
 
       let jobIds = [];
@@ -551,6 +600,10 @@ export class PontusxService implements OnModuleInit {
       }
 
       return jobIds;
+    } catch (err: any) {
+      this.logger.error(`requestComputeToData failed: ${err?.message ?? err}`, err?.stack);
+      if (isRpcException(err)) throw err;
+      throw mapToRpcException(err, { service: 'pontusx', where: 'requestComputeToData'});
     } finally {
       release();
     }
@@ -614,7 +667,14 @@ export class PontusxService implements OnModuleInit {
         this.logger.debug(`Response is ${resp}`);
         return { state: ComputeToDataResponseState.FINISHED, data: resp };
       default:
-        throw new NotFoundException(`Requested method not found`);
+        const metadata = new Metadata();
+        metadata.set('x-service', 'pontusx');
+        metadata.set('x-where', 'getComputeToDataResult');
+        throw new RpcException({
+          code: GrpcStatusCode.INVALID_ARGUMENT,
+          message: 'Requested result type is invalid',
+          metadata,
+        });
     }
   }
 
