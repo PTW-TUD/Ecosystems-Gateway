@@ -17,6 +17,11 @@ import {
   ComputeToDataResponse,
 } from './generated/spp_v2';
 import { status as GrpcStatusCode } from '@grpc/grpc-js';
+import {
+  extractRpcError,
+  isRpcException,
+  mapToRpcException,
+} from './grpc-error.util';
 import { LifecycleStates } from '@deltadao/nautilus';
 
 @Controller('grpc')
@@ -28,18 +33,53 @@ export class GrpcController {
     private readonly xfscService: XfscService,
   ) {}
 
+  private async runRpc<T>(method: string, fn: () => Promise<T>): Promise<T> {
+    const start = Date.now();
+    this.logger.log(`[${method}] ↘ request`);
+
+    try {
+      const res = await fn();
+      this.logger.log(`[${method}] ↗ ok in ${Date.now() - start}ms`);
+      return res;
+    } catch (err: any) {
+      const ms = Date.now() - start;
+      // Pass-through if already RpcException
+      if (isRpcException(err)) {
+        const p = extractRpcError(err);
+        const codeName = p.code != null ? GrpcStatusCode[p.code] : 'UNKNOWN';
+        this.logger.error(
+          `[${method}] ✗ RpcException ${codeName} in ${ms}ms: ${p.message}`,
+          err?.stack,
+        );
+        throw err;
+      }
+      // Map unknown errors
+      const mapped = mapToRpcException(err, {
+        service: 'grpc.controller',
+        where: method,
+        defaultCode: GrpcStatusCode.INTERNAL,
+      });
+      const p = extractRpcError(mapped);
+      this.logger.error(
+        `[${method}] ✗ mapped in ${ms}ms: ${p.message}`,
+        err?.stack,
+      );
+      throw mapped;
+    }
+  }
+
   @GrpcMethod('serviceofferingPublisher')
   async createOffering(
     data: CreateOfferingRequest,
   ): Promise<CreateOfferingResponse> {
     this.logger.debug('grpc method CreateOffering called');
-    this.logger.debug(data);
+    this.logger.verbose(data);
 
     const results = [];
     for (const offering of data.offerings) {
       if (offering.pontusxOffering !== undefined) {
-        const result = await this.pontusxService.publishAsset(
-          offering.pontusxOffering,
+        const result = await this.runRpc('createOffering', () =>
+          this.pontusxService.publishAsset(offering.pontusxOffering),
         );
         if (result) {
           results.push(result.ddo.id);
@@ -71,19 +111,22 @@ export class GrpcController {
     }
   }
 
+  // TODO: always use runRpc with pontusxService
   @GrpcMethod('serviceofferingPublisher')
   async updateOffering(
     data: UpdateOfferingRequest,
   ): Promise<UpdateOfferingResponse> {
     this.logger.debug('grpc method UpdateOffering called');
-    this.logger.debug(data);
+    this.logger.verbose(data);
 
     const ces_results: Array<string> = [];
     const results = [];
     const ids = [];
     for (const offering of data.offerings) {
       if (offering.pontusxUpdateOffering !== undefined) {
-        const result = await this.pontusxService.updateOffering(offering);
+        const result = await this.runRpc('updateOffering', () =>
+          this.pontusxService.updateOffering(offering),
+        );
         if (result) {
           ces_results.push(result.ces);
           ids.push(result.pontus.ddo.id);
@@ -115,7 +158,7 @@ export class GrpcController {
 
     throw new RpcException({
       code: GrpcStatusCode.INTERNAL,
-      message: 'Internal Error',
+      message: 'Internal Error - no results',
     });
   }
 
@@ -123,20 +166,28 @@ export class GrpcController {
   async updateOfferingLifecycle(
     data: UpdateOfferingLifecycleRequest,
   ): Promise<UpdateOfferingLifecycleResponse> {
+    this.logger.debug('grpc method UpdateOfferingLifecycle called');
+    this.logger.verbose(data);
     const results = [];
     const ids = [];
     for (const offering of data.offerings) {
       if (offering.pontusxUpdateOfferingLifecycle !== undefined) {
-        const result = await this.pontusxService.setState(
-          offering.pontusxUpdateOfferingLifecycle.did,
-          offering.pontusxUpdateOfferingLifecycle
-            .to as unknown as LifecycleStates, // is there a better way?
+        const result = await this.runRpc('updateOfferingLifecycle', () =>
+          this.pontusxService.setState(
+            offering.pontusxUpdateOfferingLifecycle.did,
+            offering.pontusxUpdateOfferingLifecycle
+              .to as unknown as LifecycleStates, // is there a better way?
+          ),
         );
         if (result) {
           results.push(result);
           ids.push(offering.pontusxUpdateOfferingLifecycle.did);
         }
       } else {
+        throw new RpcException({
+          code: GrpcStatusCode.UNIMPLEMENTED,
+          message: 'xfscUpdateOfferingLifecycle is currently not implemented',
+        });
         //xfscUpdateOffering because of oneof
         //missing
       }
@@ -151,7 +202,7 @@ export class GrpcController {
 
     throw new RpcException({
       code: GrpcStatusCode.INTERNAL,
-      message: 'Some Rpc error occured',
+      message: 'Internal Error - no results',
     });
   }
 
@@ -160,18 +211,23 @@ export class GrpcController {
     data: CreateComputeToDataResultRequest,
   ): Promise<GetComputeToDataResultResponse> {
     this.logger.debug('grpc method GetComputeToDataResult called');
-    try {
-      return await this.pontusxService.getComputeToDataResult(
+    this.logger.verbose(data);
+    const result = await this.runRpc('getComputeToDataResult', () =>
+      this.pontusxService.getComputeToDataResult(
         data.jobId,
         data.computeToDataReturnType,
         data.jobIndex,
-      );
-    } catch (err) {
-      throw new RpcException({
-        code: GrpcStatusCode.INTERNAL,
-        message: err,
-      });
+      ),
+    );
+
+    if (result) {
+      return result;
     }
+
+    throw new RpcException({
+      code: GrpcStatusCode.INTERNAL,
+      message: 'Internal Error - no results',
+    });
   }
 
   @GrpcMethod('serviceofferingPublisher')

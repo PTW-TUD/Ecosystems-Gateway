@@ -36,7 +36,6 @@ import {
   Service,
   UpdateOfferingRequest_UpdateOffering,
   ComputeToDataResultType,
-  ComputeToDataResponse,
   GetComputeToDataResultResponse,
   ComputeToDataResponseState,
 } from '../generated/spp_v2';
@@ -648,6 +647,7 @@ export class PontusxService implements OnModuleInit {
         let cached = await this.redis.get(
           `${this.getSelectedNetworkConfig().network}:ctd:result:${jobId}`,
         );
+        // TODO: check if job exists/is fetchable first before adding it to redis and fetching it periodically
         if (cached === null) {
           let queued = await this.redis.lpos(
             `${this.getSelectedNetworkConfig().network}:ctd:pending`,
@@ -684,7 +684,7 @@ export class PontusxService implements OnModuleInit {
             resultIndex: jobIndex,
           });
         }
-        this.logger.debug(`Response is ${resp}`);
+        this.logger.verbose(`Response is ${resp}`);
         return { state: ComputeToDataResponseState.FINISHED, data: resp };
       default:
         const metadata = new Metadata();
