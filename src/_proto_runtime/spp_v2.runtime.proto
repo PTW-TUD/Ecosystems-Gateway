@@ -295,7 +295,7 @@ enum ComputeToDataResultType {
 message CreateComputeToDataResultRequest {
     string jobId = 1;
     optional int32 jobIndex = 3;
-    ComputeToDataResultType compute_to_data_return_type = 2;
+    ComputeToDataResultType computeToDataReturnType = 2;
 }
 
 enum ComputeToDataResponseState {
