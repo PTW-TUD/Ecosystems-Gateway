@@ -539,7 +539,74 @@ export class PontusxService implements OnModuleInit {
   }
 
   async getOffering(did: string): Promise<Asset> {
-    return await this.nautilus.getAquariusAsset(did);
+    return this.nautilus.getAquariusAsset(did);
+  }
+
+  async accessService(
+    did: string,
+    serviceId: string,
+    fileIndex: number,
+    userdata: {},
+  ): Promise<string> {
+    //TODO: integrate data storage in redis as option?
+    const metadata = new Metadata();
+    metadata.set('x-service', 'pontusx');
+    metadata.set('x-where', 'accessService');
+    let dataset: Asset;
+
+    try {
+      dataset = await this.getOffering(did);
+    } catch (error) {
+      throw new RpcException({
+        code: GrpcStatusCode.NOT_FOUND,
+        message: `Asset couldn't be retrieved: ${error}`,
+        metadata,
+      });
+    }
+    if (serviceId !== '') {
+      const serviceCandidate = dataset.services?.find(
+        (s) => s.type === 'access',
+      );
+      if (serviceCandidate) {
+        serviceId = serviceCandidate.id;
+      }
+    } else {
+      const serviceCandidate = dataset.services?.find(
+        (s) => s.id === serviceId,
+      );
+      if (serviceCandidate) {
+        serviceId = '';
+      }
+    }
+    if (serviceId === '') {
+      throw new RpcException({
+        code: GrpcStatusCode.NOT_FOUND,
+        message: `No valid access service found`,
+        metadata: metadata,
+      });
+    }
+    // Check for file index is skipped as metadata only contains one big hash for all files and there seems to be no way to extract the number of files
+
+    const release = await this.mutex.acquire();
+    try {
+      const uri = await this.nautilus
+        .access({
+          assetDid: did,
+          fileIndex: fileIndex,
+          userdata: userdata,
+        })
+        .catch((_reason) => {
+          throw new RpcException({
+            code: GrpcStatusCode.FAILED_PRECONDITION,
+            message: `Couldn't get access to the asset`,
+            metadata: metadata,
+          });
+        });
+      return uri;
+      // no extra catch as we only execute one function
+    } finally {
+      release();
+    }
   }
 
   async requestComputeToData(
@@ -588,7 +655,7 @@ export class PontusxService implements OnModuleInit {
         .catch((error) => {
           throw new RpcException({
             code: GrpcStatusCode.NOT_FOUND,
-            message: `Compute to Data job cant start: ${error}`,
+            message: `Compute to Data job can't start: ${error}`,
             metadata,
           });
         });

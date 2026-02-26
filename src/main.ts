@@ -51,7 +51,7 @@ async function bootstrap() {
       transport: Transport.GRPC,
       options: {
         url: GRPC_BIND,
-        package: 'eupg.serviceofferingpublisher',
+        package: 'eupg.ecosystemsgateway',
         protoPath: protoPath,
         loader: {
           keepCase: true,

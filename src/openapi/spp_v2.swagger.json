@@ -7,7 +7,7 @@
   },
   "tags": [
     {
-      "name": "serviceofferingPublisher"
+      "name": "ecosystemsgateway"
     }
   ],
   "basePath": "/",
@@ -21,15 +21,15 @@
     "application/json"
   ],
   "paths": {
-    "/grpc/CreateOffering": {
+    "/grpc/AccessService": {
       "post": {
-        "summary": "Create a service offering",
-        "operationId": "serviceofferingPublisher_CreateOffering",
+        "summary": "AccessService",
+        "operationId": "ecosystemsgateway_AccessService",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/serviceofferingpublisherCreateOfferingResponse"
+              "$ref": "#/definitions/ecosystemsgatewayAccessServiceResponse"
             }
           },
           "default": {
@@ -45,24 +45,57 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/serviceofferingpublisherCreateOfferingRequest"
+              "$ref": "#/definitions/ecosystemsgatewayAccessServiceRequest"
             }
           }
         ],
         "tags": [
-          "serviceofferingPublisher"
+          "ecosystemsgateway"
+        ]
+      }
+    },
+    "/grpc/CreateOffering": {
+      "post": {
+        "summary": "Create a service offering",
+        "operationId": "ecosystemsgateway_CreateOffering",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ecosystemsgatewayCreateOfferingResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ecosystemsgatewayCreateOfferingRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ecosystemsgateway"
         ]
       }
     },
     "/grpc/GetComputeToDataResult": {
       "post": {
         "summary": "GetComputeToDataResult",
-        "operationId": "serviceofferingPublisher_GetComputeToDataResult",
+        "operationId": "ecosystemsgateway_GetComputeToDataResult",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/serviceofferingpublisherGetComputeToDataResultResponse"
+              "$ref": "#/definitions/ecosystemsgatewayGetComputeToDataResultResponse"
             }
           },
           "default": {
@@ -78,24 +111,57 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/serviceofferingpublisherCreateComputeToDataResultRequest"
+              "$ref": "#/definitions/ecosystemsgatewayCreateComputeToDataResultRequest"
             }
           }
         ],
         "tags": [
-          "serviceofferingPublisher"
+          "ecosystemsgateway"
+        ]
+      }
+    },
+    "/grpc/GetComputeToDataStatus": {
+      "post": {
+        "summary": "GetComputeToDataStatus",
+        "operationId": "ecosystemsgateway_GetComputeToDataStatus",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ecosystemsgatewayComputeToDataStatusResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ecosystemsgatewayComputeToDataStatusRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ecosystemsgateway"
         ]
       }
     },
     "/grpc/GetOffering": {
       "post": {
         "summary": "GetOffering",
-        "operationId": "serviceofferingPublisher_GetOffering",
+        "operationId": "ecosystemsgateway_GetOffering",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/serviceofferingpublisherGetOfferingResponse"
+              "$ref": "#/definitions/ecosystemsgatewayGetOfferingResponse"
             }
           },
           "default": {
@@ -111,24 +177,24 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/serviceofferingpublisherGetOfferingRequest"
+              "$ref": "#/definitions/ecosystemsgatewayGetOfferingRequest"
             }
           }
         ],
         "tags": [
-          "serviceofferingPublisher"
+          "ecosystemsgateway"
         ]
       }
     },
     "/grpc/RunComputeToDataJob": {
       "post": {
         "summary": "RunComputeToDataJob",
-        "operationId": "serviceofferingPublisher_RunComputeToDataJob",
+        "operationId": "ecosystemsgateway_RunComputeToDataJob",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/serviceofferingpublisherComputeToDataResponse"
+              "$ref": "#/definitions/ecosystemsgatewayComputeToDataResponse"
             }
           },
           "default": {
@@ -144,24 +210,24 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/serviceofferingpublisherCreateComputeToDataRequest"
+              "$ref": "#/definitions/ecosystemsgatewayCreateComputeToDataRequest"
             }
           }
         ],
         "tags": [
-          "serviceofferingPublisher"
+          "ecosystemsgateway"
         ]
       }
     },
     "/grpc/UpdateOffering": {
       "post": {
         "summary": "UpdateOffering",
-        "operationId": "serviceofferingPublisher_UpdateOffering",
+        "operationId": "ecosystemsgateway_UpdateOffering",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/serviceofferingpublisherUpdateOfferingResponse"
+              "$ref": "#/definitions/ecosystemsgatewayUpdateOfferingResponse"
             }
           },
           "default": {
@@ -177,24 +243,24 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/serviceofferingpublisherUpdateOfferingRequest"
+              "$ref": "#/definitions/ecosystemsgatewayUpdateOfferingRequest"
             }
           }
         ],
         "tags": [
-          "serviceofferingPublisher"
+          "ecosystemsgateway"
         ]
       }
     },
     "/grpc/UpdateOfferingLifecycle": {
       "post": {
         "summary": "UpdateOfferingLifecycle",
-        "operationId": "serviceofferingPublisher_UpdateOfferingLifecycle",
+        "operationId": "ecosystemsgateway_UpdateOfferingLifecycle",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/serviceofferingpublisherUpdateOfferingLifecycleResponse"
+              "$ref": "#/definitions/ecosystemsgatewayUpdateOfferingLifecycleResponse"
             }
           },
           "default": {
@@ -210,12 +276,12 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/serviceofferingpublisherUpdateOfferingLifecycleRequest"
+              "$ref": "#/definitions/ecosystemsgatewayUpdateOfferingLifecycleRequest"
             }
           }
         ],
         "tags": [
-          "serviceofferingPublisher"
+          "ecosystemsgateway"
         ]
       }
     }
@@ -225,7 +291,7 @@
       "type": "object",
       "properties": {
         "service": {
-          "$ref": "#/definitions/serviceofferingpublisherService"
+          "$ref": "#/definitions/ecosystemsgatewayService"
         },
         "index": {
           "type": "integer",
@@ -255,57 +321,35 @@
       "description": "- ACTIVE: Fully functional asset\r\nDiscoverable in Portal\r\nDefault value meaning nothing has to be changed\n - REVOKED_BY_PUBLISHER: Publisher has explicitly revoked access or ownership rights to the asset\r\nAsset will stay in the catalogue but an expiration date will be added\n - DELETED: Asset will be completely deleted from the catalogue",
       "title": "Possible lifecycle states of asset in the XFSC ecosystem"
     },
-    "gaiaXServiceSelfDescription": {
+    "ecosystemsgatewayAccessServiceRequest": {
       "type": "object",
       "properties": {
-        "url": {
+        "did": {
+          "type": "string"
+        },
+        "serviceId": {
           "type": "string",
-          "title": "Static URL of the self-description"
+          "title": "defaults to the first service of the asset's metadata"
         },
-        "isVerified": {
-          "type": "boolean",
-          "title": "Optional identifier if the self-description has been verified against a Gaia-X Compliance Service\r\nMainly used by the deltaDAO portal"
-        }
-      },
-      "title": "Endpoint to the Gaia-X compliant Self-Description (VP) of the offering"
-    },
-    "protobufAny": {
-      "type": "object",
-      "properties": {
-        "@type": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": {}
-    },
-    "protobufNullValue": {
-      "type": "string",
-      "enum": [
-        "NULL_VALUE"
-      ],
-      "default": "NULL_VALUE",
-      "description": "`NullValue` is a singleton enumeration to represent the null value for the\n`Value` type union.\n\nThe JSON representation for `NullValue` is JSON `null`.\n\n - NULL_VALUE: Null value."
-    },
-    "rpcStatus": {
-      "type": "object",
-      "properties": {
-        "code": {
+        "fileIndex": {
           "type": "integer",
-          "format": "int32"
+          "format": "int32",
+          "title": "defaults to the first file of the service"
         },
-        "message": {
-          "type": "string"
-        },
-        "details": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/protobufAny"
-          }
+        "userdata": {
+          "type": "object"
         }
       }
     },
-    "serviceofferingpublisherAdditionalInformation": {
+    "ecosystemsgatewayAccessServiceResponse": {
+      "type": "object",
+      "properties": {
+        "accessUrl": {
+          "type": "string"
+        }
+      }
+    },
+    "ecosystemsgatewayAdditionalInformation": {
       "type": "object",
       "properties": {
         "termsAndConditions": {
@@ -313,13 +357,13 @@
           "title": "Boolean to indicate if the publisher specifies it's own terms and conditions for consumption of the asset"
         },
         "gaiaXInformation": {
-          "$ref": "#/definitions/serviceofferingpublishergaiaX",
+          "$ref": "#/definitions/ecosystemsgatewaygaiaX",
           "title": "Information in the context of Gaia-X compliance including the link to the Self-Description of the offering (VP)"
         }
       },
       "title": "Additional information about the asset used in CreateOfferingRequest and UpdateOfferingRequest\r\nTaylored for Pontus-X Ecosystem and workaround for Gaia-X Framework implementation (normally customizable)"
     },
-    "serviceofferingpublisherAlgorithmMetadata": {
+    "ecosystemsgatewayAlgorithmMetadata": {
       "type": "object",
       "properties": {
         "language": {
@@ -334,17 +378,17 @@
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/serviceofferingpublisherConsumerParameter"
+            "$ref": "#/definitions/ecosystemsgatewayConsumerParameter"
           },
           "title": "Optional consumer parameters similar as in Service\r\nImplemented here to gain access to user input at algorithm runtime"
         },
         "container": {
-          "$ref": "#/definitions/serviceofferingpublisherContainer",
+          "$ref": "#/definitions/ecosystemsgatewayContainer",
           "title": "Information about the Docker image for running the algorithm"
         }
       }
     },
-    "serviceofferingpublisherComputeOptions": {
+    "ecosystemsgatewayComputeOptions": {
       "type": "object",
       "properties": {
         "allowRawAlgorithm": {
@@ -359,7 +403,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/serviceofferingpublisherTrustedAlgorihm"
+            "$ref": "#/definitions/ecosystemsgatewayTrustedAlgorihm"
           },
           "description": "Algorithm that is allowed/trusted by the publisher to be used on asset/service\r\nIf not defined, then any published algorithm is allowed. If empty array, then no algorithm is allowed."
         },
@@ -372,7 +416,7 @@
         }
       }
     },
-    "serviceofferingpublisherComputeToDataResponse": {
+    "ecosystemsgatewayComputeToDataResponse": {
       "type": "object",
       "properties": {
         "jobId": {
@@ -383,7 +427,7 @@
         }
       }
     },
-    "serviceofferingpublisherComputeToDataResponseState": {
+    "ecosystemsgatewayComputeToDataResponseState": {
       "type": "string",
       "enum": [
         "QUEUED",
@@ -392,7 +436,7 @@
       ],
       "default": "QUEUED"
     },
-    "serviceofferingpublisherComputeToDataResultType": {
+    "ecosystemsgatewayComputeToDataResultType": {
       "type": "string",
       "enum": [
         "C2D_DATA",
@@ -400,7 +444,27 @@
       ],
       "default": "C2D_DATA"
     },
-    "serviceofferingpublisherConsumerParameter": {
+    "ecosystemsgatewayComputeToDataStatusRequest": {
+      "type": "object",
+      "properties": {
+        "jobId": {
+          "type": "string"
+        }
+      }
+    },
+    "ecosystemsgatewayComputeToDataStatusResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "ecosystemsgatewayConsumerParameter": {
       "type": "object",
       "properties": {
         "name": {
@@ -436,7 +500,7 @@
       },
       "title": "Additional input parameter that the asset needs before downloading or running a Compute-to-Data job at algorithm runtime"
     },
-    "serviceofferingpublisherContainer": {
+    "ecosystemsgatewayContainer": {
       "type": "object",
       "properties": {
         "entrypoint": {
@@ -457,7 +521,7 @@
         }
       }
     },
-    "serviceofferingpublisherCreateComputeToDataRequest": {
+    "ecosystemsgatewayCreateComputeToDataRequest": {
       "type": "object",
       "properties": {
         "did": {
@@ -474,7 +538,7 @@
         }
       }
     },
-    "serviceofferingpublisherCreateComputeToDataResultRequest": {
+    "ecosystemsgatewayCreateComputeToDataResultRequest": {
       "type": "object",
       "properties": {
         "jobId": {
@@ -485,12 +549,12 @@
           "format": "int32"
         },
         "computeToDataReturnType": {
-          "$ref": "#/definitions/serviceofferingpublisherComputeToDataResultType"
+          "$ref": "#/definitions/ecosystemsgatewayComputeToDataResultType"
         }
       },
       "title": "The compute to data result request can be used to get the results from a job.\r\nWith the jobindex a specific result files (ordered by name 0-n) can be fetched\r\nBy default only the first result file will be returned"
     },
-    "serviceofferingpublisherCreateOfferingRequest": {
+    "ecosystemsgatewayCreateOfferingRequest": {
       "type": "object",
       "example": {
         "offerings": [
@@ -608,24 +672,24 @@
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/serviceofferingpublisherCreateOfferingRequestOffering"
+            "$ref": "#/definitions/ecosystemsgatewayCreateOfferingRequestOffering"
           }
         }
       },
       "title": "Create message to publish a Offering with the given information to different ecosystems\r\nAt the moment Pontus-X and XFSC are supported"
     },
-    "serviceofferingpublisherCreateOfferingRequestOffering": {
+    "ecosystemsgatewayCreateOfferingRequestOffering": {
       "type": "object",
       "properties": {
         "pontusxOffering": {
-          "$ref": "#/definitions/serviceofferingpublisherPontusxOffering"
+          "$ref": "#/definitions/ecosystemsgatewayPontusxOffering"
         },
         "xfscOffering": {
-          "$ref": "#/definitions/serviceofferingpublisherXfscOffering"
+          "$ref": "#/definitions/ecosystemsgatewayXfscOffering"
         }
       }
     },
-    "serviceofferingpublisherCreateOfferingResponse": {
+    "ecosystemsgatewayCreateOfferingResponse": {
       "type": "object",
       "properties": {
         "id": {
@@ -642,7 +706,7 @@
       },
       "title": "Response to CreateOfferingRequest"
     },
-    "serviceofferingpublisherCredentialLists": {
+    "ecosystemsgatewayCredentialLists": {
       "type": "object",
       "properties": {
         "allow": {
@@ -662,7 +726,7 @@
       },
       "title": "Message for credential allow- and denylists in PontusX"
     },
-    "serviceofferingpublisherFiles": {
+    "ecosystemsgatewayFiles": {
       "type": "object",
       "properties": {
         "url": {
@@ -683,11 +747,11 @@
       },
       "title": "Information about a file related to a offering used in Main\r\nAt the moment only files that are accessible over a Static URL (HTTP) are accepted\r\n(possible alternatives: Arweave, GraphQL, IPFS, Smart Contract)"
     },
-    "serviceofferingpublisherGetComputeToDataResultResponse": {
+    "ecosystemsgatewayGetComputeToDataResultResponse": {
       "type": "object",
       "properties": {
         "state": {
-          "$ref": "#/definitions/serviceofferingpublisherComputeToDataResponseState"
+          "$ref": "#/definitions/ecosystemsgatewayComputeToDataResponseState"
         },
         "data": {
           "type": "string"
@@ -695,31 +759,31 @@
       },
       "title": "The result can either be a URL or a full data, see CreateComputeToDataResultRequest"
     },
-    "serviceofferingpublisherGetOfferingRequest": {
+    "ecosystemsgatewayGetOfferingRequest": {
       "type": "object",
       "properties": {
         "offerings": {
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/serviceofferingpublisherGetOfferingRequestOffering"
+            "$ref": "#/definitions/ecosystemsgatewayGetOfferingRequestOffering"
           }
         }
       },
       "title": "---------------------------------------------- GetOffering ----------------------------------------------"
     },
-    "serviceofferingpublisherGetOfferingRequestOffering": {
+    "ecosystemsgatewayGetOfferingRequestOffering": {
       "type": "object",
       "properties": {
         "pontusxOffering": {
-          "$ref": "#/definitions/serviceofferingpublisherPontusxGetOffering"
+          "$ref": "#/definitions/ecosystemsgatewayPontusxGetOffering"
         },
         "xfscOffering": {
-          "$ref": "#/definitions/serviceofferingpublisherXfscGetOffering"
+          "$ref": "#/definitions/ecosystemsgatewayXfscGetOffering"
         }
       }
     },
-    "serviceofferingpublisherGetOfferingResponse": {
+    "ecosystemsgatewayGetOfferingResponse": {
       "type": "object",
       "properties": {
         "offerings": {
@@ -734,7 +798,7 @@
         }
       }
     },
-    "serviceofferingpublisherMetadata": {
+    "ecosystemsgatewayMetadata": {
       "type": "object",
       "properties": {
         "type": {
@@ -765,13 +829,13 @@
           "title": "Optional keywords or tags used to describe the content of the offering"
         },
         "algorithm": {
-          "$ref": "#/definitions/serviceofferingpublisherAlgorithmMetadata",
+          "$ref": "#/definitions/ecosystemsgatewayAlgorithmMetadata",
           "title": "Information about asset of type algorithm\r\nOnly optional for dataset -\u003e Non-optional for algorithm"
         }
       },
       "title": "Main metadata information for the asset used in CreateOfferingRequest and UpdateOfferingRequest \r\nin the Pontus-X Ecosystem (Ocean Protocol)"
     },
-    "serviceofferingpublisherPontusxGetOffering": {
+    "ecosystemsgatewayPontusxGetOffering": {
       "type": "object",
       "properties": {
         "did": {
@@ -779,7 +843,7 @@
         }
       }
     },
-    "serviceofferingpublisherPontusxLifecycleStates": {
+    "ecosystemsgatewayPontusxLifecycleStates": {
       "type": "string",
       "enum": [
         "ACTIVE",
@@ -793,33 +857,33 @@
       "description": "- ACTIVE: Fully functional asset\r\nDiscoverable in Portal and Ordering allowed\r\nListed under the owner's profile\n - END_OF_LIFE: This state indicates that the asset is usually deprecated or outdated\r\nDiscoverable, but not orderable\r\nNot listed under the owner's profile\n - DEPRECATED: This state indicates that another asset has deprecated the current asset\r\nNot discoverable and not orderable\r\nNot listed under the owner's profile\n - REVOKED_BY_PUBLISHER: Publisher has explicitly revoked access or ownership rights to the asset\r\nNot discoverable and not orderable\n - ORDERING_DISABLED_TEMPORARILY: Users can view the asset and gather information, but they cannot place orders at that moment\r\nDiscoverable, but not orderable\r\nListed under the owner's profile.\n - ASSET_UNLISTED: Not discoverable, but orderable\r\nListed under the owner's profile",
       "title": "Possible lifecycle states of asset in the pontus-x ecosystem"
     },
-    "serviceofferingpublisherPontusxOffering": {
+    "ecosystemsgatewayPontusxOffering": {
       "type": "object",
       "properties": {
         "metadata": {
-          "$ref": "#/definitions/serviceofferingpublisherMetadata",
+          "$ref": "#/definitions/ecosystemsgatewayMetadata",
           "title": "The main information about the asset to publish"
         },
         "additionalInformation": {
-          "$ref": "#/definitions/serviceofferingpublisherAdditionalInformation",
+          "$ref": "#/definitions/ecosystemsgatewayAdditionalInformation",
           "title": "Additional information regarding the offering\r\nExclusively used for terms \u0026 conditions and link to Gaia-X VPs"
         },
         "services": {
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/serviceofferingpublisherService"
+            "$ref": "#/definitions/ecosystemsgatewayService"
           },
           "title": "Services that are exposed by the asset to interact with it\r\nCardinality: 1..n -\u003e At least one service has to be passed for publishing"
         },
         "credentials": {
-          "$ref": "#/definitions/serviceofferingpublisherCredentialLists",
+          "$ref": "#/definitions/ecosystemsgatewayCredentialLists",
           "title": "Allowlist \u0026 Denylist of Credentials for the offering"
         }
       },
       "title": "Message for publication into the Pontus-X ecosystem"
     },
-    "serviceofferingpublisherPontusxUpdateOffering": {
+    "ecosystemsgatewayPontusxUpdateOffering": {
       "type": "object",
       "properties": {
         "did": {
@@ -827,11 +891,11 @@
           "title": "Decentralised identifier for the already published offering\r\nexample: did:op:1234"
         },
         "metadata": {
-          "$ref": "#/definitions/serviceofferingpublisherMetadata",
+          "$ref": "#/definitions/ecosystemsgatewayMetadata",
           "title": "The main information about the asset to publish"
         },
         "additionalInformation": {
-          "$ref": "#/definitions/serviceofferingpublisherAdditionalInformation",
+          "$ref": "#/definitions/ecosystemsgatewayAdditionalInformation",
           "title": "Additional information regarding the offering\r\nExclusively used for terms \u0026 conditions and link to Gaia-X VPs"
         },
         "updateServices": {
@@ -842,12 +906,12 @@
           }
         },
         "credentials": {
-          "$ref": "#/definitions/serviceofferingpublisherCredentialLists",
+          "$ref": "#/definitions/ecosystemsgatewayCredentialLists",
           "title": "Allowlist \u0026 Denylist of Credentials for the offering"
         }
       }
     },
-    "serviceofferingpublisherPontusxUpdateOfferingLifecycle": {
+    "ecosystemsgatewayPontusxUpdateOfferingLifecycle": {
       "type": "object",
       "properties": {
         "did": {
@@ -855,12 +919,12 @@
           "title": "Decentralised identifier for the already published offering\r\nexample: did:op:1234"
         },
         "to": {
-          "$ref": "#/definitions/serviceofferingpublisherPontusxLifecycleStates",
+          "$ref": "#/definitions/ecosystemsgatewayPontusxLifecycleStates",
           "title": "Pontus-X lifecycle state to which the offering should be changed"
         }
       }
     },
-    "serviceofferingpublisherPricing": {
+    "ecosystemsgatewayPricing": {
       "type": "object",
       "properties": {
         "pricingType": {
@@ -875,7 +939,7 @@
       },
       "title": "Information about the price for the asset for consumption in the ecosystem"
     },
-    "serviceofferingpublisherPublishInfo": {
+    "ecosystemsgatewayPublishInfo": {
       "type": "object",
       "properties": {
         "source": {
@@ -889,7 +953,7 @@
       },
       "title": "Publish info used in UpdateOfferingRequest\r\nUsed for additionally publishing Offering to Credential Event Service"
     },
-    "serviceofferingpublisherService": {
+    "ecosystemsgatewayService": {
       "type": "object",
       "properties": {
         "name": {
@@ -903,14 +967,14 @@
           "title": "Type of service: access or compute"
         },
         "pricing": {
-          "$ref": "#/definitions/serviceofferingpublisherPricing",
+          "$ref": "#/definitions/ecosystemsgatewayPricing",
           "title": "Information about the pricing model and amount for consumption"
         },
         "files": {
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/serviceofferingpublisherFiles"
+            "$ref": "#/definitions/ecosystemsgatewayFiles"
           },
           "title": "Files that contain the data related to the asset/service\r\nAt least one file is required for publication"
         },
@@ -932,21 +996,21 @@
           "title": "URL (schema + host) of the Provider responsible for provisioning of the data service\r\nIf no value is given the standard provider given in the network config is used (i.e. deltaDAO provider)"
         },
         "computeOptions": {
-          "$ref": "#/definitions/serviceofferingpublisherComputeOptions",
+          "$ref": "#/definitions/ecosystemsgatewayComputeOptions",
           "title": "Compute options for a compute asset/service\r\nOnly optional if the offering is of type 'access' and not 'compute'"
         },
         "consumerParameters": {
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/serviceofferingpublisherConsumerParameter"
+            "$ref": "#/definitions/ecosystemsgatewayConsumerParameter"
           },
           "title": "Optional message that defines required consumer input before consuming the asset/service"
         }
       },
       "title": "Services define the access for an asset"
     },
-    "serviceofferingpublisherTerms": {
+    "ecosystemsgatewayTerms": {
       "type": "object",
       "properties": {
         "url": {
@@ -955,7 +1019,7 @@
       },
       "title": "Static URL to Terms and Conditions defined by the publisher of the asset used in gaiaX"
     },
-    "serviceofferingpublisherTrustedAlgorihm": {
+    "ecosystemsgatewayTrustedAlgorihm": {
       "type": "object",
       "properties": {
         "did": {
@@ -972,31 +1036,31 @@
         }
       }
     },
-    "serviceofferingpublisherUpdateOfferingLifecycleRequest": {
+    "ecosystemsgatewayUpdateOfferingLifecycleRequest": {
       "type": "object",
       "properties": {
         "offerings": {
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/serviceofferingpublisherUpdateOfferingLifecycleRequestUpdateOfferingLifecycle"
+            "$ref": "#/definitions/ecosystemsgatewayUpdateOfferingLifecycleRequestUpdateOfferingLifecycle"
           }
         }
       },
       "title": "Update message for changing the LifecycleState of an already published offering"
     },
-    "serviceofferingpublisherUpdateOfferingLifecycleRequestUpdateOfferingLifecycle": {
+    "ecosystemsgatewayUpdateOfferingLifecycleRequestUpdateOfferingLifecycle": {
       "type": "object",
       "properties": {
         "pontusxUpdateOfferingLifecycle": {
-          "$ref": "#/definitions/serviceofferingpublisherPontusxUpdateOfferingLifecycle"
+          "$ref": "#/definitions/ecosystemsgatewayPontusxUpdateOfferingLifecycle"
         },
         "xfscUpdateOfferingLifecycle": {
-          "$ref": "#/definitions/serviceofferingpublisherXfscUpdateOfferingLifecycle"
+          "$ref": "#/definitions/ecosystemsgatewayXfscUpdateOfferingLifecycle"
         }
       }
     },
-    "serviceofferingpublisherUpdateOfferingLifecycleResponse": {
+    "ecosystemsgatewayUpdateOfferingLifecycleResponse": {
       "type": "object",
       "properties": {
         "id": {
@@ -1011,35 +1075,35 @@
         }
       }
     },
-    "serviceofferingpublisherUpdateOfferingRequest": {
+    "ecosystemsgatewayUpdateOfferingRequest": {
       "type": "object",
       "properties": {
         "offerings": {
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/serviceofferingpublisherUpdateOfferingRequestUpdateOffering"
+            "$ref": "#/definitions/ecosystemsgatewayUpdateOfferingRequestUpdateOffering"
           }
         }
       },
       "title": "Update message for an already published Offering\r\nTODO only hash of VP for XFSC"
     },
-    "serviceofferingpublisherUpdateOfferingRequestUpdateOffering": {
+    "ecosystemsgatewayUpdateOfferingRequestUpdateOffering": {
       "type": "object",
       "properties": {
         "pontusxUpdateOffering": {
-          "$ref": "#/definitions/serviceofferingpublisherPontusxUpdateOffering"
+          "$ref": "#/definitions/ecosystemsgatewayPontusxUpdateOffering"
         },
         "xfscUpdateOffering": {
-          "$ref": "#/definitions/serviceofferingpublisherXfscUpdateOffering"
+          "$ref": "#/definitions/ecosystemsgatewayXfscUpdateOffering"
         },
         "publishInfo": {
-          "$ref": "#/definitions/serviceofferingpublisherPublishInfo",
+          "$ref": "#/definitions/ecosystemsgatewayPublishInfo",
           "title": "Optional information about the published asset\r\nIf this Information is set, it is used to publish the offering to the Credential Event Service"
         }
       }
     },
-    "serviceofferingpublisherUpdateOfferingResponse": {
+    "ecosystemsgatewayUpdateOfferingResponse": {
       "type": "object",
       "properties": {
         "id": {
@@ -1062,7 +1126,7 @@
       },
       "title": "Response to UpdateOfferingRequest"
     },
-    "serviceofferingpublisherXfscGetOffering": {
+    "ecosystemsgatewayXfscGetOffering": {
       "type": "object",
       "properties": {
         "did": {
@@ -1076,7 +1140,7 @@
         }
       }
     },
-    "serviceofferingpublisherXfscOffering": {
+    "ecosystemsgatewayXfscOffering": {
       "type": "object",
       "properties": {
         "VP": {
@@ -1086,7 +1150,7 @@
       },
       "title": "Message for publication into the Cross Federation Services Catalogue"
     },
-    "serviceofferingpublisherXfscUpdateOffering": {
+    "ecosystemsgatewayXfscUpdateOffering": {
       "type": "object",
       "properties": {
         "hash": {
@@ -1099,7 +1163,7 @@
         }
       }
     },
-    "serviceofferingpublisherXfscUpdateOfferingLifecycle": {
+    "ecosystemsgatewayXfscUpdateOfferingLifecycle": {
       "type": "object",
       "properties": {
         "hash": {
@@ -1112,7 +1176,7 @@
         }
       }
     },
-    "serviceofferingpublishergaiaX": {
+    "ecosystemsgatewaygaiaX": {
       "type": "object",
       "properties": {
         "containsPII": {
@@ -1123,7 +1187,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/serviceofferingpublisherTerms"
+            "$ref": "#/definitions/ecosystemsgatewayTerms"
           },
           "title": "Terms and conditions additionally set by the publisher of the asset\r\nShould only be passed if boolean in AdditionalInformation is true"
         },
@@ -1132,6 +1196,56 @@
         }
       },
       "title": "Information related to Gaia-X compliance used in AdditionalInformation"
+    },
+    "gaiaXServiceSelfDescription": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "title": "Static URL of the self-description"
+        },
+        "isVerified": {
+          "type": "boolean",
+          "title": "Optional identifier if the self-description has been verified against a Gaia-X Compliance Service\r\nMainly used by the deltaDAO portal"
+        }
+      },
+      "title": "Endpoint to the Gaia-X compliant Self-Description (VP) of the offering"
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "protobufNullValue": {
+      "type": "string",
+      "enum": [
+        "NULL_VALUE"
+      ],
+      "default": "NULL_VALUE",
+      "description": "`NullValue` is a singleton enumeration to represent the null value for the\n`Value` type union.\n\nThe JSON representation for `NullValue` is JSON `null`.\n\n - NULL_VALUE: Null value."
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
     }
   }
 }

@@ -26,19 +26,19 @@ export class GrpcGatewayController {
     this.logger = new Logger(GrpcGatewayController.name);
     this.grpcClient = loadGrpcClient(
       './_proto_runtime/spp_v2.runtime.proto',
-      'eupg.serviceofferingpublisher',
-      'serviceofferingPublisher',
+      'eupg.ecosystemsgateway',
+      'ecosystemsgateway',
       configService.get('GRPC_BIND', '0.0.0.0:5002'), // TODO: Fix default values
     );
 
     this.grpcDefinitions = loadGrpcServiceDefinition(
       './_proto_runtime/spp_v2.runtime.proto',
-      'eupg.serviceofferingpublisher',
-      'serviceofferingPublisher',
+      'eupg.ecosystemsgateway',
+      'ecosystemsgateway',
     );
 
     this.logger.log(
-      `Loaded ${Object.keys(this.grpcDefinitions['serviceofferingPublisher'].service).length} grpc services`,
+      `Loaded ${Object.keys(this.grpcDefinitions['ecosystemsgateway'].service).length} grpc services`,
     );
   }
 
@@ -49,9 +49,7 @@ export class GrpcGatewayController {
     description: 'List of available gRPC methods and payload schemas',
   })
   listMethods() {
-    return Object.keys(
-      this.grpcDefinitions['serviceofferingPublisher'].service,
-    );
+    return Object.keys(this.grpcDefinitions['ecosystemsgateway'].service);
   }
 
   @Post(':method')
@@ -68,7 +66,7 @@ export class GrpcGatewayController {
     schema: { type: 'object', additionalProperties: true },
   })
   async handleGrpcCall(@Param('method') methodName: string, @Body() body: any) {
-    if (!this.grpcDefinitions['serviceofferingPublisher'].service[methodName]) {
+    if (!this.grpcDefinitions['ecosystemsgateway'].service[methodName]) {
       throw new HttpException(
         `gRPC method ${methodName} not found`,
         HttpStatus.NOT_FOUND,

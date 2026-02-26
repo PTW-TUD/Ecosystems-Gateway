@@ -20,7 +20,7 @@ import {
 } from "@grpc/grpc-js";
 import { Struct } from "./google/protobuf/struct";
 
-export const protobufPackage = "eupg.serviceofferingpublisher";
+export const protobufPackage = "eupg.ecosystemsgateway";
 
 export enum ComputeToDataResultType {
   C2D_DATA = 0,
@@ -436,6 +436,21 @@ export interface PontusxGetOffering {
   did: string;
 }
 
+export interface AccessServiceRequest {
+  did: string;
+  /** defaults to the first service of the asset's metadata */
+  serviceId?:
+    | string
+    | undefined;
+  /** defaults to the first file of the service */
+  fileIndex?: number | undefined;
+  userdata?: { [key: string]: any } | undefined;
+}
+
+export interface AccessServiceResponse {
+  accessUrl: string;
+}
+
 export interface CreateComputeToDataRequest {
   did: string;
   algorithm: string;
@@ -449,6 +464,15 @@ export interface CreateComputeToDataRequest_UserDataEntry {
 
 export interface ComputeToDataResponse {
   jobId: string[];
+}
+
+export interface ComputeToDataStatusRequest {
+  jobId: string;
+}
+
+export interface ComputeToDataStatusResponse {
+  status: number;
+  description: string;
 }
 
 /**
@@ -2579,6 +2603,172 @@ export const PontusxGetOffering: MessageFns<PontusxGetOffering> = {
   },
 };
 
+function createBaseAccessServiceRequest(): AccessServiceRequest {
+  return { did: "", serviceId: undefined, fileIndex: undefined, userdata: undefined };
+}
+
+export const AccessServiceRequest: MessageFns<AccessServiceRequest> = {
+  encode(message: AccessServiceRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.did !== "") {
+      writer.uint32(10).string(message.did);
+    }
+    if (message.serviceId !== undefined) {
+      writer.uint32(18).string(message.serviceId);
+    }
+    if (message.fileIndex !== undefined) {
+      writer.uint32(24).int32(message.fileIndex);
+    }
+    if (message.userdata !== undefined) {
+      Struct.encode(Struct.wrap(message.userdata), writer.uint32(34).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AccessServiceRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAccessServiceRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.did = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.serviceId = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.fileIndex = reader.int32();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.userdata = Struct.unwrap(Struct.decode(reader, reader.uint32()));
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): AccessServiceRequest {
+    return {
+      did: isSet(object.did) ? globalThis.String(object.did) : "",
+      serviceId: isSet(object.serviceId) ? globalThis.String(object.serviceId) : undefined,
+      fileIndex: isSet(object.fileIndex) ? globalThis.Number(object.fileIndex) : undefined,
+      userdata: isObject(object.userdata) ? object.userdata : undefined,
+    };
+  },
+
+  toJSON(message: AccessServiceRequest): unknown {
+    const obj: any = {};
+    if (message.did !== "") {
+      obj.did = message.did;
+    }
+    if (message.serviceId !== undefined) {
+      obj.serviceId = message.serviceId;
+    }
+    if (message.fileIndex !== undefined) {
+      obj.fileIndex = Math.round(message.fileIndex);
+    }
+    if (message.userdata !== undefined) {
+      obj.userdata = message.userdata;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AccessServiceRequest>, I>>(base?: I): AccessServiceRequest {
+    return AccessServiceRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AccessServiceRequest>, I>>(object: I): AccessServiceRequest {
+    const message = createBaseAccessServiceRequest();
+    message.did = object.did ?? "";
+    message.serviceId = object.serviceId ?? undefined;
+    message.fileIndex = object.fileIndex ?? undefined;
+    message.userdata = object.userdata ?? undefined;
+    return message;
+  },
+};
+
+function createBaseAccessServiceResponse(): AccessServiceResponse {
+  return { accessUrl: "" };
+}
+
+export const AccessServiceResponse: MessageFns<AccessServiceResponse> = {
+  encode(message: AccessServiceResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.accessUrl !== "") {
+      writer.uint32(10).string(message.accessUrl);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AccessServiceResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAccessServiceResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.accessUrl = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): AccessServiceResponse {
+    return { accessUrl: isSet(object.accessUrl) ? globalThis.String(object.accessUrl) : "" };
+  },
+
+  toJSON(message: AccessServiceResponse): unknown {
+    const obj: any = {};
+    if (message.accessUrl !== "") {
+      obj.accessUrl = message.accessUrl;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AccessServiceResponse>, I>>(base?: I): AccessServiceResponse {
+    return AccessServiceResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AccessServiceResponse>, I>>(object: I): AccessServiceResponse {
+    const message = createBaseAccessServiceResponse();
+    message.accessUrl = object.accessUrl ?? "";
+    return message;
+  },
+};
+
 function createBaseCreateComputeToDataRequest(): CreateComputeToDataRequest {
   return { did: "", algorithm: "", userData: {} };
 }
@@ -2824,6 +3014,140 @@ export const ComputeToDataResponse: MessageFns<ComputeToDataResponse> = {
   fromPartial<I extends Exact<DeepPartial<ComputeToDataResponse>, I>>(object: I): ComputeToDataResponse {
     const message = createBaseComputeToDataResponse();
     message.jobId = object.jobId?.map((e) => e) || [];
+    return message;
+  },
+};
+
+function createBaseComputeToDataStatusRequest(): ComputeToDataStatusRequest {
+  return { jobId: "" };
+}
+
+export const ComputeToDataStatusRequest: MessageFns<ComputeToDataStatusRequest> = {
+  encode(message: ComputeToDataStatusRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.jobId !== "") {
+      writer.uint32(10).string(message.jobId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ComputeToDataStatusRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseComputeToDataStatusRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.jobId = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ComputeToDataStatusRequest {
+    return { jobId: isSet(object.jobId) ? globalThis.String(object.jobId) : "" };
+  },
+
+  toJSON(message: ComputeToDataStatusRequest): unknown {
+    const obj: any = {};
+    if (message.jobId !== "") {
+      obj.jobId = message.jobId;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ComputeToDataStatusRequest>, I>>(base?: I): ComputeToDataStatusRequest {
+    return ComputeToDataStatusRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ComputeToDataStatusRequest>, I>>(object: I): ComputeToDataStatusRequest {
+    const message = createBaseComputeToDataStatusRequest();
+    message.jobId = object.jobId ?? "";
+    return message;
+  },
+};
+
+function createBaseComputeToDataStatusResponse(): ComputeToDataStatusResponse {
+  return { status: 0, description: "" };
+}
+
+export const ComputeToDataStatusResponse: MessageFns<ComputeToDataStatusResponse> = {
+  encode(message: ComputeToDataStatusResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.status !== 0) {
+      writer.uint32(8).int32(message.status);
+    }
+    if (message.description !== "") {
+      writer.uint32(18).string(message.description);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ComputeToDataStatusResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseComputeToDataStatusResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.status = reader.int32();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.description = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ComputeToDataStatusResponse {
+    return {
+      status: isSet(object.status) ? globalThis.Number(object.status) : 0,
+      description: isSet(object.description) ? globalThis.String(object.description) : "",
+    };
+  },
+
+  toJSON(message: ComputeToDataStatusResponse): unknown {
+    const obj: any = {};
+    if (message.status !== 0) {
+      obj.status = Math.round(message.status);
+    }
+    if (message.description !== "") {
+      obj.description = message.description;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ComputeToDataStatusResponse>, I>>(base?: I): ComputeToDataStatusResponse {
+    return ComputeToDataStatusResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ComputeToDataStatusResponse>, I>>(object: I): ComputeToDataStatusResponse {
+    const message = createBaseComputeToDataStatusResponse();
+    message.status = object.status ?? 0;
+    message.description = object.description ?? "";
     return message;
   },
 };
@@ -4630,10 +4954,10 @@ export const CredentialLists: MessageFns<CredentialLists> = {
 };
 
 /** service definition for publisher */
-export type serviceofferingPublisherService = typeof serviceofferingPublisherService;
-export const serviceofferingPublisherService = {
+export type ecosystemsgatewayService = typeof ecosystemsgatewayService;
+export const ecosystemsgatewayService = {
   createOffering: {
-    path: "/eupg.serviceofferingpublisher.serviceofferingPublisher/CreateOffering",
+    path: "/eupg.ecosystemsgateway.ecosystemsgateway/CreateOffering",
     requestStream: false,
     responseStream: false,
     requestSerialize: (value: CreateOfferingRequest) => Buffer.from(CreateOfferingRequest.encode(value).finish()),
@@ -4642,7 +4966,7 @@ export const serviceofferingPublisherService = {
     responseDeserialize: (value: Buffer) => CreateOfferingResponse.decode(value),
   },
   updateOffering: {
-    path: "/eupg.serviceofferingpublisher.serviceofferingPublisher/UpdateOffering",
+    path: "/eupg.ecosystemsgateway.ecosystemsgateway/UpdateOffering",
     requestStream: false,
     responseStream: false,
     requestSerialize: (value: UpdateOfferingRequest) => Buffer.from(UpdateOfferingRequest.encode(value).finish()),
@@ -4651,7 +4975,7 @@ export const serviceofferingPublisherService = {
     responseDeserialize: (value: Buffer) => UpdateOfferingResponse.decode(value),
   },
   getOffering: {
-    path: "/eupg.serviceofferingpublisher.serviceofferingPublisher/GetOffering",
+    path: "/eupg.ecosystemsgateway.ecosystemsgateway/GetOffering",
     requestStream: false,
     responseStream: false,
     requestSerialize: (value: GetOfferingRequest) => Buffer.from(GetOfferingRequest.encode(value).finish()),
@@ -4659,8 +4983,17 @@ export const serviceofferingPublisherService = {
     responseSerialize: (value: GetOfferingResponse) => Buffer.from(GetOfferingResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer) => GetOfferingResponse.decode(value),
   },
+  accessService: {
+    path: "/eupg.ecosystemsgateway.ecosystemsgateway/AccessService",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: AccessServiceRequest) => Buffer.from(AccessServiceRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => AccessServiceRequest.decode(value),
+    responseSerialize: (value: AccessServiceResponse) => Buffer.from(AccessServiceResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => AccessServiceResponse.decode(value),
+  },
   updateOfferingLifecycle: {
-    path: "/eupg.serviceofferingpublisher.serviceofferingPublisher/UpdateOfferingLifecycle",
+    path: "/eupg.ecosystemsgateway.ecosystemsgateway/UpdateOfferingLifecycle",
     requestStream: false,
     responseStream: false,
     requestSerialize: (value: UpdateOfferingLifecycleRequest) =>
@@ -4671,7 +5004,7 @@ export const serviceofferingPublisherService = {
     responseDeserialize: (value: Buffer) => UpdateOfferingLifecycleResponse.decode(value),
   },
   runComputeToDataJob: {
-    path: "/eupg.serviceofferingpublisher.serviceofferingPublisher/RunComputeToDataJob",
+    path: "/eupg.ecosystemsgateway.ecosystemsgateway/RunComputeToDataJob",
     requestStream: false,
     responseStream: false,
     requestSerialize: (value: CreateComputeToDataRequest) =>
@@ -4680,8 +5013,19 @@ export const serviceofferingPublisherService = {
     responseSerialize: (value: ComputeToDataResponse) => Buffer.from(ComputeToDataResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer) => ComputeToDataResponse.decode(value),
   },
+  getComputeToDataStatus: {
+    path: "/eupg.ecosystemsgateway.ecosystemsgateway/GetComputeToDataStatus",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: ComputeToDataStatusRequest) =>
+      Buffer.from(ComputeToDataStatusRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => ComputeToDataStatusRequest.decode(value),
+    responseSerialize: (value: ComputeToDataStatusResponse) =>
+      Buffer.from(ComputeToDataStatusResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => ComputeToDataStatusResponse.decode(value),
+  },
   getComputeToDataResult: {
-    path: "/eupg.serviceofferingpublisher.serviceofferingPublisher/GetComputeToDataResult",
+    path: "/eupg.ecosystemsgateway.ecosystemsgateway/GetComputeToDataResult",
     requestStream: false,
     responseStream: false,
     requestSerialize: (value: CreateComputeToDataResultRequest) =>
@@ -4693,16 +5037,18 @@ export const serviceofferingPublisherService = {
   },
 } as const;
 
-export interface serviceofferingPublisherServer extends UntypedServiceImplementation {
+export interface ecosystemsgatewayServer extends UntypedServiceImplementation {
   createOffering: handleUnaryCall<CreateOfferingRequest, CreateOfferingResponse>;
   updateOffering: handleUnaryCall<UpdateOfferingRequest, UpdateOfferingResponse>;
   getOffering: handleUnaryCall<GetOfferingRequest, GetOfferingResponse>;
+  accessService: handleUnaryCall<AccessServiceRequest, AccessServiceResponse>;
   updateOfferingLifecycle: handleUnaryCall<UpdateOfferingLifecycleRequest, UpdateOfferingLifecycleResponse>;
   runComputeToDataJob: handleUnaryCall<CreateComputeToDataRequest, ComputeToDataResponse>;
+  getComputeToDataStatus: handleUnaryCall<ComputeToDataStatusRequest, ComputeToDataStatusResponse>;
   getComputeToDataResult: handleUnaryCall<CreateComputeToDataResultRequest, GetComputeToDataResultResponse>;
 }
 
-export interface serviceofferingPublisherClient extends Client {
+export interface ecosystemsgatewayClient extends Client {
   createOffering(
     request: CreateOfferingRequest,
     callback: (error: ServiceError | null, response: CreateOfferingResponse) => void,
@@ -4748,6 +5094,21 @@ export interface serviceofferingPublisherClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: GetOfferingResponse) => void,
   ): ClientUnaryCall;
+  accessService(
+    request: AccessServiceRequest,
+    callback: (error: ServiceError | null, response: AccessServiceResponse) => void,
+  ): ClientUnaryCall;
+  accessService(
+    request: AccessServiceRequest,
+    metadata: Metadata1,
+    callback: (error: ServiceError | null, response: AccessServiceResponse) => void,
+  ): ClientUnaryCall;
+  accessService(
+    request: AccessServiceRequest,
+    metadata: Metadata1,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: AccessServiceResponse) => void,
+  ): ClientUnaryCall;
   updateOfferingLifecycle(
     request: UpdateOfferingLifecycleRequest,
     callback: (error: ServiceError | null, response: UpdateOfferingLifecycleResponse) => void,
@@ -4777,6 +5138,21 @@ export interface serviceofferingPublisherClient extends Client {
     metadata: Metadata1,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: ComputeToDataResponse) => void,
+  ): ClientUnaryCall;
+  getComputeToDataStatus(
+    request: ComputeToDataStatusRequest,
+    callback: (error: ServiceError | null, response: ComputeToDataStatusResponse) => void,
+  ): ClientUnaryCall;
+  getComputeToDataStatus(
+    request: ComputeToDataStatusRequest,
+    metadata: Metadata1,
+    callback: (error: ServiceError | null, response: ComputeToDataStatusResponse) => void,
+  ): ClientUnaryCall;
+  getComputeToDataStatus(
+    request: ComputeToDataStatusRequest,
+    metadata: Metadata1,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: ComputeToDataStatusResponse) => void,
   ): ClientUnaryCall;
   getComputeToDataResult(
     request: CreateComputeToDataResultRequest,
@@ -4795,16 +5171,12 @@ export interface serviceofferingPublisherClient extends Client {
   ): ClientUnaryCall;
 }
 
-export const serviceofferingPublisherClient = makeGenericClientConstructor(
-  serviceofferingPublisherService,
-  "eupg.serviceofferingpublisher.serviceofferingPublisher",
+export const ecosystemsgatewayClient = makeGenericClientConstructor(
+  ecosystemsgatewayService,
+  "eupg.ecosystemsgateway.ecosystemsgateway",
 ) as unknown as {
-  new (
-    address: string,
-    credentials: ChannelCredentials,
-    options?: Partial<ClientOptions>,
-  ): serviceofferingPublisherClient;
-  service: typeof serviceofferingPublisherService;
+  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): ecosystemsgatewayClient;
+  service: typeof ecosystemsgatewayService;
   serviceName: string;
 };
 

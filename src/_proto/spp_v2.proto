@@ -1,17 +1,17 @@
 /*
 Copyright 2021-2022 Stefan Dumss, MIVP TU Wien
-2023-2025 Fabian Gast, PTW TU Darmstadt
+2023-2026 Fabian Gast, PTW TU Darmstadt
 */
 
 syntax = "proto3";
 
-package eupg.serviceofferingpublisher;
+package eupg.ecosystemsgateway;
 
 import "google/protobuf/struct.proto";
 import "google/api/annotations.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
 
-option go_package = "serviceofferingpublisher/pb";
+option go_package = "ecosystemsgateway/pb";
 
 option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
     info: {
@@ -27,7 +27,7 @@ option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
 };
 
 //service definition for publisher
-service serviceofferingPublisher{
+service ecosystemsgateway{
     rpc CreateOffering(CreateOfferingRequest) returns (CreateOfferingResponse){
         option (google.api.http) = {
             post: "/grpc/CreateOffering";
@@ -35,7 +35,7 @@ service serviceofferingPublisher{
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
             summary: "Create a service offering";
-            tags: "serviceofferingPublisher";
+            tags: "ecosystemsgateway";
         };
     }
     rpc UpdateOffering(UpdateOfferingRequest) returns (UpdateOfferingResponse){
@@ -45,7 +45,7 @@ service serviceofferingPublisher{
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
             summary: "UpdateOffering";
-            tags: "serviceofferingPublisher";
+            tags: "ecosystemsgateway";
         };
     }
     rpc GetOffering(GetOfferingRequest) returns (GetOfferingResponse) {
@@ -55,7 +55,17 @@ service serviceofferingPublisher{
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
             summary: "GetOffering";
-            tags: "serviceofferingPublisher";
+            tags: "ecosystemsgateway";
+        };
+    }
+    rpc AccessService(AccessServiceRequest) returns (AccessServiceResponse) {
+        option (google.api.http) = {
+            post: "/grpc/AccessService";
+            body: "*";
+        };
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "AccessService";
+            tags: "ecosystemsgateway";
         };
     }
     rpc UpdateOfferingLifecycle(UpdateOfferingLifecycleRequest) returns (UpdateOfferingLifecycleResponse){
@@ -65,7 +75,7 @@ service serviceofferingPublisher{
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
             summary: "UpdateOfferingLifecycle";
-            tags: "serviceofferingPublisher";
+            tags: "ecosystemsgateway";
         };
     }
 
@@ -76,7 +86,17 @@ service serviceofferingPublisher{
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
             summary: "RunComputeToDataJob";
-            tags: "serviceofferingPublisher";
+            tags: "ecosystemsgateway";
+        };
+    }
+    rpc GetComputeToDataStatus(ComputeToDataStatusRequest) returns (ComputeToDataStatusResponse){
+        option (google.api.http) = {
+            post: "/grpc/GetComputeToDataStatus";
+            body: "*";
+        };
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "GetComputeToDataStatus";
+            tags: "ecosystemsgateway";
         };
     }
     rpc GetComputeToDataResult(CreateComputeToDataResultRequest) returns (GetComputeToDataResultResponse){
@@ -86,7 +106,7 @@ service serviceofferingPublisher{
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
             summary: "GetComputeToDataResult";
-            tags: "serviceofferingPublisher";
+            tags: "ecosystemsgateway";
         };
     }
 }
@@ -311,6 +331,19 @@ message PontusxGetOffering {
     string did = 1;
 }
 
+message AccessServiceRequest {
+    string did = 1;
+    // defaults to the first service of the asset's metadata
+    optional string serviceId = 2;
+    // defaults to the first file of the service
+    optional int32 fileIndex = 3;
+    optional google.protobuf.Struct userdata = 4;
+}
+
+message AccessServiceResponse {
+    string accessUrl = 1;
+}
+
 /*
 ---------------------------------------------- Compute2Data (Pontus-X) ----------------------------------------------
 */
@@ -323,6 +356,15 @@ message CreateComputeToDataRequest {
 
 message ComputeToDataResponse {
     repeated string jobId = 1;
+}
+
+message ComputeToDataStatusRequest {
+    string jobId = 1;
+}
+
+message ComputeToDataStatusResponse {
+    int32 status = 1;
+    string description = 2;
 }
 
 enum ComputeToDataResultType {

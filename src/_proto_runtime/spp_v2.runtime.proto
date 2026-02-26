@@ -1,19 +1,19 @@
 /*
 Copyright 2021-2022 Stefan Dumss, MIVP TU Wien
-2023-2025 Fabian Gast, PTW TU Darmstadt
+2023-2026 Fabian Gast, PTW TU Darmstadt
 */
 
 syntax = "proto3";
 
-package eupg.serviceofferingpublisher;
+package eupg.ecosystemsgateway;
 
 import "google/protobuf/struct.proto";
 import "google/api/annotations.proto";
 
-option go_package = "serviceofferingpublisher/pb";
+option go_package = "ecosystemsgateway/pb";
 
 //service definition for publisher
-service serviceofferingPublisher{
+service ecosystemsgateway{
     rpc CreateOffering(CreateOfferingRequest) returns (CreateOfferingResponse){
         option (google.api.http) = {
             post: "/grpc/CreateOffering";
@@ -32,6 +32,12 @@ service serviceofferingPublisher{
             body: "*";
         };
     }
+    rpc AccessService(AccessServiceRequest) returns (AccessServiceResponse) {
+        option (google.api.http) = {
+            post: "/grpc/AccessService";
+            body: "*";
+        };
+    }
     rpc UpdateOfferingLifecycle(UpdateOfferingLifecycleRequest) returns (UpdateOfferingLifecycleResponse){
         option (google.api.http) = {
             post: "/grpc/UpdateOfferingLifecycle";
@@ -45,6 +51,12 @@ service serviceofferingPublisher{
             body: "*";
         };
     }
+   rpc GetComputeToDataStatus(ComputeToDataStatusRequest) returns (ComputeToDataStatusResponse){
+        option (google.api.http) = {
+            post: "/grpc/GetComputeToDataStatus";
+            body: "*";
+        };
+   } 
     rpc GetComputeToDataResult(CreateComputeToDataResultRequest) returns (GetComputeToDataResultResponse){
         option (google.api.http) = {
             post: "/grpc/GetComputeToDataResult";
@@ -270,6 +282,19 @@ message PontusxGetOffering {
     string did = 1;
 }
 
+message AccessServiceRequest {
+    string did = 1;
+    // defaults to the first service of the asset's metadata
+    optional string serviceId = 2;
+    // defaults to the first file of the service
+    optional int32 fileIndex = 3;
+    optional google.protobuf.Struct userdata = 4;
+}
+
+message AccessServiceResponse {
+    string accessUrl = 1;
+}
+
 /*
 ---------------------------------------------- Compute2Data (Pontus-X) ----------------------------------------------
 */
@@ -282,6 +307,15 @@ message CreateComputeToDataRequest {
 
 message ComputeToDataResponse {
     repeated string jobId = 1;
+}
+
+message ComputeToDataStatusRequest {
+    string jobId = 1;
+}
+
+message ComputeToDataStatusResponse {
+    int32 status = 1;
+    string description = 2;
 }
 
 enum ComputeToDataResultType {
