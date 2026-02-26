@@ -12,6 +12,7 @@ import {
   loadGrpcClient,
   loadGrpcServiceDefinition,
 } from './grpc-client.loader';
+import { status as GrpcStatusCode } from '@grpc/grpc-js';
 import { ConfigService } from '@nestjs/config';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
@@ -76,8 +77,25 @@ export class GrpcGatewayController {
     try {
       return await this.callGrpcMethod(methodName, body);
     } catch (error) {
+      const grpcCode: number | undefined =
+        typeof error?.code === 'number' ? error.code : undefined;
+
+      const httpStatus = this.grpcCodeToHttpStatus(grpcCode);
+      const grpcCodeName =
+        grpcCode != undefined
+          ? ((GrpcStatusCode as any)[grpcCode] ?? 'UNKNOWN')
+          : 'UNKNOWN';
       this.logger.error(`Error calling gRPC method ${methodName}:`, error);
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        {
+          message: error.message,
+          grpc: {
+            code: grpcCode ?? null,
+            name: grpcCodeName,
+          },
+        },
+        httpStatus,
+      );
     }
   }
 
@@ -90,10 +108,44 @@ export class GrpcGatewayController {
       }
       this.grpcClient[method](params, (error, response) => {
         if (error) {
-          return reject(error.details);
+          return reject(error);
         }
         return resolve(response);
       });
     });
+  }
+
+  private grpcCodeToHttpStatus(code?: number): number {
+    switch (code) {
+      case GrpcStatusCode.OK:
+        return HttpStatus.OK;
+      case GrpcStatusCode.INVALID_ARGUMENT:
+        return HttpStatus.BAD_REQUEST;
+      case GrpcStatusCode.NOT_FOUND:
+        return HttpStatus.NOT_FOUND;
+      case GrpcStatusCode.ALREADY_EXISTS:
+        return HttpStatus.CONFLICT;
+      case GrpcStatusCode.PERMISSION_DENIED:
+        return HttpStatus.FORBIDDEN;
+      case GrpcStatusCode.UNAUTHENTICATED:
+        return HttpStatus.UNAUTHORIZED;
+      case GrpcStatusCode.RESOURCE_EXHAUSTED:
+        return HttpStatus.TOO_MANY_REQUESTS;
+      case GrpcStatusCode.FAILED_PRECONDITION:
+        return HttpStatus.PRECONDITION_FAILED;
+      case GrpcStatusCode.OUT_OF_RANGE:
+        return HttpStatus.BAD_REQUEST;
+      case GrpcStatusCode.UNIMPLEMENTED:
+        return HttpStatus.NOT_IMPLEMENTED;
+      case GrpcStatusCode.UNAVAILABLE:
+        return HttpStatus.SERVICE_UNAVAILABLE;
+      case GrpcStatusCode.DEADLINE_EXCEEDED:
+        return HttpStatus.GATEWAY_TIMEOUT;
+      case GrpcStatusCode.CANCELLED:
+        return 499; // NGINX convention “Client Closed Request”
+      case GrpcStatusCode.INTERNAL:
+      default:
+        return HttpStatus.INTERNAL_SERVER_ERROR;
+    }
   }
 }
