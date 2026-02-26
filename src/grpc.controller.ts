@@ -351,11 +351,10 @@ export class GrpcController {
             CtdToDcpStateMap[result as CtdStatusCode],
         };
       }
-      // should this be an exception instead?
-      return {
-        status: 99,
-        description: 'Unknown Status | TERMINATED',
-      };
+      throw new RpcException({
+        code: GrpcStatusCode.NOT_FOUND,
+        message: `Compute Job couldn't be found`,
+      });
     }
     throw new RpcException({
       code: GrpcStatusCode.INTERNAL,

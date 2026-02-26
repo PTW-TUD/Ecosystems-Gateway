@@ -701,7 +701,10 @@ export class PontusxService implements OnModuleInit {
       providerUri: this.getSelectedNetworkConfig().providerUri,
     });
 
-    return status.status;
+    if (status) {
+      return status.status;
+    }
+    return 99;
   }
 
   async getComputeToDataResult(
