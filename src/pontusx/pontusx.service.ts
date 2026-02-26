@@ -712,13 +712,22 @@ export class PontusxService implements OnModuleInit {
     return_type: ComputeToDataResultType,
     jobIndex: number,
   ): Promise<GetComputeToDataResultResponse> {
+    const metadata = new Metadata();
+    metadata.set('x-service', 'pontusx');
+    metadata.set('x-where', 'getComputeToDataResult');
+
     switch (return_type) {
       case ComputeToDataResultType.C2D_DATA:
         let cached = await this.redis.get(
           `${this.getSelectedNetworkConfig().network}:ctd:result:${jobId}`,
         );
-        // TODO: check if job exists/is fetchable first before adding it to redis and fetching it periodically
         if (cached === null) {
+          if ((await this.getComputeToDataStatus(jobId)) == 99) {
+            throw new RpcException({
+              code: GrpcStatusCode.NOT_FOUND,
+              message: 'Job does not exist or is not yet finished',
+            });
+          }
           let queued = await this.redis.lpos(
             `${this.getSelectedNetworkConfig().network}:ctd:pending`,
             jobId,
@@ -754,12 +763,15 @@ export class PontusxService implements OnModuleInit {
             resultIndex: jobIndex,
           });
         }
-        this.logger.verbose(`Response is ${resp}`);
-        return { state: ComputeToDataResponseState.FINISHED, data: resp };
+        if (resp) {
+          return { state: ComputeToDataResponseState.FINISHED, data: resp };
+        }
+        throw new RpcException({
+          code: GrpcStatusCode.NOT_FOUND,
+          message: 'Job does not exist or is not yet finished',
+          metadata,
+        });
       default:
-        const metadata = new Metadata();
-        metadata.set('x-service', 'pontusx');
-        metadata.set('x-where', 'getComputeToDataResult');
         throw new RpcException({
           code: GrpcStatusCode.INVALID_ARGUMENT,
           message: 'Requested result type is invalid',
