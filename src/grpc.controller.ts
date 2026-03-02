@@ -318,7 +318,7 @@ export class GrpcController {
       this.pontusxService.requestComputeToData(
         data.did,
         data.algorithm,
-        data.userData,
+        data.userdata,
       ),
     );
     if (result) {

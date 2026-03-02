@@ -444,7 +444,12 @@ export interface AccessServiceRequest {
     | undefined;
   /** defaults to the first file of the service */
   fileIndex?: number | undefined;
-  userdata?: { [key: string]: any } | undefined;
+  userdata: { [key: string]: string };
+}
+
+export interface AccessServiceRequest_UserdataEntry {
+  key: string;
+  value: string;
 }
 
 export interface AccessServiceResponse {
@@ -454,10 +459,10 @@ export interface AccessServiceResponse {
 export interface CreateComputeToDataRequest {
   did: string;
   algorithm: string;
-  userData: { [key: string]: string };
+  userdata: { [key: string]: string };
 }
 
-export interface CreateComputeToDataRequest_UserDataEntry {
+export interface CreateComputeToDataRequest_UserdataEntry {
   key: string;
   value: string;
 }
@@ -2604,7 +2609,7 @@ export const PontusxGetOffering: MessageFns<PontusxGetOffering> = {
 };
 
 function createBaseAccessServiceRequest(): AccessServiceRequest {
-  return { did: "", serviceId: undefined, fileIndex: undefined, userdata: undefined };
+  return { did: "", serviceId: undefined, fileIndex: undefined, userdata: {} };
 }
 
 export const AccessServiceRequest: MessageFns<AccessServiceRequest> = {
@@ -2618,9 +2623,9 @@ export const AccessServiceRequest: MessageFns<AccessServiceRequest> = {
     if (message.fileIndex !== undefined) {
       writer.uint32(24).int32(message.fileIndex);
     }
-    if (message.userdata !== undefined) {
-      Struct.encode(Struct.wrap(message.userdata), writer.uint32(34).fork()).join();
-    }
+    Object.entries(message.userdata).forEach(([key, value]) => {
+      AccessServiceRequest_UserdataEntry.encode({ key: key as any, value }, writer.uint32(34).fork()).join();
+    });
     return writer;
   },
 
@@ -2660,7 +2665,10 @@ export const AccessServiceRequest: MessageFns<AccessServiceRequest> = {
             break;
           }
 
-          message.userdata = Struct.unwrap(Struct.decode(reader, reader.uint32()));
+          const entry4 = AccessServiceRequest_UserdataEntry.decode(reader, reader.uint32());
+          if (entry4.value !== undefined) {
+            message.userdata[entry4.key] = entry4.value;
+          }
           continue;
         }
       }
@@ -2677,7 +2685,12 @@ export const AccessServiceRequest: MessageFns<AccessServiceRequest> = {
       did: isSet(object.did) ? globalThis.String(object.did) : "",
       serviceId: isSet(object.serviceId) ? globalThis.String(object.serviceId) : undefined,
       fileIndex: isSet(object.fileIndex) ? globalThis.Number(object.fileIndex) : undefined,
-      userdata: isObject(object.userdata) ? object.userdata : undefined,
+      userdata: isObject(object.userdata)
+        ? Object.entries(object.userdata).reduce<{ [key: string]: string }>((acc, [key, value]) => {
+          acc[key] = String(value);
+          return acc;
+        }, {})
+        : {},
     };
   },
 
@@ -2692,8 +2705,14 @@ export const AccessServiceRequest: MessageFns<AccessServiceRequest> = {
     if (message.fileIndex !== undefined) {
       obj.fileIndex = Math.round(message.fileIndex);
     }
-    if (message.userdata !== undefined) {
-      obj.userdata = message.userdata;
+    if (message.userdata) {
+      const entries = Object.entries(message.userdata);
+      if (entries.length > 0) {
+        obj.userdata = {};
+        entries.forEach(([k, v]) => {
+          obj.userdata[k] = v;
+        });
+      }
     }
     return obj;
   },
@@ -2706,7 +2725,92 @@ export const AccessServiceRequest: MessageFns<AccessServiceRequest> = {
     message.did = object.did ?? "";
     message.serviceId = object.serviceId ?? undefined;
     message.fileIndex = object.fileIndex ?? undefined;
-    message.userdata = object.userdata ?? undefined;
+    message.userdata = Object.entries(object.userdata ?? {}).reduce<{ [key: string]: string }>((acc, [key, value]) => {
+      if (value !== undefined) {
+        acc[key] = globalThis.String(value);
+      }
+      return acc;
+    }, {});
+    return message;
+  },
+};
+
+function createBaseAccessServiceRequest_UserdataEntry(): AccessServiceRequest_UserdataEntry {
+  return { key: "", value: "" };
+}
+
+export const AccessServiceRequest_UserdataEntry: MessageFns<AccessServiceRequest_UserdataEntry> = {
+  encode(message: AccessServiceRequest_UserdataEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    if (message.value !== "") {
+      writer.uint32(18).string(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AccessServiceRequest_UserdataEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAccessServiceRequest_UserdataEntry();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.value = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): AccessServiceRequest_UserdataEntry {
+    return {
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+      value: isSet(object.value) ? globalThis.String(object.value) : "",
+    };
+  },
+
+  toJSON(message: AccessServiceRequest_UserdataEntry): unknown {
+    const obj: any = {};
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    if (message.value !== "") {
+      obj.value = message.value;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AccessServiceRequest_UserdataEntry>, I>>(
+    base?: I,
+  ): AccessServiceRequest_UserdataEntry {
+    return AccessServiceRequest_UserdataEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AccessServiceRequest_UserdataEntry>, I>>(
+    object: I,
+  ): AccessServiceRequest_UserdataEntry {
+    const message = createBaseAccessServiceRequest_UserdataEntry();
+    message.key = object.key ?? "";
+    message.value = object.value ?? "";
     return message;
   },
 };
@@ -2770,7 +2874,7 @@ export const AccessServiceResponse: MessageFns<AccessServiceResponse> = {
 };
 
 function createBaseCreateComputeToDataRequest(): CreateComputeToDataRequest {
-  return { did: "", algorithm: "", userData: {} };
+  return { did: "", algorithm: "", userdata: {} };
 }
 
 export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> = {
@@ -2781,8 +2885,8 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
     if (message.algorithm !== "") {
       writer.uint32(18).string(message.algorithm);
     }
-    Object.entries(message.userData).forEach(([key, value]) => {
-      CreateComputeToDataRequest_UserDataEntry.encode({ key: key as any, value }, writer.uint32(26).fork()).join();
+    Object.entries(message.userdata).forEach(([key, value]) => {
+      CreateComputeToDataRequest_UserdataEntry.encode({ key: key as any, value }, writer.uint32(26).fork()).join();
     });
     return writer;
   },
@@ -2815,9 +2919,9 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
             break;
           }
 
-          const entry3 = CreateComputeToDataRequest_UserDataEntry.decode(reader, reader.uint32());
+          const entry3 = CreateComputeToDataRequest_UserdataEntry.decode(reader, reader.uint32());
           if (entry3.value !== undefined) {
-            message.userData[entry3.key] = entry3.value;
+            message.userdata[entry3.key] = entry3.value;
           }
           continue;
         }
@@ -2834,8 +2938,8 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
     return {
       did: isSet(object.did) ? globalThis.String(object.did) : "",
       algorithm: isSet(object.algorithm) ? globalThis.String(object.algorithm) : "",
-      userData: isObject(object.userData)
-        ? Object.entries(object.userData).reduce<{ [key: string]: string }>((acc, [key, value]) => {
+      userdata: isObject(object.userdata)
+        ? Object.entries(object.userdata).reduce<{ [key: string]: string }>((acc, [key, value]) => {
           acc[key] = String(value);
           return acc;
         }, {})
@@ -2851,12 +2955,12 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
     if (message.algorithm !== "") {
       obj.algorithm = message.algorithm;
     }
-    if (message.userData) {
-      const entries = Object.entries(message.userData);
+    if (message.userdata) {
+      const entries = Object.entries(message.userdata);
       if (entries.length > 0) {
-        obj.userData = {};
+        obj.userdata = {};
         entries.forEach(([k, v]) => {
-          obj.userData[k] = v;
+          obj.userdata[k] = v;
         });
       }
     }
@@ -2870,7 +2974,7 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
     const message = createBaseCreateComputeToDataRequest();
     message.did = object.did ?? "";
     message.algorithm = object.algorithm ?? "";
-    message.userData = Object.entries(object.userData ?? {}).reduce<{ [key: string]: string }>((acc, [key, value]) => {
+    message.userdata = Object.entries(object.userdata ?? {}).reduce<{ [key: string]: string }>((acc, [key, value]) => {
       if (value !== undefined) {
         acc[key] = globalThis.String(value);
       }
@@ -2880,12 +2984,12 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
   },
 };
 
-function createBaseCreateComputeToDataRequest_UserDataEntry(): CreateComputeToDataRequest_UserDataEntry {
+function createBaseCreateComputeToDataRequest_UserdataEntry(): CreateComputeToDataRequest_UserdataEntry {
   return { key: "", value: "" };
 }
 
-export const CreateComputeToDataRequest_UserDataEntry: MessageFns<CreateComputeToDataRequest_UserDataEntry> = {
-  encode(message: CreateComputeToDataRequest_UserDataEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const CreateComputeToDataRequest_UserdataEntry: MessageFns<CreateComputeToDataRequest_UserdataEntry> = {
+  encode(message: CreateComputeToDataRequest_UserdataEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.key !== "") {
       writer.uint32(10).string(message.key);
     }
@@ -2895,10 +2999,10 @@ export const CreateComputeToDataRequest_UserDataEntry: MessageFns<CreateComputeT
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): CreateComputeToDataRequest_UserDataEntry {
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateComputeToDataRequest_UserdataEntry {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseCreateComputeToDataRequest_UserDataEntry();
+    const message = createBaseCreateComputeToDataRequest_UserdataEntry();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -2927,14 +3031,14 @@ export const CreateComputeToDataRequest_UserDataEntry: MessageFns<CreateComputeT
     return message;
   },
 
-  fromJSON(object: any): CreateComputeToDataRequest_UserDataEntry {
+  fromJSON(object: any): CreateComputeToDataRequest_UserdataEntry {
     return {
       key: isSet(object.key) ? globalThis.String(object.key) : "",
       value: isSet(object.value) ? globalThis.String(object.value) : "",
     };
   },
 
-  toJSON(message: CreateComputeToDataRequest_UserDataEntry): unknown {
+  toJSON(message: CreateComputeToDataRequest_UserdataEntry): unknown {
     const obj: any = {};
     if (message.key !== "") {
       obj.key = message.key;
@@ -2945,15 +3049,15 @@ export const CreateComputeToDataRequest_UserDataEntry: MessageFns<CreateComputeT
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CreateComputeToDataRequest_UserDataEntry>, I>>(
+  create<I extends Exact<DeepPartial<CreateComputeToDataRequest_UserdataEntry>, I>>(
     base?: I,
-  ): CreateComputeToDataRequest_UserDataEntry {
-    return CreateComputeToDataRequest_UserDataEntry.fromPartial(base ?? ({} as any));
+  ): CreateComputeToDataRequest_UserdataEntry {
+    return CreateComputeToDataRequest_UserdataEntry.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CreateComputeToDataRequest_UserDataEntry>, I>>(
+  fromPartial<I extends Exact<DeepPartial<CreateComputeToDataRequest_UserdataEntry>, I>>(
     object: I,
-  ): CreateComputeToDataRequest_UserDataEntry {
-    const message = createBaseCreateComputeToDataRequest_UserDataEntry();
+  ): CreateComputeToDataRequest_UserdataEntry {
+    const message = createBaseCreateComputeToDataRequest_UserdataEntry();
     message.key = object.key ?? "";
     message.value = object.value ?? "";
     return message;

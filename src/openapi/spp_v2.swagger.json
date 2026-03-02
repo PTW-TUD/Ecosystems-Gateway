@@ -337,7 +337,10 @@
           "title": "defaults to the first file of the service"
         },
         "userdata": {
-          "type": "object"
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
@@ -530,7 +533,7 @@
         "algorithm": {
           "type": "string"
         },
-        "userData": {
+        "userdata": {
           "type": "object",
           "additionalProperties": {
             "type": "string"

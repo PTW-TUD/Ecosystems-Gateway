@@ -288,7 +288,7 @@ message AccessServiceRequest {
     optional string serviceId = 2;
     // defaults to the first file of the service
     optional int32 fileIndex = 3;
-    optional google.protobuf.Struct userdata = 4;
+    map<string, string> userdata = 4;
 }
 
 message AccessServiceResponse {
@@ -302,7 +302,7 @@ message AccessServiceResponse {
 message CreateComputeToDataRequest {
     string did = 1;
     string algorithm = 2;
-    map<string, string> user_data = 3;
+    map<string, string> userdata = 3;
 }
 
 message ComputeToDataResponse {
