@@ -26,6 +26,7 @@ import {
   ComputeConfig,
   MetadataConfig,
   CredentialListTypes,
+  PricingConfigWithoutOwner,
 } from '@deltadao/nautilus';
 import { ConsumerParameter } from '@oceanprotocol/lib';
 import { type Asset } from '@oceanprotocol/lib';
@@ -38,6 +39,7 @@ import {
   ComputeToDataResultType,
   GetComputeToDataResultResponse,
   ComputeToDataResponseState,
+  Pricing_PricingType,
 } from '../generated/spp_v2';
 import { CredentialEventServiceService } from '../credential-event-service/credential-event-service.service';
 import { RpcException } from '@nestjs/microservices';
@@ -168,6 +170,10 @@ export class PontusxService implements OnModuleInit {
   }
 
   async updateOffering(UpdateOffering: UpdateOfferingRequest_UpdateOffering) {
+    const metadata = new Metadata();
+    metadata.set('x-service', 'pontusx');
+    metadata.set('x-where', 'updateOffering');
+
     const release = await this.mutex.acquire();
     try {
       const offering = UpdateOffering.pontusxUpdateOffering;
@@ -185,15 +191,12 @@ export class PontusxService implements OnModuleInit {
 
       let updatedInd: Array<Number> = [];
 
-      offering.updateServices?.forEach((updateService) => {
+      offering.updateServices?.forEach(async (updateService) => {
         let serviceInd: number = 0;
         if (updateService.index !== undefined) {
           if (updateService.index in aquariusAsset.services) {
             serviceInd = updateService.index;
           } else {
-            const metadata = new Metadata();
-            metadata.set('x-service', 'pontusx');
-            metadata.set('x-where', 'updateOffering');
             throw new RpcException({
               code: GrpcStatusCode.OUT_OF_RANGE,
               message: `The requested service index ${updateService.index} is out of range of the existing services of the asset`,
@@ -201,7 +204,7 @@ export class PontusxService implements OnModuleInit {
             });
           }
         }
-        if (updatedInd.includes(serviceInd)) {
+        if (!updatedInd.includes(serviceInd)) {
           if (serviceInd === 0) {
             this.logger.debug(
               `Updating only first service of asset ${offering.did} ...`,
@@ -212,9 +215,10 @@ export class PontusxService implements OnModuleInit {
             );
           }
 
+          const serviceId = aquariusAsset.services[serviceInd].id;
           const serviceBuilder = new ServiceBuilder({
-            aquariusAsset,
-            serviceId: aquariusAsset.services[serviceInd].id,
+            aquariusAsset: aquariusAsset,
+            serviceId: serviceId,
           });
           const NautilusService = this.buildService(
             serviceBuilder,
@@ -222,6 +226,47 @@ export class PontusxService implements OnModuleInit {
             updateService.service,
           );
           filled_assetBuilder.addService(NautilusService);
+
+          //TODO: deduplicate these checks with the ones in buildService
+          if (updateService.service.pricing !== undefined) {
+            let pricing: PricingConfigWithoutOwner =
+              this.pricingConfig[
+                pricing_PricingTypeToJSON(
+                  updateService.service.pricing.pricingType,
+                )
+              ];
+            if (pricing.type !== 'free') {
+              if (
+                pricing.freCreationParams.baseTokenAddress !==
+                aquariusAsset.stats.price.tokenAddress
+              ) {
+                throw new RpcException({
+                  code: GrpcStatusCode.UNIMPLEMENTED,
+                  message: `Service ${serviceInd}: Payment token ${pricing_PricingTypeToJSON(updateService.service.pricing.pricingType)} differs from existing ${aquariusAsset.stats.price.tokenSymbol ?? 'free'} payment. Currently only a price value update is supported.`,
+                  metadata,
+                });
+              } else {
+                const newPrice = updateService.service.pricing.fixedRate;
+                if (newPrice === 0) {
+                  this.logger.warn(
+                    'Price value was not set or 0 when trying to update non-free service. Skipping...',
+                  );
+                } else {
+                  await this.nautilus.setServicePrice(
+                    aquariusAsset,
+                    serviceId,
+                    newPrice.toString(),
+                  );
+                }
+              }
+            } else {
+              await this.nautilus.setServicePrice(
+                aquariusAsset,
+                serviceId,
+                '0.0',
+              );
+            }
+          }
           updatedInd.push(serviceInd);
         } else {
           this.logger.warn(
@@ -487,23 +532,42 @@ export class PontusxService implements OnModuleInit {
         }
       }
     }
-    let pricing =
-      this.pricingConfig[
-        pricing_PricingTypeToJSON(service.pricing.pricingType)
-      ];
-    if (pricing.type !== 'free') {
-      pricing.freCreationParams.fixedRate =
-        service.pricing.fixedRate.toString() ??
-        pricing.freCreationParams.fixedRate;
-      this.logger.debug(
-        `Setting ${pricing_PricingTypeToJSON(
-          service.pricing.pricingType,
-        )} pricing with fixed Rate ${pricing.freCreationParams.fixedRate}`,
-      );
+    if (pxOffering && !pxUpdateOffering) {
+      if (!service.pricing) {
+        service.pricing = { pricingType: Pricing_PricingType.FREE };
+      }
+      let pricing: PricingConfigWithoutOwner =
+        this.pricingConfig[
+          pricing_PricingTypeToJSON(service.pricing.pricingType)
+        ];
+      if (pricing.type !== 'free') {
+        pricing.freCreationParams.fixedRate =
+          service.pricing.fixedRate.toString() ??
+          pricing.freCreationParams.fixedRate;
+        this.logger.debug(
+          `Setting ${pricing_PricingTypeToJSON(
+            service.pricing.pricingType,
+          )} pricing with fixed Rate ${pricing.freCreationParams.fixedRate}`,
+        );
+      } else {
+        this.logger.debug('Setting free pricing for service');
+      }
+      serviceBuilder.setPricing(pricing);
+    } else if (pxUpdateOffering) {
+      if (!service.pricing) {
+        this.logger.debug(
+          `Not updating pricing as it is missing in the request`,
+        );
+      }
+      //pricing should be updated above with nautilus.setServicePrice
     } else {
-      this.logger.debug('Setting free pricing for service');
+      throw new RpcException({
+        code: GrpcStatusCode.INVALID_ARGUMENT,
+        message:
+          'The message type does not fit a known Pontus-X request - when trying to resolve pricing',
+        metadata,
+      });
     }
-    serviceBuilder.setPricing(pricing);
 
     service.files.forEach((file) => {
       const urlFile: UrlFile = {
