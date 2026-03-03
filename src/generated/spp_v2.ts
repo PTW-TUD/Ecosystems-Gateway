@@ -436,6 +436,41 @@ export interface PontusxGetOffering {
   did: string;
 }
 
+/** ---------------------------------------------- QueryOfferings ---------------------------------------------- */
+export interface QueryOfferingsRequest {
+  query?: QueryOfferingsRequest_Query | undefined;
+}
+
+export interface QueryOfferingsRequest_Query {
+  pontusxQuery?: PontusxQueryOfferings | undefined;
+  xfscQuery?: XfscQueryOfferings | undefined;
+}
+
+export interface QueryOfferingsResponse {
+  offerings: string[];
+  total: number;
+}
+
+export interface XfscQueryOfferings {
+  did: string;
+  issuer: string;
+  /** TODO */
+  name: string;
+}
+
+export interface PontusxQueryOfferings {
+  /** make use of default values in proto. See: https://protobuf.dev/programming-guides/proto3/#default */
+  did?: string | undefined;
+  name?: string | undefined;
+  description?: string | undefined;
+  author?: string | undefined;
+  metadataType?: string | undefined;
+  serviceType?: string | undefined;
+  page?: number | undefined;
+  pageSize?: number | undefined;
+}
+
+/** ---------------------------------------------- AccessService ---------------------------------------------- */
 export interface AccessServiceRequest {
   did: string;
   /** defaults to the first service of the asset's metadata */
@@ -2604,6 +2639,497 @@ export const PontusxGetOffering: MessageFns<PontusxGetOffering> = {
   fromPartial<I extends Exact<DeepPartial<PontusxGetOffering>, I>>(object: I): PontusxGetOffering {
     const message = createBasePontusxGetOffering();
     message.did = object.did ?? "";
+    return message;
+  },
+};
+
+function createBaseQueryOfferingsRequest(): QueryOfferingsRequest {
+  return { query: undefined };
+}
+
+export const QueryOfferingsRequest: MessageFns<QueryOfferingsRequest> = {
+  encode(message: QueryOfferingsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.query !== undefined) {
+      QueryOfferingsRequest_Query.encode(message.query, writer.uint32(82).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): QueryOfferingsRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryOfferingsRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 10: {
+          if (tag !== 82) {
+            break;
+          }
+
+          message.query = QueryOfferingsRequest_Query.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryOfferingsRequest {
+    return { query: isSet(object.query) ? QueryOfferingsRequest_Query.fromJSON(object.query) : undefined };
+  },
+
+  toJSON(message: QueryOfferingsRequest): unknown {
+    const obj: any = {};
+    if (message.query !== undefined) {
+      obj.query = QueryOfferingsRequest_Query.toJSON(message.query);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<QueryOfferingsRequest>, I>>(base?: I): QueryOfferingsRequest {
+    return QueryOfferingsRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<QueryOfferingsRequest>, I>>(object: I): QueryOfferingsRequest {
+    const message = createBaseQueryOfferingsRequest();
+    message.query = (object.query !== undefined && object.query !== null)
+      ? QueryOfferingsRequest_Query.fromPartial(object.query)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseQueryOfferingsRequest_Query(): QueryOfferingsRequest_Query {
+  return { pontusxQuery: undefined, xfscQuery: undefined };
+}
+
+export const QueryOfferingsRequest_Query: MessageFns<QueryOfferingsRequest_Query> = {
+  encode(message: QueryOfferingsRequest_Query, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.pontusxQuery !== undefined) {
+      PontusxQueryOfferings.encode(message.pontusxQuery, writer.uint32(10).fork()).join();
+    }
+    if (message.xfscQuery !== undefined) {
+      XfscQueryOfferings.encode(message.xfscQuery, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): QueryOfferingsRequest_Query {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryOfferingsRequest_Query();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.pontusxQuery = PontusxQueryOfferings.decode(reader, reader.uint32());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.xfscQuery = XfscQueryOfferings.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryOfferingsRequest_Query {
+    return {
+      pontusxQuery: isSet(object.pontusxQuery) ? PontusxQueryOfferings.fromJSON(object.pontusxQuery) : undefined,
+      xfscQuery: isSet(object.xfscQuery) ? XfscQueryOfferings.fromJSON(object.xfscQuery) : undefined,
+    };
+  },
+
+  toJSON(message: QueryOfferingsRequest_Query): unknown {
+    const obj: any = {};
+    if (message.pontusxQuery !== undefined) {
+      obj.pontusxQuery = PontusxQueryOfferings.toJSON(message.pontusxQuery);
+    }
+    if (message.xfscQuery !== undefined) {
+      obj.xfscQuery = XfscQueryOfferings.toJSON(message.xfscQuery);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<QueryOfferingsRequest_Query>, I>>(base?: I): QueryOfferingsRequest_Query {
+    return QueryOfferingsRequest_Query.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<QueryOfferingsRequest_Query>, I>>(object: I): QueryOfferingsRequest_Query {
+    const message = createBaseQueryOfferingsRequest_Query();
+    message.pontusxQuery = (object.pontusxQuery !== undefined && object.pontusxQuery !== null)
+      ? PontusxQueryOfferings.fromPartial(object.pontusxQuery)
+      : undefined;
+    message.xfscQuery = (object.xfscQuery !== undefined && object.xfscQuery !== null)
+      ? XfscQueryOfferings.fromPartial(object.xfscQuery)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseQueryOfferingsResponse(): QueryOfferingsResponse {
+  return { offerings: [], total: 0 };
+}
+
+export const QueryOfferingsResponse: MessageFns<QueryOfferingsResponse> = {
+  encode(message: QueryOfferingsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.offerings) {
+      writer.uint32(10).string(v!);
+    }
+    if (message.total !== 0) {
+      writer.uint32(16).int32(message.total);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): QueryOfferingsResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseQueryOfferingsResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.offerings.push(reader.string());
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.total = reader.int32();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): QueryOfferingsResponse {
+    return {
+      offerings: globalThis.Array.isArray(object?.offerings)
+        ? object.offerings.map((e: any) => globalThis.String(e))
+        : [],
+      total: isSet(object.total) ? globalThis.Number(object.total) : 0,
+    };
+  },
+
+  toJSON(message: QueryOfferingsResponse): unknown {
+    const obj: any = {};
+    if (message.offerings?.length) {
+      obj.offerings = message.offerings;
+    }
+    if (message.total !== 0) {
+      obj.total = Math.round(message.total);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<QueryOfferingsResponse>, I>>(base?: I): QueryOfferingsResponse {
+    return QueryOfferingsResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<QueryOfferingsResponse>, I>>(object: I): QueryOfferingsResponse {
+    const message = createBaseQueryOfferingsResponse();
+    message.offerings = object.offerings?.map((e) => e) || [];
+    message.total = object.total ?? 0;
+    return message;
+  },
+};
+
+function createBaseXfscQueryOfferings(): XfscQueryOfferings {
+  return { did: "", issuer: "", name: "" };
+}
+
+export const XfscQueryOfferings: MessageFns<XfscQueryOfferings> = {
+  encode(message: XfscQueryOfferings, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.did !== "") {
+      writer.uint32(10).string(message.did);
+    }
+    if (message.issuer !== "") {
+      writer.uint32(18).string(message.issuer);
+    }
+    if (message.name !== "") {
+      writer.uint32(26).string(message.name);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): XfscQueryOfferings {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseXfscQueryOfferings();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.did = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.issuer = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.name = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): XfscQueryOfferings {
+    return {
+      did: isSet(object.did) ? globalThis.String(object.did) : "",
+      issuer: isSet(object.issuer) ? globalThis.String(object.issuer) : "",
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+    };
+  },
+
+  toJSON(message: XfscQueryOfferings): unknown {
+    const obj: any = {};
+    if (message.did !== "") {
+      obj.did = message.did;
+    }
+    if (message.issuer !== "") {
+      obj.issuer = message.issuer;
+    }
+    if (message.name !== "") {
+      obj.name = message.name;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<XfscQueryOfferings>, I>>(base?: I): XfscQueryOfferings {
+    return XfscQueryOfferings.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<XfscQueryOfferings>, I>>(object: I): XfscQueryOfferings {
+    const message = createBaseXfscQueryOfferings();
+    message.did = object.did ?? "";
+    message.issuer = object.issuer ?? "";
+    message.name = object.name ?? "";
+    return message;
+  },
+};
+
+function createBasePontusxQueryOfferings(): PontusxQueryOfferings {
+  return {
+    did: undefined,
+    name: undefined,
+    description: undefined,
+    author: undefined,
+    metadataType: undefined,
+    serviceType: undefined,
+    page: undefined,
+    pageSize: undefined,
+  };
+}
+
+export const PontusxQueryOfferings: MessageFns<PontusxQueryOfferings> = {
+  encode(message: PontusxQueryOfferings, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.did !== undefined) {
+      writer.uint32(10).string(message.did);
+    }
+    if (message.name !== undefined) {
+      writer.uint32(18).string(message.name);
+    }
+    if (message.description !== undefined) {
+      writer.uint32(26).string(message.description);
+    }
+    if (message.author !== undefined) {
+      writer.uint32(34).string(message.author);
+    }
+    if (message.metadataType !== undefined) {
+      writer.uint32(42).string(message.metadataType);
+    }
+    if (message.serviceType !== undefined) {
+      writer.uint32(50).string(message.serviceType);
+    }
+    if (message.page !== undefined) {
+      writer.uint32(56).int32(message.page);
+    }
+    if (message.pageSize !== undefined) {
+      writer.uint32(64).int32(message.pageSize);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): PontusxQueryOfferings {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBasePontusxQueryOfferings();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.did = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.name = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.description = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.author = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.metadataType = reader.string();
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.serviceType = reader.string();
+          continue;
+        }
+        case 7: {
+          if (tag !== 56) {
+            break;
+          }
+
+          message.page = reader.int32();
+          continue;
+        }
+        case 8: {
+          if (tag !== 64) {
+            break;
+          }
+
+          message.pageSize = reader.int32();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): PontusxQueryOfferings {
+    return {
+      did: isSet(object.did) ? globalThis.String(object.did) : undefined,
+      name: isSet(object.name) ? globalThis.String(object.name) : undefined,
+      description: isSet(object.description) ? globalThis.String(object.description) : undefined,
+      author: isSet(object.author) ? globalThis.String(object.author) : undefined,
+      metadataType: isSet(object.metadataType) ? globalThis.String(object.metadataType) : undefined,
+      serviceType: isSet(object.serviceType) ? globalThis.String(object.serviceType) : undefined,
+      page: isSet(object.page) ? globalThis.Number(object.page) : undefined,
+      pageSize: isSet(object.pageSize) ? globalThis.Number(object.pageSize) : undefined,
+    };
+  },
+
+  toJSON(message: PontusxQueryOfferings): unknown {
+    const obj: any = {};
+    if (message.did !== undefined) {
+      obj.did = message.did;
+    }
+    if (message.name !== undefined) {
+      obj.name = message.name;
+    }
+    if (message.description !== undefined) {
+      obj.description = message.description;
+    }
+    if (message.author !== undefined) {
+      obj.author = message.author;
+    }
+    if (message.metadataType !== undefined) {
+      obj.metadataType = message.metadataType;
+    }
+    if (message.serviceType !== undefined) {
+      obj.serviceType = message.serviceType;
+    }
+    if (message.page !== undefined) {
+      obj.page = Math.round(message.page);
+    }
+    if (message.pageSize !== undefined) {
+      obj.pageSize = Math.round(message.pageSize);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<PontusxQueryOfferings>, I>>(base?: I): PontusxQueryOfferings {
+    return PontusxQueryOfferings.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<PontusxQueryOfferings>, I>>(object: I): PontusxQueryOfferings {
+    const message = createBasePontusxQueryOfferings();
+    message.did = object.did ?? undefined;
+    message.name = object.name ?? undefined;
+    message.description = object.description ?? undefined;
+    message.author = object.author ?? undefined;
+    message.metadataType = object.metadataType ?? undefined;
+    message.serviceType = object.serviceType ?? undefined;
+    message.page = object.page ?? undefined;
+    message.pageSize = object.pageSize ?? undefined;
     return message;
   },
 };
@@ -5057,9 +5583,10 @@ export const CredentialLists: MessageFns<CredentialLists> = {
   },
 };
 
-/** service definition for publisher */
+/** service definition for gateway */
 export type ecosystemsgatewayService = typeof ecosystemsgatewayService;
 export const ecosystemsgatewayService = {
+  /** Publication-Endpoints */
   createOffering: {
     path: "/eupg.ecosystemsgateway.ecosystemsgateway/CreateOffering",
     requestStream: false,
@@ -5078,24 +5605,6 @@ export const ecosystemsgatewayService = {
     responseSerialize: (value: UpdateOfferingResponse) => Buffer.from(UpdateOfferingResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer) => UpdateOfferingResponse.decode(value),
   },
-  getOffering: {
-    path: "/eupg.ecosystemsgateway.ecosystemsgateway/GetOffering",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: GetOfferingRequest) => Buffer.from(GetOfferingRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer) => GetOfferingRequest.decode(value),
-    responseSerialize: (value: GetOfferingResponse) => Buffer.from(GetOfferingResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer) => GetOfferingResponse.decode(value),
-  },
-  accessService: {
-    path: "/eupg.ecosystemsgateway.ecosystemsgateway/AccessService",
-    requestStream: false,
-    responseStream: false,
-    requestSerialize: (value: AccessServiceRequest) => Buffer.from(AccessServiceRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer) => AccessServiceRequest.decode(value),
-    responseSerialize: (value: AccessServiceResponse) => Buffer.from(AccessServiceResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer) => AccessServiceResponse.decode(value),
-  },
   updateOfferingLifecycle: {
     path: "/eupg.ecosystemsgateway.ecosystemsgateway/UpdateOfferingLifecycle",
     requestStream: false,
@@ -5107,6 +5616,35 @@ export const ecosystemsgatewayService = {
       Buffer.from(UpdateOfferingLifecycleResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer) => UpdateOfferingLifecycleResponse.decode(value),
   },
+  /** Comsumer-Endpoints */
+  getOffering: {
+    path: "/eupg.ecosystemsgateway.ecosystemsgateway/GetOffering",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: GetOfferingRequest) => Buffer.from(GetOfferingRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => GetOfferingRequest.decode(value),
+    responseSerialize: (value: GetOfferingResponse) => Buffer.from(GetOfferingResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => GetOfferingResponse.decode(value),
+  },
+  queryOfferings: {
+    path: "/eupg.ecosystemsgateway.ecosystemsgateway/QueryOfferings",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: QueryOfferingsRequest) => Buffer.from(QueryOfferingsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => QueryOfferingsRequest.decode(value),
+    responseSerialize: (value: QueryOfferingsResponse) => Buffer.from(QueryOfferingsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => QueryOfferingsResponse.decode(value),
+  },
+  accessService: {
+    path: "/eupg.ecosystemsgateway.ecosystemsgateway/AccessService",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: AccessServiceRequest) => Buffer.from(AccessServiceRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => AccessServiceRequest.decode(value),
+    responseSerialize: (value: AccessServiceResponse) => Buffer.from(AccessServiceResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => AccessServiceResponse.decode(value),
+  },
+  /** C2D-Endpoints */
   runComputeToDataJob: {
     path: "/eupg.ecosystemsgateway.ecosystemsgateway/RunComputeToDataJob",
     requestStream: false,
@@ -5142,17 +5680,22 @@ export const ecosystemsgatewayService = {
 } as const;
 
 export interface ecosystemsgatewayServer extends UntypedServiceImplementation {
+  /** Publication-Endpoints */
   createOffering: handleUnaryCall<CreateOfferingRequest, CreateOfferingResponse>;
   updateOffering: handleUnaryCall<UpdateOfferingRequest, UpdateOfferingResponse>;
-  getOffering: handleUnaryCall<GetOfferingRequest, GetOfferingResponse>;
-  accessService: handleUnaryCall<AccessServiceRequest, AccessServiceResponse>;
   updateOfferingLifecycle: handleUnaryCall<UpdateOfferingLifecycleRequest, UpdateOfferingLifecycleResponse>;
+  /** Comsumer-Endpoints */
+  getOffering: handleUnaryCall<GetOfferingRequest, GetOfferingResponse>;
+  queryOfferings: handleUnaryCall<QueryOfferingsRequest, QueryOfferingsResponse>;
+  accessService: handleUnaryCall<AccessServiceRequest, AccessServiceResponse>;
+  /** C2D-Endpoints */
   runComputeToDataJob: handleUnaryCall<CreateComputeToDataRequest, ComputeToDataResponse>;
   getComputeToDataStatus: handleUnaryCall<ComputeToDataStatusRequest, ComputeToDataStatusResponse>;
   getComputeToDataResult: handleUnaryCall<CreateComputeToDataResultRequest, GetComputeToDataResultResponse>;
 }
 
 export interface ecosystemsgatewayClient extends Client {
+  /** Publication-Endpoints */
   createOffering(
     request: CreateOfferingRequest,
     callback: (error: ServiceError | null, response: CreateOfferingResponse) => void,
@@ -5183,6 +5726,22 @@ export interface ecosystemsgatewayClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: UpdateOfferingResponse) => void,
   ): ClientUnaryCall;
+  updateOfferingLifecycle(
+    request: UpdateOfferingLifecycleRequest,
+    callback: (error: ServiceError | null, response: UpdateOfferingLifecycleResponse) => void,
+  ): ClientUnaryCall;
+  updateOfferingLifecycle(
+    request: UpdateOfferingLifecycleRequest,
+    metadata: Metadata1,
+    callback: (error: ServiceError | null, response: UpdateOfferingLifecycleResponse) => void,
+  ): ClientUnaryCall;
+  updateOfferingLifecycle(
+    request: UpdateOfferingLifecycleRequest,
+    metadata: Metadata1,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: UpdateOfferingLifecycleResponse) => void,
+  ): ClientUnaryCall;
+  /** Comsumer-Endpoints */
   getOffering(
     request: GetOfferingRequest,
     callback: (error: ServiceError | null, response: GetOfferingResponse) => void,
@@ -5197,6 +5756,21 @@ export interface ecosystemsgatewayClient extends Client {
     metadata: Metadata1,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: GetOfferingResponse) => void,
+  ): ClientUnaryCall;
+  queryOfferings(
+    request: QueryOfferingsRequest,
+    callback: (error: ServiceError | null, response: QueryOfferingsResponse) => void,
+  ): ClientUnaryCall;
+  queryOfferings(
+    request: QueryOfferingsRequest,
+    metadata: Metadata1,
+    callback: (error: ServiceError | null, response: QueryOfferingsResponse) => void,
+  ): ClientUnaryCall;
+  queryOfferings(
+    request: QueryOfferingsRequest,
+    metadata: Metadata1,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: QueryOfferingsResponse) => void,
   ): ClientUnaryCall;
   accessService(
     request: AccessServiceRequest,
@@ -5213,21 +5787,7 @@ export interface ecosystemsgatewayClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: AccessServiceResponse) => void,
   ): ClientUnaryCall;
-  updateOfferingLifecycle(
-    request: UpdateOfferingLifecycleRequest,
-    callback: (error: ServiceError | null, response: UpdateOfferingLifecycleResponse) => void,
-  ): ClientUnaryCall;
-  updateOfferingLifecycle(
-    request: UpdateOfferingLifecycleRequest,
-    metadata: Metadata1,
-    callback: (error: ServiceError | null, response: UpdateOfferingLifecycleResponse) => void,
-  ): ClientUnaryCall;
-  updateOfferingLifecycle(
-    request: UpdateOfferingLifecycleRequest,
-    metadata: Metadata1,
-    options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: UpdateOfferingLifecycleResponse) => void,
-  ): ClientUnaryCall;
+  /** C2D-Endpoints */
   runComputeToDataJob(
     request: CreateComputeToDataRequest,
     callback: (error: ServiceError | null, response: ComputeToDataResponse) => void,

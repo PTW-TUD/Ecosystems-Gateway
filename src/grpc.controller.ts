@@ -19,6 +19,8 @@ import {
   AccessServiceResponse,
   ComputeToDataStatusRequest,
   ComputeToDataStatusResponse,
+  QueryOfferingsRequest,
+  QueryOfferingsResponse,
 } from './generated/spp_v2';
 import { status as GrpcStatusCode } from '@grpc/grpc-js';
 import {
@@ -120,7 +122,6 @@ export class GrpcController {
     }
   }
 
-  // TODO: always use runRpc with pontusxService
   @GrpcMethod('ecosystemsgateway')
   async updateOffering(
     data: UpdateOfferingRequest,
@@ -247,7 +248,7 @@ export class GrpcController {
     const result: string[] = [];
     await Promise.all(
       data.offerings.map(async (offering) => {
-        if (offering.pontusxOffering) {
+        if (offering.pontusxOffering !== undefined) {
           const pontusxResult = await this.runRpc('getPontusxOffering', () =>
             this.pontusxService.getOffering(offering.pontusxOffering.did),
           );
@@ -256,7 +257,7 @@ export class GrpcController {
           }
         }
 
-        if (offering.xfscOffering) {
+        if (offering.xfscOffering !== undefined) {
           const xfscResult = await this.runRpc('getXfscOffering', () =>
             this.xfscService.getOffering(
               offering.xfscOffering.did,
@@ -283,8 +284,54 @@ export class GrpcController {
     });
   }
 
+  @GrpcMethod('ecosystemgateway')
+  async queryOfferings(
+    data: QueryOfferingsRequest,
+  ): Promise<QueryOfferingsResponse> {
+    this.logger.debug('grpc method QueryOfferings called');
+    this.logger.verbose(data);
+
+    const result: string[] = [];
+    let resultTotal: number = 0;
+
+    if (data.query.pontusxQuery !== undefined) {
+      const queryResult = await this.runRpc('queryOfferings', () =>
+        this.pontusxService.queryOfferings(
+          data.query.pontusxQuery.did,
+          data.query.pontusxQuery.name,
+          data.query.pontusxQuery.description,
+          data.query.pontusxQuery.author,
+          data.query.pontusxQuery.metadataType,
+          data.query.pontusxQuery.serviceType,
+          data.query.pontusxQuery.page,
+          data.query.pontusxQuery.pageSize,
+        ),
+      );
+      const resultOfferings = queryResult[0];
+      for (let asset of resultOfferings) {
+        result.push(JSON.stringify(asset));
+      }
+      resultTotal = queryResult[1];
+    } else {
+      throw new RpcException({
+        code: GrpcStatusCode.UNIMPLEMENTED,
+        message: 'xfscQuery is currently not implemented',
+      });
+    }
+    if (result.length) {
+      return {
+        offerings: result,
+        total: resultTotal,
+      };
+    }
+    throw new RpcException({
+      code: GrpcStatusCode.INTERNAL,
+      message: 'Internal Error - no results',
+    });
+  }
+
   @GrpcMethod('ecosystemsgateway')
-  async AccessService(
+  async accessService(
     data: AccessServiceRequest,
   ): Promise<AccessServiceResponse> {
     this.logger.debug('grpc method AccessService called');

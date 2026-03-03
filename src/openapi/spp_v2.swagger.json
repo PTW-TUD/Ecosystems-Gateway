@@ -186,6 +186,39 @@
         ]
       }
     },
+    "/grpc/QueryOfferings": {
+      "post": {
+        "summary": "QueryOfferings",
+        "operationId": "ecosystemsgateway_QueryOfferings",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ecosystemsgatewayQueryOfferingsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ecosystemsgatewayQueryOfferingsRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ecosystemsgateway"
+        ]
+      }
+    },
     "/grpc/RunComputeToDataJob": {
       "post": {
         "summary": "RunComputeToDataJob",
@@ -310,6 +343,17 @@
       ],
       "default": "FREE"
     },
+    "QueryOfferingsRequestQuery": {
+      "type": "object",
+      "properties": {
+        "pontusxQuery": {
+          "$ref": "#/definitions/ecosystemsgatewayPontusxQueryOfferings"
+        },
+        "xfscQuery": {
+          "$ref": "#/definitions/ecosystemsgatewayXfscQueryOfferings"
+        }
+      }
+    },
     "XfscUpdateOfferingLifecycleXfscLifecycleStates": {
       "type": "string",
       "enum": [
@@ -342,7 +386,8 @@
             "type": "string"
           }
         }
-      }
+      },
+      "title": "---------------------------------------------- AccessService ----------------------------------------------"
     },
     "ecosystemsgatewayAccessServiceResponse": {
       "type": "object",
@@ -886,6 +931,38 @@
       },
       "title": "Message for publication into the Pontus-X ecosystem"
     },
+    "ecosystemsgatewayPontusxQueryOfferings": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string",
+          "title": "make use of default values in proto. See: https://protobuf.dev/programming-guides/proto3/#default"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "metadataType": {
+          "type": "string"
+        },
+        "serviceType": {
+          "type": "string"
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
     "ecosystemsgatewayPontusxUpdateOffering": {
       "type": "object",
       "properties": {
@@ -955,6 +1032,30 @@
         }
       },
       "title": "Publish info used in UpdateOfferingRequest\r\nUsed for additionally publishing Offering to Credential Event Service"
+    },
+    "ecosystemsgatewayQueryOfferingsRequest": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/QueryOfferingsRequestQuery"
+        }
+      },
+      "title": "---------------------------------------------- QueryOfferings ----------------------------------------------"
+    },
+    "ecosystemsgatewayQueryOfferingsResponse": {
+      "type": "object",
+      "properties": {
+        "offerings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
     },
     "ecosystemsgatewayService": {
       "type": "object",
@@ -1152,6 +1253,21 @@
         }
       },
       "title": "Message for publication into the Cross Federation Services Catalogue"
+    },
+    "ecosystemsgatewayXfscQueryOfferings": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "title": "TODO"
+        }
+      }
     },
     "ecosystemsgatewayXfscUpdateOffering": {
       "type": "object",

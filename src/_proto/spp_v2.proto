@@ -26,8 +26,9 @@ option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
     produces: "application/json";
 };
 
-//service definition for publisher
+//service definition for gateway
 service ecosystemsgateway{
+    // Publication-Endpoints
     rpc CreateOffering(CreateOfferingRequest) returns (CreateOfferingResponse){
         option (google.api.http) = {
             post: "/grpc/CreateOffering";
@@ -48,6 +49,18 @@ service ecosystemsgateway{
             tags: "ecosystemsgateway";
         };
     }
+    rpc UpdateOfferingLifecycle(UpdateOfferingLifecycleRequest) returns (UpdateOfferingLifecycleResponse){
+        option (google.api.http) = {
+            post: "/grpc/UpdateOfferingLifecycle";
+            body: "*";
+        };
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "UpdateOfferingLifecycle";
+            tags: "ecosystemsgateway";
+        };
+    }
+
+    // Comsumer-Endpoints
     rpc GetOffering(GetOfferingRequest) returns (GetOfferingResponse) {
         option (google.api.http) = {
             post: "/grpc/GetOffering";
@@ -55,6 +68,16 @@ service ecosystemsgateway{
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
             summary: "GetOffering";
+            tags: "ecosystemsgateway";
+        };
+    }
+    rpc QueryOfferings(QueryOfferingsRequest) returns (QueryOfferingsResponse) {
+        option (google.api.http) = {
+            post: "/grpc/QueryOfferings";
+            body: "*";
+        };
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "QueryOfferings";
             tags: "ecosystemsgateway";
         };
     }
@@ -68,17 +91,8 @@ service ecosystemsgateway{
             tags: "ecosystemsgateway";
         };
     }
-    rpc UpdateOfferingLifecycle(UpdateOfferingLifecycleRequest) returns (UpdateOfferingLifecycleResponse){
-        option (google.api.http) = {
-            post: "/grpc/UpdateOfferingLifecycle";
-            body: "*";
-        };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "UpdateOfferingLifecycle";
-            tags: "ecosystemsgateway";
-        };
-    }
 
+    // C2D-Endpoints
     rpc RunComputeToDataJob(CreateComputeToDataRequest) returns (ComputeToDataResponse){
         option (google.api.http) = {
             post: "/grpc/RunComputeToDataJob";
@@ -331,6 +345,46 @@ message PontusxGetOffering {
     string did = 1;
 }
 
+/*
+---------------------------------------------- QueryOfferings ----------------------------------------------
+*/
+message QueryOfferingsRequest {
+    message Query {
+        oneof EcosystemQuery {
+            PontusxQueryOfferings pontusxQuery = 1;
+            XfscQueryOfferings xfscQuery = 2;
+        }
+    }
+    Query query = 10;
+}
+
+message QueryOfferingsResponse {
+    repeated string offerings = 1;
+    int32 total = 2;
+}
+
+message XfscQueryOfferings {
+    string did = 1;
+    string issuer = 2;
+    string name = 3;
+    //TODO
+}
+
+message PontusxQueryOfferings {
+    //make use of default values in proto. See: https://protobuf.dev/programming-guides/proto3/#default
+    optional string did = 1;
+    optional string name = 2;
+    optional string description = 3;
+    optional string author = 4;
+    optional string metadataType = 5;
+    optional string serviceType = 6;
+    optional int32 page = 7;
+    optional int32 pageSize = 8;
+}
+
+/*
+---------------------------------------------- AccessService ----------------------------------------------
+*/
 message AccessServiceRequest {
     string did = 1;
     // defaults to the first service of the asset's metadata

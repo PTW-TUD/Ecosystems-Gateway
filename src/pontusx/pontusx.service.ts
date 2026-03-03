@@ -542,11 +542,149 @@ export class PontusxService implements OnModuleInit {
     return this.nautilus.getAquariusAsset(did);
   }
 
+  async queryOfferings(
+    did: string,
+    name: string,
+    description: string,
+    author: string,
+    metadataType: string,
+    serviceType: string,
+    page: number,
+    pageSize: number,
+  ): Promise<[Asset[], number]> {
+    const metadata = new Metadata();
+    metadata.set('x-service', 'pontusx');
+    metadata.set('x-where', 'queryOfferings');
+    const apiPath = '/api/aquarius/assets/query';
+
+    const metadataCacheUri = this.getSelectedNetworkConfig().metadataCacheUri;
+
+    if (!metadataCacheUri) {
+      throw new RpcException({
+        code: GrpcStatusCode.FAILED_PRECONDITION,
+        message: 'No metadata cache URI (aquarius) provided',
+        metadata,
+      });
+    }
+
+    const queryPayload = this.buildQueryPayload(
+      did,
+      name,
+      description,
+      author,
+      metadataType,
+      serviceType,
+      page,
+      pageSize,
+    );
+
+    const assets: Asset[] = [];
+    let total = 0;
+    const fullAquariusUrl = new URL(apiPath, metadataCacheUri).href;
+    const response: AxiosResponse<any> = await axios.post(
+      fullAquariusUrl,
+      queryPayload,
+    );
+
+    if (response?.status === 200 && response?.data?.hits) {
+      for (const hit of response.data.hits.hits) {
+        const asset: Asset = hit._source;
+        if (asset?.id) {
+          assets.push(asset);
+        }
+      }
+      total = response.data.hits.total.value;
+    }
+    return [assets, total];
+  }
+
+  buildQueryPayload(
+    did: string,
+    name: string,
+    description: string,
+    author: string,
+    metadataType: string,
+    serviceType: string,
+    page: number,
+    pageSize: number,
+  ) {
+    const attribute_queries = [];
+    if (did)
+      attribute_queries.push({
+        query_string: {
+          query: did.replace('did:op:', '*'),
+          fields: [
+            'id',
+            'datatokens.address',
+            'datatokens.name',
+            'datatokens.symbol',
+          ],
+        },
+      });
+    if (name)
+      attribute_queries.push({
+        query_string: {
+          query: name,
+          fields: ['datatokens.name', 'metadata.name^10'],
+        },
+      });
+    if (description)
+      attribute_queries.push({
+        query_string: {
+          query: description,
+          fields: ['metadata.description', 'metadata.tags'],
+        },
+      });
+    if (author)
+      attribute_queries.push({
+        query_string: {
+          query: author,
+          fields: ['nft.owner', 'metadata.author'],
+        },
+      });
+
+    if (attribute_queries.length === 0)
+      attribute_queries.push({ match_all: {} });
+
+    if (!pageSize) pageSize = 50;
+    if (!metadataType) metadataType = 'dataset';
+    if (!serviceType) metadataType = 'access';
+
+    const payload = {
+      from: pageSize * page,
+      size: pageSize,
+      query: {
+        bool: {
+          must: [{ bool: { should: attribute_queries } }],
+          filter: [
+            { terms: { chainId: [32456, 32457] } },
+            { terms: { _index: ['v510'] } },
+            { term: { 'purgatory.state': false } },
+            {
+              bool: {
+                must_not: [
+                  { term: { 'nft.state': 5 } },
+                  { term: { 'price.type': 'pool' } },
+                ],
+              },
+            },
+            {
+              term: { 'metadata.type': metadataType },
+            },
+            { term: { 'services.type': serviceType } },
+          ],
+        },
+      },
+      sort: { 'nft.created': 'desc' },
+    };
+    return payload;
+  }
+
   async accessService(
     did: string,
     serviceId: string,
     fileIndex: number,
-    userdata: {},
+    userdata: { [key: string]: string },
   ): Promise<string> {
     //TODO: integrate data storage in redis as option?
     const metadata = new Metadata();
@@ -574,7 +712,7 @@ export class PontusxService implements OnModuleInit {
       const serviceCandidate = dataset.services?.find(
         (s) => s.id === serviceId,
       );
-      if (serviceCandidate) {
+      if (!serviceCandidate) {
         serviceId = '';
       }
     }
@@ -593,6 +731,7 @@ export class PontusxService implements OnModuleInit {
         .access({
           assetDid: did,
           fileIndex: fileIndex,
+          serviceId: serviceId,
           userdata: userdata,
         })
         .catch((_reason) => {
@@ -612,7 +751,7 @@ export class PontusxService implements OnModuleInit {
   async requestComputeToData(
     did: string,
     algo: string,
-    userdata: {},
+    userdata: { [key: string]: string },
   ): Promise<string[]> {
     const release = await this.mutex.acquire();
     const metadata = new Metadata();
