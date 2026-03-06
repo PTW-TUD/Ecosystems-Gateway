@@ -49,10 +49,6 @@ service ecosystemsgateway{
             post: "/grpc/QueryOfferings";
             body: "*";
         };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "QueryOfferings";
-            tags: "ecosystemsgateway";
-        };
     }
     rpc RunComputeToDataJob(CreateComputeToDataRequest) returns (ComputeToDataResponse){
         option (google.api.http) = {
