@@ -1,6 +1,6 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
-import { join } from 'path';
+import { join, resolve } from 'path';
 
 export function loadGrpcServiceDefinition(
   protoPath: string,
@@ -10,9 +10,12 @@ export function loadGrpcServiceDefinition(
   const packageDefinition = protoLoader.loadSync(join(__dirname, protoPath), {
     keepCase: true,
     longs: String,
-    enums: String,
     defaults: true,
     oneofs: true,
+    includeDirs: [
+      join(__dirname, './_proto'),
+      resolve(__dirname, '..', 'node_modules', 'google-proto-files'),
+    ],
   });
 
   const protoDescriptor = grpc.loadPackageDefinition(packageDefinition) as any;
@@ -49,9 +52,12 @@ export function loadGrpcClient(
   const packageDefinition = protoLoader.loadSync(join(__dirname, protoPath), {
     keepCase: true,
     longs: String,
-    enums: String,
     defaults: true,
     oneofs: true,
+    includeDirs: [
+      join(__dirname, './_proto'),
+      resolve(__dirname, '..', 'node_modules', 'google-proto-files'),
+    ],
   });
 
   const protoDescriptor = grpc.loadPackageDefinition(packageDefinition) as any;

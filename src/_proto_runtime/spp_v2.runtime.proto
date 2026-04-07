@@ -9,22 +9,8 @@ package eupg.ecosystemsgateway;
 
 import "google/protobuf/struct.proto";
 import "google/api/annotations.proto";
-import "protoc-gen-openapiv2/options/annotations.proto";
 
 option go_package = "ecosystemsgateway/pb";
-
-option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
-    info: {
-        title: "Ecosystem Gateway API";
-        version: "1.0";
-        description: "HTTP/JSON gateway for publishing, querying, and consuming ecosystem offerings.";
-    };
-    // Host intentionally omitted to allow same-origin usage from Swagger UI
-    base_path: "/";
-    schemes: HTTP; //add HTTPS in prod
-    consumes: "application/json";
-    produces: "application/json";
-};
 
 // Public gateway API for publishing, querying, and consuming offerings across supported ecosystems.
 service ecosystemsgateway{
@@ -34,32 +20,17 @@ service ecosystemsgateway{
             post: "/grpc/CreateOffering";
             body: "*";
         };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "Create offering";
-            description: "Publishes one or more offerings to Pontus-X and/or XFSC.";
-            tags: "ecosystemsgateway";
-        };
     }
     rpc UpdateOffering(UpdateOfferingRequest) returns (UpdateOfferingResponse){
         option (google.api.http) = {
             post: "/grpc/UpdateOffering";
             body: "*";
         };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "Update offering";
-            description: "Updates an existing offering in the target ecosystem.";
-            tags: "ecosystemsgateway";
-        };
     }
     rpc UpdateOfferingLifecycle(UpdateOfferingLifecycleRequest) returns (UpdateOfferingLifecycleResponse){
         option (google.api.http) = {
             post: "/grpc/UpdateOfferingLifecycle";
             body: "*";
-        };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "Update offering lifecycle";
-            description: "Changes the lifecycle state of an existing offering.";
-            tags: "ecosystemsgateway";
         };
     }
 
@@ -69,32 +40,17 @@ service ecosystemsgateway{
             post: "/grpc/GetOffering";
             body: "*";
         };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "Get offering";
-            description: "Fetches one or more offerings by identifier or lookup criteria.";
-            tags: "ecosystemsgateway";
-        };
-    }
-    rpc QueryOfferings(QueryOfferingsRequest) returns (QueryOfferingsResponse) {
-        option (google.api.http) = {
-            post: "/grpc/QueryOfferings";
-            body: "*";
-        };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "Query offerings";
-            description: "Searches offerings in the selected ecosystem.";
-            tags: "ecosystemsgateway";
-        };
     }
     rpc AccessService(AccessServiceRequest) returns (AccessServiceResponse) {
         option (google.api.http) = {
             post: "/grpc/AccessService";
             body: "*";
         };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "Access service";
-            description: "Requests an access URL for a published service.";
-            tags: "ecosystemsgateway";
+    }
+    rpc QueryOfferings(QueryOfferingsRequest) returns (QueryOfferingsResponse) {
+        option (google.api.http) = {
+            post: "/grpc/QueryOfferings";
+            body: "*";
         };
     }
 
@@ -104,41 +60,23 @@ service ecosystemsgateway{
             post: "/grpc/RunComputeToDataJob";
             body: "*";
         };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "Run compute-to-data job";
-            description: "Starts a compute-to-data job for a published asset.";
-            tags: "ecosystemsgateway";
-        };
     }
     rpc GetComputeToDataStatus(ComputeToDataStatusRequest) returns (ComputeToDataStatusResponse){
         option (google.api.http) = {
             post: "/grpc/GetComputeToDataStatus";
             body: "*";
         };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "Get compute-to-data status";
-            description: "Returns the current execution status of a compute-to-data job.";
-            tags: "ecosystemsgateway";
-        };
-    }
+    } 
     rpc GetComputeToDataResult(CreateComputeToDataResultRequest) returns (GetComputeToDataResultResponse){
         option (google.api.http) = {
             post: "/grpc/GetComputeToDataResult";
             body: "*";
-        };
-        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "Get compute-to-data result";
-            description: "Returns the output of a completed compute-to-data job.";
-            tags: "ecosystemsgateway";
         };
     }
 }
 
 // Request payload for creating offerings in one or more supported ecosystems.
 message CreateOfferingRequest {
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
-        example: "{\n    \"offerings\": [\n        {\n            \"pontusxOffering\": {\n                \"metadata\": {\n                    \"type\": \"anim\",\n                    \"name\": \"Excepteur ex dolor\",\n                    \"description\": \"eu consequat\",\n                    \"author\": \"qui occaecat officia Ut sint\",\n                    \"licence\": \"incididunt\",\n                    \"tags\": [\n                        \"exercitation tempor in irure veniam\",\n                        \"consequat\"\n                    ],\n                    \"algorithm\": {\n                        \"language\": \"dolore esse adipisicing\",\n                        \"version\": \"in\",\n                        \"consumerParameters\": [\n                            {\n                                \"name\": \"deserunt ex sunt\",\n                                \"type\": \"do labore Excepteur consectetur\",\n                                \"label\": \"reprehenderit proident nostrud\",\n                                \"required\": false,\n                                \"description\": \"velit\",\n                                \"default\": \"commodo est in ex aliquip\",\n                                \"options\": [\n                                    {\n                                        \"fields\": {}\n                                    }\n                                ]\n                            }\n                        ],\n                        \"container\": {\n                            \"entrypoint\": \"in\",\n                            \"image\": \"reprehenderit velit\",\n                            \"tag\": \"ut\",\n                            \"checksum\": \"anim dolor sed elit\"\n                        }\n                    }\n                },\n                \"additionalInformation\": {\n                    \"termsAndConditions\": false,\n                    \"gaiaXInformation\": {\n                        \"containsPII\": false,\n                        \"termsAndConditions\": [\n                            {\n                                \"url\": \"Lorem nostrud magna incididunt officia\"\n                            }\n                        ],\n                        \"serviceSD\": {\n                            \"url\": \"sunt voluptate eu\",\n                            \"isVerified\": false\n                        }\n                    }\n                },\n                \"services\": [\n                    {\n                        \"name\": \"reprehenderit qui nostrud\",\n                        \"description\": \"culpa consequat pariatur\",\n                        \"type\": \"occaecat laborum sunt ipsum\",\n                        \"pricing\": {\n                            \"pricingType\": 1,\n                            \"fixedRate\": 3599842091\n                        },\n                        \"files\": [\n                            {\n                                \"url\": \"et mollit eu ullamco\",\n                                \"method\": \"exercitation dolor\",\n                                \"headers\": {\n                                    \"key\": \"\",\n                                    \"value\": \"\"\n                                }\n                            }\n                        ],\n                        \"timeout\": 3474029621,\n                        \"tokenName\": \"sit\",\n                        \"tokenSymbol\": \"nisi consequat dolore dolor eiusmod\",\n                        \"serviceEndpoint\": \"elit sunt et ipsum in\",\n                        \"computeOptions\": {\n                            \"allowRawAlgorithm\": true,\n                            \"allowNetworkAccess\": true,\n                            \"trustedAlgorithms\": [\n                                {\n                                    \"did\": \"sint dolor Lorem\",\n                                    \"filesChecksum\": \"officia culpa mollit\",\n                                    \"containerSectionChecksum\": \"nisi laboris eu ex\"\n                                }\n                            ],\n                            \"trustedPublishers\": [\n                                \"in sint\",\n                                \"aliqua eu eiusmod voluptate irure\"\n                            ]\n                        },\n                        \"consumerParameters\": []\n                    }\n                ],\n                \"credentials\": {\n                    \"allow\": [\n                        \"aliquip\"\n                    ],\n                    \"deny\": [\n                        \"minim elit\"\n                    ]\n                }\n            },\n            \"xfscOffering\": {\n                \"VP\": \"deserunt adipisicing\"\n            }\n        }\n    ]\n}"
-    };
     reserved 1 to 5;
 
     message Offering {
@@ -447,7 +385,6 @@ message GetComputeToDataResultResponse {
     ComputeToDataResponseState state = 1;
     string data = 2;
 }
-
 
 // Core asset metadata used for Pontus-X create and update operations.
 message Metadata {

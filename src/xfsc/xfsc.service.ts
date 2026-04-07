@@ -1,5 +1,6 @@
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { HttpException, HttpStatus, Logger } from '@nestjs/common';
+import * as qs from 'qs';
 
 import {
   XFSC_USERNAME,
@@ -9,8 +10,6 @@ import {
   CLIENT_SECRET,
   CLIENT_ID,
 } from './config';
-import { error } from 'console';
-import { RpcException } from '@nestjs/microservices';
 
 export class XfscService {
   private readonly username: string;
@@ -37,7 +36,7 @@ export class XfscService {
     // returns ID
     let response: AxiosResponse<JSON>;
 
-    let config = {
+    const config = {
       method: 'post',
       maxBodyLength: Infinity,
       url: this.xfscCatAddr,
@@ -84,7 +83,7 @@ export class XfscService {
   async delete(token: string, hash: string): Promise<void> {
     // returns nothing, because there's no body in the Cat's response
 
-    let config = {
+    const config = {
       method: 'delete',
       maxBodyLength: Infinity,
       url: this.xfscCatAddr + hash,
@@ -113,7 +112,7 @@ export class XfscService {
 
     let response: AxiosResponse<JSON>;
 
-    let config = {
+    const config = {
       method: 'post',
       maxBodyLength: Infinity,
       url: this.xfscCatAddr + hash + '/revoke',
@@ -141,7 +140,8 @@ export class XfscService {
     author: string,
     name: string,
   ): Promise<string[]> {
-    let token = this.getToken();
+    void name;
+    const token = this.getToken();
     const RequestConfig: AxiosRequestConfig = {
       headers: {
         accept: 'application/json',
@@ -163,12 +163,12 @@ export class XfscService {
           RequestConfig,
         );
 
-        let resp = JSON.parse(response.data);
+        const resp = JSON.parse(response.data);
         if (resp.items) {
           return [resp.items[0].content];
         }
         return [];
-      } catch (Exception) {
+      } catch {
         // FIXME
         return undefined;
       }
@@ -183,13 +183,13 @@ export class XfscService {
           RequestConfig,
         );
 
-        let resp = JSON.parse(response.data);
-        let found_items = [];
+        const resp = JSON.parse(response.data);
+        const found_items = [];
         resp.items.forEach((item) => {
           found_items.push(item.content);
         });
         return [];
-      } catch (Exception) {
+      } catch {
         // FIXME
         return undefined;
       }
@@ -197,8 +197,7 @@ export class XfscService {
   }
 
   async getToken(): Promise<string> {
-    const qs = require('qs');
-    let data = qs.stringify({
+    const data = qs.stringify({
       grant_type: 'password', // 'client_credentials' flow is not suitable, because of a lack of keycloak configurations in terms of the client's roles, which would cause a 403 forbidden status Code
       username: this.username,
       password: this.password,
@@ -207,7 +206,7 @@ export class XfscService {
       client_secret: this.client_secret,
     });
 
-    let config = {
+    const config = {
       method: 'post',
       maxBodyLength: Infinity,
       url: this.xfscTokenEndpoint,

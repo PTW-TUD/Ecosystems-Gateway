@@ -1,11 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  Logger,
-  Module,
-  NotFoundException,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   Network,
@@ -27,6 +20,7 @@ import {
   ComputeConfig,
   MetadataConfig,
   CredentialListTypes,
+  PricingConfigWithoutOwner,
 } from '@deltadao/nautilus';
 import { ConsumerParameter } from '@oceanprotocol/lib';
 import { type Asset } from '@oceanprotocol/lib';
@@ -37,13 +31,14 @@ import {
   Service,
   UpdateOfferingRequest_UpdateOffering,
   ComputeToDataResultType,
-  ComputeToDataResponse,
   GetComputeToDataResultResponse,
   ComputeToDataResponseState,
-} from '../generated/src/_proto/spp_v2';
+  Pricing_PricingType,
+} from '../generated/spp_v2';
 import { CredentialEventServiceService } from '../credential-event-service/credential-event-service.service';
 import { RpcException } from '@nestjs/microservices';
-import { status as GrpcStatusCode } from '@grpc/grpc-js';
+import { isRpcException, mapToRpcException } from '../grpc-error.util';
+import { status as GrpcStatusCode, Metadata } from '@grpc/grpc-js';
 import Redis from 'ioredis';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -153,12 +148,26 @@ export class PontusxService implements OnModuleInit {
 
       const result = await this.nautilus.publish(asset);
       return result;
+    } catch (err: any) {
+      this.logger.error(
+        `publishAsset failed: ${err?.message ?? err}`,
+        err?.stack,
+      );
+      if (isRpcException(err)) throw err;
+      throw mapToRpcException(err, {
+        service: 'pontusx',
+        where: 'publishAsset',
+      });
     } finally {
       release();
     }
   }
 
   async updateOffering(UpdateOffering: UpdateOfferingRequest_UpdateOffering) {
+    const metadata = new Metadata();
+    metadata.set('x-service', 'pontusx');
+    metadata.set('x-where', 'updateOffering');
+
     const release = await this.mutex.acquire();
     try {
       const offering = UpdateOffering.pontusxUpdateOffering;
@@ -174,9 +183,9 @@ export class PontusxService implements OnModuleInit {
         filled_assetBuilder = new AssetBuilder(aquariusAsset);
       }
 
-      let updatedInd: Array<Number> = [];
+      const updatedInd: Array<number> = [];
 
-      offering.updateServices?.forEach((updateService) => {
+      offering.updateServices?.forEach(async (updateService) => {
         let serviceInd: number = 0;
         if (updateService.index !== undefined) {
           if (updateService.index in aquariusAsset.services) {
@@ -185,10 +194,11 @@ export class PontusxService implements OnModuleInit {
             throw new RpcException({
               code: GrpcStatusCode.OUT_OF_RANGE,
               message: `The requested service index ${updateService.index} is out of range of the existing services of the asset`,
+              metadata,
             });
           }
         }
-        if (updatedInd.includes(serviceInd)) {
+        if (!updatedInd.includes(serviceInd)) {
           if (serviceInd === 0) {
             this.logger.debug(
               `Updating only first service of asset ${offering.did} ...`,
@@ -199,9 +209,10 @@ export class PontusxService implements OnModuleInit {
             );
           }
 
+          const serviceId = aquariusAsset.services[serviceInd].id;
           const serviceBuilder = new ServiceBuilder({
-            aquariusAsset,
-            serviceId: aquariusAsset.services[serviceInd].id,
+            aquariusAsset: aquariusAsset,
+            serviceId: serviceId,
           });
           const NautilusService = this.buildService(
             serviceBuilder,
@@ -209,6 +220,47 @@ export class PontusxService implements OnModuleInit {
             updateService.service,
           );
           filled_assetBuilder.addService(NautilusService);
+
+          //TODO: deduplicate these checks with the ones in buildService
+          if (updateService.service.pricing !== undefined) {
+            const pricing: PricingConfigWithoutOwner =
+              this.pricingConfig[
+                pricing_PricingTypeToJSON(
+                  updateService.service.pricing.pricingType,
+                )
+              ];
+            if (pricing.type !== 'free') {
+              if (
+                pricing.freCreationParams.baseTokenAddress !==
+                aquariusAsset.stats.price.tokenAddress
+              ) {
+                throw new RpcException({
+                  code: GrpcStatusCode.UNIMPLEMENTED,
+                  message: `Service ${serviceInd}: Payment token ${pricing_PricingTypeToJSON(updateService.service.pricing.pricingType)} differs from existing ${aquariusAsset.stats.price.tokenSymbol ?? 'free'} payment. Currently only a price value update is supported.`,
+                  metadata,
+                });
+              } else {
+                const newPrice = updateService.service.pricing.fixedRate;
+                if (newPrice === 0) {
+                  this.logger.warn(
+                    'Price value was not set or 0 when trying to update non-free service. Skipping...',
+                  );
+                } else {
+                  await this.nautilus.setServicePrice(
+                    aquariusAsset,
+                    serviceId,
+                    newPrice.toString(),
+                  );
+                }
+              }
+            } else {
+              await this.nautilus.setServicePrice(
+                aquariusAsset,
+                serviceId,
+                '0.0',
+              );
+            }
+          }
           updatedInd.push(serviceInd);
         } else {
           this.logger.warn(
@@ -232,20 +284,36 @@ export class PontusxService implements OnModuleInit {
         pontus: result,
         ces: cesResult,
       };
+    } catch (err: any) {
+      this.logger.error(
+        `updateOffering failed: ${err?.message ?? err}`,
+        err?.stack,
+      );
+      if (isRpcException(err)) throw err;
+      throw mapToRpcException(err, {
+        service: 'pontusx',
+        where: 'updateOffering',
+      });
     } finally {
       release();
     }
   }
 
   async setState(did: string, state: LifecycleStates) {
-    const aquariusAsset = await this.nautilus.getAquariusAsset(did);
+    try {
+      const aquariusAsset = await this.nautilus.getAquariusAsset(did);
 
-    const result = await this.nautilus.setAssetLifecycleState(
-      aquariusAsset,
-      state,
-    );
+      const result = await this.nautilus.setAssetLifecycleState(
+        aquariusAsset,
+        state,
+      );
 
-    return result;
+      return result;
+    } catch (err: any) {
+      this.logger.error(`setState failed: ${err?.message ?? err}`, err?.stack);
+      if (isRpcException(err)) throw err;
+      throw mapToRpcException(err, { service: 'pontusx', where: 'setState' });
+    }
   }
 
   fillAsset(
@@ -292,7 +360,7 @@ export class PontusxService implements OnModuleInit {
           algo.version = offering.metadata.algorithm.version;
         }
         offering.metadata.algorithm.consumerParameters?.forEach((par) => {
-          let param: ConsumerParameter = {
+          const param: ConsumerParameter = {
             type: par.type as ConsumerParameter['type'],
             name: par.name, // link to your file or api
             label: par.label,
@@ -319,9 +387,13 @@ export class PontusxService implements OnModuleInit {
             `Not updating Algorithm Metadata as it is missing in the request`,
           );
         } else {
+          const metadata = new Metadata();
+          metadata.set('x-service', 'pontusx');
+          metadata.set('x-where', 'fillAsset');
           throw new RpcException({
-            code: GrpcStatusCode.INTERNAL,
+            code: GrpcStatusCode.INVALID_ARGUMENT,
             message: 'The message type does not fit a known Pontus-X request',
+            metadata,
           });
         }
       }
@@ -350,6 +422,10 @@ export class PontusxService implements OnModuleInit {
     offering: PontusxOffering | PontusxUpdateOffering,
     service: Service,
   ) {
+    const metadata = new Metadata();
+    metadata.set('x-service', 'pontusx');
+    metadata.set('x-where', 'buildService');
+
     serviceBuilder
       .setServiceEndpoint(this.networkConfig.providerUri)
       .setTimeout(service.timeout ?? 86400);
@@ -387,8 +463,10 @@ export class PontusxService implements OnModuleInit {
             );
           } else {
             throw new RpcException({
-              code: GrpcStatusCode.INTERNAL,
-              message: 'The message type does not fit a known Pontus-X request',
+              code: GrpcStatusCode.INVALID_ARGUMENT,
+              message:
+                'The message type does not fit a known Pontus-X request - when trying to resolve computeOptions.allowRawAlgorithm undefined',
+              metadata,
             });
           }
         }
@@ -408,8 +486,10 @@ export class PontusxService implements OnModuleInit {
             );
           } else {
             throw new RpcException({
-              code: GrpcStatusCode.INTERNAL,
-              message: 'The message type does not fit a known Pontus-X request',
+              code: GrpcStatusCode.INVALID_ARGUMENT,
+              message:
+                'The message type does not fit a known Pontus-X request - when trying to resolve computeOptions.allowNetworkAccess undefined',
+              metadata,
             });
           }
         }
@@ -425,37 +505,63 @@ export class PontusxService implements OnModuleInit {
       } else {
         if (pxOffering && !pxUpdateOffering) {
           this.logger.error(
-            `Compute Options are missing in service for asset ${offering.metadata.name} of type algorithm`,
+            `Compute Options are missing in service for asset ${offering.metadata.name} of type compute`,
           );
+          throw new RpcException({
+            code: GrpcStatusCode.INVALID_ARGUMENT,
+            message: `Compute Options are missing in service for asset ${offering.metadata.name} of type compute`,
+            metadata,
+          });
         } else if (pxUpdateOffering) {
           this.logger.debug(
             `Not updating Compute options of service for asset ${offering.did} as they are missing in the request`,
           );
         } else {
           throw new RpcException({
-            code: GrpcStatusCode.INTERNAL,
-            message: 'The message type does not fit a known Pontus-X request',
+            code: GrpcStatusCode.INVALID_ARGUMENT,
+            message:
+              'The message type does not fit a known Pontus-X request - when trying to resolve computeOptions undefined',
+            metadata,
           });
         }
       }
     }
-    let pricing =
-      this.pricingConfig[
-        pricing_PricingTypeToJSON(service.pricing.pricingType)
-      ];
-    if (pricing.type !== 'free') {
-      pricing.freCreationParams.fixedRate =
-        service.pricing.fixedRate.toString() ??
-        pricing.freCreationParams.fixedRate;
-      this.logger.debug(
-        `Setting ${pricing_PricingTypeToJSON(
-          service.pricing.pricingType,
-        )} pricing with fixed Rate ${pricing.freCreationParams.fixedRate}`,
-      );
+    if (pxOffering && !pxUpdateOffering) {
+      if (!service.pricing) {
+        service.pricing = { pricingType: Pricing_PricingType.FREE };
+      }
+      const pricing: PricingConfigWithoutOwner =
+        this.pricingConfig[
+          pricing_PricingTypeToJSON(service.pricing.pricingType)
+        ];
+      if (pricing.type !== 'free') {
+        pricing.freCreationParams.fixedRate =
+          service.pricing.fixedRate.toString() ??
+          pricing.freCreationParams.fixedRate;
+        this.logger.debug(
+          `Setting ${pricing_PricingTypeToJSON(
+            service.pricing.pricingType,
+          )} pricing with fixed Rate ${pricing.freCreationParams.fixedRate}`,
+        );
+      } else {
+        this.logger.debug('Setting free pricing for service');
+      }
+      serviceBuilder.setPricing(pricing);
+    } else if (pxUpdateOffering) {
+      if (!service.pricing) {
+        this.logger.debug(
+          `Not updating pricing as it is missing in the request`,
+        );
+      }
+      //pricing should be updated above with nautilus.setServicePrice
     } else {
-      this.logger.debug('Setting free pricing for service');
+      throw new RpcException({
+        code: GrpcStatusCode.INVALID_ARGUMENT,
+        message:
+          'The message type does not fit a known Pontus-X request - when trying to resolve pricing',
+        metadata,
+      });
     }
-    serviceBuilder.setPricing(pricing);
 
     service.files.forEach((file) => {
       const urlFile: UrlFile = {
@@ -471,7 +577,7 @@ export class PontusxService implements OnModuleInit {
     });
 
     service.consumerParameters?.forEach((par) => {
-      let param: ConsumerParameter = {
+      const param: ConsumerParameter = {
         type: par.type as ConsumerParameter['type'],
         name: par.name, // link to your file or api
         label: par.label,
@@ -491,15 +597,225 @@ export class PontusxService implements OnModuleInit {
   }
 
   async getOffering(did: string): Promise<Asset> {
-    return await this.nautilus.getAquariusAsset(did);
+    return this.nautilus.getAquariusAsset(did);
+  }
+
+  async queryOfferings(
+    did: string,
+    name: string,
+    description: string,
+    author: string,
+    metadataType: string,
+    serviceType: string,
+    page: number,
+    pageSize: number,
+  ): Promise<[Asset[], number]> {
+    const metadata = new Metadata();
+    metadata.set('x-service', 'pontusx');
+    metadata.set('x-where', 'queryOfferings');
+    const apiPath = '/api/aquarius/assets/query';
+
+    const metadataCacheUri = this.getSelectedNetworkConfig().metadataCacheUri;
+
+    if (!metadataCacheUri) {
+      throw new RpcException({
+        code: GrpcStatusCode.FAILED_PRECONDITION,
+        message: 'No metadata cache URI (aquarius) provided',
+        metadata,
+      });
+    }
+
+    const queryPayload = this.buildQueryPayload(
+      did,
+      name,
+      description,
+      author,
+      metadataType,
+      serviceType,
+      page,
+      pageSize,
+    );
+
+    const assets: Asset[] = [];
+    let total = 0;
+    const fullAquariusUrl = new URL(apiPath, metadataCacheUri).href;
+    const response: AxiosResponse<any> = await axios.post(
+      fullAquariusUrl,
+      queryPayload,
+    );
+
+    if (response?.status === 200 && response?.data?.hits) {
+      for (const hit of response.data.hits.hits) {
+        const asset: Asset = hit._source;
+        if (asset?.id) {
+          assets.push(asset);
+        }
+      }
+      total = response.data.hits.total.value;
+    }
+    return [assets, total];
+  }
+
+  buildQueryPayload(
+    did: string,
+    name: string,
+    description: string,
+    author: string,
+    metadataType: string,
+    serviceType: string,
+    page: number,
+    pageSize: number,
+  ) {
+    const attribute_queries = [];
+    if (did)
+      attribute_queries.push({
+        query_string: {
+          query: did.replace('did:op:', '*'),
+          fields: [
+            'id',
+            'datatokens.address',
+            'datatokens.name',
+            'datatokens.symbol',
+          ],
+        },
+      });
+    if (name)
+      attribute_queries.push({
+        query_string: {
+          query: name,
+          fields: ['datatokens.name', 'metadata.name^10'],
+        },
+      });
+    if (description)
+      attribute_queries.push({
+        query_string: {
+          query: description,
+          fields: ['metadata.description', 'metadata.tags'],
+        },
+      });
+    if (author)
+      attribute_queries.push({
+        query_string: {
+          query: author,
+          fields: ['nft.owner', 'metadata.author'],
+        },
+      });
+
+    if (attribute_queries.length === 0)
+      attribute_queries.push({ match_all: {} });
+
+    if (!pageSize) pageSize = 50;
+    if (!metadataType) metadataType = 'dataset';
+    if (!serviceType) metadataType = 'access';
+
+    const payload = {
+      from: pageSize * page,
+      size: pageSize,
+      query: {
+        bool: {
+          must: [{ bool: { should: attribute_queries } }],
+          filter: [
+            { terms: { chainId: [32456, 32457] } },
+            { terms: { _index: ['v510'] } },
+            { term: { 'purgatory.state': false } },
+            {
+              bool: {
+                must_not: [
+                  { term: { 'nft.state': 5 } },
+                  { term: { 'price.type': 'pool' } },
+                ],
+              },
+            },
+            {
+              term: { 'metadata.type': metadataType },
+            },
+            { term: { 'services.type': serviceType } },
+          ],
+        },
+      },
+      sort: { 'nft.created': 'desc' },
+    };
+    return payload;
+  }
+
+  async accessService(
+    did: string,
+    serviceId: string,
+    fileIndex: number,
+    userdata: { [key: string]: string },
+  ): Promise<string> {
+    //TODO: integrate data storage in redis as option?
+    const metadata = new Metadata();
+    metadata.set('x-service', 'pontusx');
+    metadata.set('x-where', 'accessService');
+    let dataset: Asset;
+
+    try {
+      dataset = await this.getOffering(did);
+    } catch (err) {
+      throw new RpcException({
+        code: GrpcStatusCode.NOT_FOUND,
+        message: `Asset couldn't be retrieved: ${err}`,
+        metadata,
+      });
+    }
+    if (serviceId !== '') {
+      const serviceCandidate = dataset.services?.find(
+        (s) => s.type === 'access',
+      );
+      if (serviceCandidate) {
+        serviceId = serviceCandidate.id;
+      }
+    } else {
+      const serviceCandidate = dataset.services?.find(
+        (s) => s.id === serviceId,
+      );
+      if (!serviceCandidate) {
+        serviceId = '';
+      }
+    }
+    if (serviceId === '') {
+      throw new RpcException({
+        code: GrpcStatusCode.NOT_FOUND,
+        message: `No valid access service found`,
+        metadata: metadata,
+      });
+    }
+    // Check for file index is skipped as metadata only contains one big hash for all files and there seems to be no way to extract the number of files
+
+    const release = await this.mutex.acquire();
+    try {
+      const uri = await this.nautilus
+        .access({
+          assetDid: did,
+          fileIndex: fileIndex,
+          serviceId: serviceId,
+          userdata: userdata,
+        })
+        .catch((err) => {
+          throw new RpcException({
+            code: GrpcStatusCode.FAILED_PRECONDITION,
+            message: `Couldn't get access to the asset: ${err}`,
+            metadata: metadata,
+          });
+        });
+      return uri;
+      // no extra catch as we only execute one function
+    } finally {
+      release();
+    }
   }
 
   async requestComputeToData(
     did: string,
     algo: string,
-    userdata: {},
+    userdata: { [key: string]: string },
   ): Promise<string[]> {
     const release = await this.mutex.acquire();
+    const metadata = new Metadata();
+    metadata.set('x-service', 'pontusx');
+    metadata.set('x-where', 'requestComputeToData');
+
     try {
       const computeConfig: Omit<ComputeConfig, 'signer' | 'chainConfig'> = {
         dataset: {
@@ -510,8 +826,12 @@ export class PontusxService implements OnModuleInit {
       };
 
       const dataset = await this.getOffering(computeConfig.dataset.did).catch(
-        (_reason) => {
-          throw new NotFoundException('Asset not found');
+        (err) => {
+          throw new RpcException({
+            code: GrpcStatusCode.NOT_FOUND,
+            message: `Asset not found: ${err}`,
+            metadata,
+          });
         },
       );
 
@@ -520,18 +840,24 @@ export class PontusxService implements OnModuleInit {
         return obj.type === 'compute';
       });
       if (compute_objects.length < 1) {
-        throw new NotFoundException('No algorithms are available');
+        throw new RpcException({
+          code: GrpcStatusCode.NOT_FOUND,
+          message: 'No algorithms are available',
+          metadata,
+        });
       }
 
       const computeJob = await this.nautilus
         .compute(computeConfig)
-        .catch((error) => {
-          throw new NotFoundException(
-            `Compute to Data job cant start: ${error}`,
-          );
+        .catch((err) => {
+          throw new RpcException({
+            code: GrpcStatusCode.NOT_FOUND,
+            message: `Compute to Data job can't start: ${err}`,
+            metadata,
+          });
         });
 
-      let jobIds = [];
+      const jobIds = [];
       if (computeJob instanceof Array) {
         await Promise.all(
           computeJob.map(async (job) => {
@@ -551,18 +877,31 @@ export class PontusxService implements OnModuleInit {
       }
 
       return jobIds;
+    } catch (err: any) {
+      this.logger.error(
+        `requestComputeToData failed: ${err?.message ?? err}`,
+        err?.stack,
+      );
+      if (isRpcException(err)) throw err;
+      throw mapToRpcException(err, {
+        service: 'pontusx',
+        where: 'requestComputeToData',
+      });
     } finally {
       release();
     }
   }
 
   async getComputeToDataStatus(jobId: string): Promise<number> {
-    let status = await this.nautilus.getComputeStatus({
+    const status = await this.nautilus.getComputeStatus({
       jobId: jobId,
       providerUri: this.getSelectedNetworkConfig().providerUri,
     });
 
-    return status.status;
+    if (status) {
+      return status.status;
+    }
+    return 99;
   }
 
   async getComputeToDataResult(
@@ -570,13 +909,23 @@ export class PontusxService implements OnModuleInit {
     return_type: ComputeToDataResultType,
     jobIndex: number,
   ): Promise<GetComputeToDataResultResponse> {
+    const metadata = new Metadata();
+    metadata.set('x-service', 'pontusx');
+    metadata.set('x-where', 'getComputeToDataResult');
+
     switch (return_type) {
       case ComputeToDataResultType.C2D_DATA:
-        let cached = await this.redis.get(
+        const cached = await this.redis.get(
           `${this.getSelectedNetworkConfig().network}:ctd:result:${jobId}`,
         );
         if (cached === null) {
-          let queued = await this.redis.lpos(
+          if ((await this.getComputeToDataStatus(jobId)) == 99) {
+            throw new RpcException({
+              code: GrpcStatusCode.NOT_FOUND,
+              message: 'Job does not exist or is not yet finished',
+            });
+          }
+          const queued = await this.redis.lpos(
             `${this.getSelectedNetworkConfig().network}:ctd:pending`,
             jobId,
           );
@@ -611,21 +960,31 @@ export class PontusxService implements OnModuleInit {
             resultIndex: jobIndex,
           });
         }
-        this.logger.debug(`Response is ${resp}`);
-        return { state: ComputeToDataResponseState.FINISHED, data: resp };
+        if (resp) {
+          return { state: ComputeToDataResponseState.FINISHED, data: resp };
+        }
+        throw new RpcException({
+          code: GrpcStatusCode.NOT_FOUND,
+          message: 'Job does not exist or is not yet finished',
+          metadata,
+        });
       default:
-        throw new NotFoundException(`Requested method not found`);
+        throw new RpcException({
+          code: GrpcStatusCode.INVALID_ARGUMENT,
+          message: 'Requested result type is invalid',
+          metadata,
+        });
     }
   }
 
   @Cron(CronExpression.EVERY_30_SECONDS)
   async __periodicallyFetchComputeJobs() {
-    let pendingJobs = await this.redis.lrange(
+    const pendingJobs = await this.redis.lrange(
       `${this.getSelectedNetworkConfig().network}:ctd:pending`,
       0,
       -1,
     );
-    pendingJobs.forEach(async (jobId, _i, _arr) => {
+    pendingJobs.forEach(async (jobId) => {
       // Check if compute to data is finished
       if ((await this.getComputeToDataStatus(jobId)) != 70) {
         return;
@@ -638,7 +997,7 @@ export class PontusxService implements OnModuleInit {
       });
       const FetchedData: AxiosResponse = await axios
         .get(ResultUrl)
-        .catch((error) => {
+        .catch(() => {
           // TODO: Add proper error handling, maybe re-try logic?
           return undefined;
         });
@@ -664,7 +1023,7 @@ export class PontusxService implements OnModuleInit {
           break;
       }
 
-      let redisTransaction = this.redis.multi();
+      const redisTransaction = this.redis.multi();
       redisTransaction.set(
         `${this.getSelectedNetworkConfig().network}:ctd:result:${jobId}`,
         b64data,

@@ -9,7 +9,7 @@ import {
   Pricing_PricingType,
   PontusxOffering,
   ComputeToDataResultType,
-} from './generated/src/_proto/spp_v2';
+} from './generated/spp_v2';
 import { RpcException } from '@nestjs/microservices';
 import { XfscService } from './xfsc/xfsc.service';
 
@@ -67,7 +67,7 @@ describe('Grpc Controller', () => {
               author: '',
               licence: '',
               tags: [],
-              description: ''
+              description: '',
             },
             services: [
               {
@@ -87,7 +87,7 @@ describe('Grpc Controller', () => {
             ],
             credentials: {
               allow: [],
-              deny: []
+              deny: [],
             },
             additionalInformation: undefined,
           },

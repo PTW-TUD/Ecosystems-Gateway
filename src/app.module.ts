@@ -18,7 +18,7 @@ import { GrpcGatewayController } from './grpc-gateway.controller';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         type: 'single',
-        url: `redis://${configService.get('REDIS_ADDRESS', '127.0.0.1:6379')}`,
+        url: `redis://${configService.get<string>('REDIS_ADDRESS', '127.0.0.1:6379')}`,
       }),
       inject: [ConfigService],
     }),
