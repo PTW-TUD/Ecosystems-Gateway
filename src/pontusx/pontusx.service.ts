@@ -1,10 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  Logger,
-  Module,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   Network,
@@ -189,7 +183,7 @@ export class PontusxService implements OnModuleInit {
         filled_assetBuilder = new AssetBuilder(aquariusAsset);
       }
 
-      let updatedInd: Array<Number> = [];
+      const updatedInd: Array<number> = [];
 
       offering.updateServices?.forEach(async (updateService) => {
         let serviceInd: number = 0;
@@ -229,7 +223,7 @@ export class PontusxService implements OnModuleInit {
 
           //TODO: deduplicate these checks with the ones in buildService
           if (updateService.service.pricing !== undefined) {
-            let pricing: PricingConfigWithoutOwner =
+            const pricing: PricingConfigWithoutOwner =
               this.pricingConfig[
                 pricing_PricingTypeToJSON(
                   updateService.service.pricing.pricingType,
@@ -366,7 +360,7 @@ export class PontusxService implements OnModuleInit {
           algo.version = offering.metadata.algorithm.version;
         }
         offering.metadata.algorithm.consumerParameters?.forEach((par) => {
-          let param: ConsumerParameter = {
+          const param: ConsumerParameter = {
             type: par.type as ConsumerParameter['type'],
             name: par.name, // link to your file or api
             label: par.label,
@@ -536,7 +530,7 @@ export class PontusxService implements OnModuleInit {
       if (!service.pricing) {
         service.pricing = { pricingType: Pricing_PricingType.FREE };
       }
-      let pricing: PricingConfigWithoutOwner =
+      const pricing: PricingConfigWithoutOwner =
         this.pricingConfig[
           pricing_PricingTypeToJSON(service.pricing.pricingType)
         ];
@@ -583,7 +577,7 @@ export class PontusxService implements OnModuleInit {
     });
 
     service.consumerParameters?.forEach((par) => {
-      let param: ConsumerParameter = {
+      const param: ConsumerParameter = {
         type: par.type as ConsumerParameter['type'],
         name: par.name, // link to your file or api
         label: par.label,
@@ -758,10 +752,10 @@ export class PontusxService implements OnModuleInit {
 
     try {
       dataset = await this.getOffering(did);
-    } catch (error) {
+    } catch (err) {
       throw new RpcException({
         code: GrpcStatusCode.NOT_FOUND,
-        message: `Asset couldn't be retrieved: ${error}`,
+        message: `Asset couldn't be retrieved: ${err}`,
         metadata,
       });
     }
@@ -798,10 +792,10 @@ export class PontusxService implements OnModuleInit {
           serviceId: serviceId,
           userdata: userdata,
         })
-        .catch((_reason) => {
+        .catch((err) => {
           throw new RpcException({
             code: GrpcStatusCode.FAILED_PRECONDITION,
-            message: `Couldn't get access to the asset`,
+            message: `Couldn't get access to the asset: ${err}`,
             metadata: metadata,
           });
         });
@@ -832,10 +826,10 @@ export class PontusxService implements OnModuleInit {
       };
 
       const dataset = await this.getOffering(computeConfig.dataset.did).catch(
-        (_reason) => {
+        (err) => {
           throw new RpcException({
             code: GrpcStatusCode.NOT_FOUND,
-            message: 'Asset not found',
+            message: `Asset not found: ${err}`,
             metadata,
           });
         },
@@ -855,15 +849,15 @@ export class PontusxService implements OnModuleInit {
 
       const computeJob = await this.nautilus
         .compute(computeConfig)
-        .catch((error) => {
+        .catch((err) => {
           throw new RpcException({
             code: GrpcStatusCode.NOT_FOUND,
-            message: `Compute to Data job can't start: ${error}`,
+            message: `Compute to Data job can't start: ${err}`,
             metadata,
           });
         });
 
-      let jobIds = [];
+      const jobIds = [];
       if (computeJob instanceof Array) {
         await Promise.all(
           computeJob.map(async (job) => {
@@ -899,7 +893,7 @@ export class PontusxService implements OnModuleInit {
   }
 
   async getComputeToDataStatus(jobId: string): Promise<number> {
-    let status = await this.nautilus.getComputeStatus({
+    const status = await this.nautilus.getComputeStatus({
       jobId: jobId,
       providerUri: this.getSelectedNetworkConfig().providerUri,
     });
@@ -921,7 +915,7 @@ export class PontusxService implements OnModuleInit {
 
     switch (return_type) {
       case ComputeToDataResultType.C2D_DATA:
-        let cached = await this.redis.get(
+        const cached = await this.redis.get(
           `${this.getSelectedNetworkConfig().network}:ctd:result:${jobId}`,
         );
         if (cached === null) {
@@ -931,7 +925,7 @@ export class PontusxService implements OnModuleInit {
               message: 'Job does not exist or is not yet finished',
             });
           }
-          let queued = await this.redis.lpos(
+          const queued = await this.redis.lpos(
             `${this.getSelectedNetworkConfig().network}:ctd:pending`,
             jobId,
           );
@@ -985,12 +979,12 @@ export class PontusxService implements OnModuleInit {
 
   @Cron(CronExpression.EVERY_30_SECONDS)
   async __periodicallyFetchComputeJobs() {
-    let pendingJobs = await this.redis.lrange(
+    const pendingJobs = await this.redis.lrange(
       `${this.getSelectedNetworkConfig().network}:ctd:pending`,
       0,
       -1,
     );
-    pendingJobs.forEach(async (jobId, _i, _arr) => {
+    pendingJobs.forEach(async (jobId) => {
       // Check if compute to data is finished
       if ((await this.getComputeToDataStatus(jobId)) != 70) {
         return;
@@ -1003,7 +997,7 @@ export class PontusxService implements OnModuleInit {
       });
       const FetchedData: AxiosResponse = await axios
         .get(ResultUrl)
-        .catch((error) => {
+        .catch(() => {
           // TODO: Add proper error handling, maybe re-try logic?
           return undefined;
         });
@@ -1029,7 +1023,7 @@ export class PontusxService implements OnModuleInit {
           break;
       }
 
-      let redisTransaction = this.redis.multi();
+      const redisTransaction = this.redis.multi();
       redisTransaction.set(
         `${this.getSelectedNetworkConfig().network}:ctd:result:${jobId}`,
         b64data,

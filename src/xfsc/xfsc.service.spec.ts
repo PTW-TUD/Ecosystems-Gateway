@@ -9,7 +9,7 @@ import {
 
 jest.mock('axios');
 describe('Xfsc service', () => {
-  let xfscService = new XfscService();
+  const xfscService = new XfscService();
 
   it('Token function should return a string', async () => {
     const mockResponse = {
