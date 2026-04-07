@@ -94,7 +94,7 @@ export function computeToDataResponseStateToJSON(object: ComputeToDataResponseSt
   }
 }
 
-/** Possible lifecycle states of asset in the pontus-x ecosystem */
+/** Possible lifecycle states for an asset in the Pontus-X ecosystem. */
 export enum PontusxLifecycleStates {
   /**
    * ACTIVE - Fully functional asset
@@ -180,10 +180,7 @@ export function pontusxLifecycleStatesToJSON(object: PontusxLifecycleStates): st
   }
 }
 
-/**
- * Create message to publish a Offering with the given information to different ecosystems
- * At the moment Pontus-X and XFSC are supported
- */
+/** Request payload for creating offerings in one or more supported ecosystems. */
 export interface CreateOfferingRequest {
   offerings: CreateOfferingRequest_Offering[];
 }
@@ -193,13 +190,13 @@ export interface CreateOfferingRequest_Offering {
   xfscOffering?: XfscOffering | undefined;
 }
 
-/** Message for publication into the Cross Federation Services Catalogue */
+/** Offering payload for publication into the Cross Federation Services Catalogue (XFSC). */
 export interface XfscOffering {
-  /** String containing the Gaia-X conformant Verifiable Presentation as JSON-LD for the Service Offering */
+  /** Gaia-X compliant Verifiable Presentation of the service offering as JSON-LD. */
   VP: string;
 }
 
-/** Message for publication into the Pontus-X ecosystem */
+/** Offering payload for publication into the Pontus-X ecosystem. */
 export interface PontusxOffering {
   /** The main information about the asset to publish */
   metadata?:
@@ -221,7 +218,7 @@ export interface PontusxOffering {
   credentials?: CredentialLists | undefined;
 }
 
-/** Response to CreateOfferingRequest */
+/** Response returned after creating offerings. */
 export interface CreateOfferingResponse {
   /**
    * List of identifier of the successfully published offering(s)
@@ -232,10 +229,7 @@ export interface CreateOfferingResponse {
   DebugInformation?: { [key: string]: any } | undefined;
 }
 
-/**
- * Update message for an already published Offering
- * TODO only hash of VP for XFSC
- */
+/** Request payload for updating already published offerings. */
 export interface UpdateOfferingRequest {
   offerings: UpdateOfferingRequest_UpdateOffering[];
 }
@@ -253,9 +247,9 @@ export interface UpdateOfferingRequest_UpdateOffering {
 }
 
 export interface XfscUpdateOffering {
-  /** String containing the hash of the original Verifiable Presentation published to the catalogue */
+  /** Hash of the original Verifiable Presentation published to the catalogue. */
   hash: string;
-  /** String containing the Gaia-X conformant Verifiable Presentation as JSON-LD for the Service Offering */
+  /** Updated Gaia-X compliant Verifiable Presentation of the service offering as JSON-LD. */
   VP: string;
 }
 
@@ -291,10 +285,7 @@ export interface PontusxUpdateOffering_UpdateService {
   index?: number | undefined;
 }
 
-/**
- * Publish info used in UpdateOfferingRequest
- * Used for additionally publishing Offering to Credential Event Service
- */
+/** Supplemental data for publishing an offering update to the Credential Event Service. */
 export interface PublishInfo {
   /**
    * The source where to find the published offering
@@ -308,7 +299,7 @@ export interface PublishInfo {
   data: string;
 }
 
-/** Response to UpdateOfferingRequest */
+/** Response returned after updating offerings. */
 export interface UpdateOfferingResponse {
   /**
    * List of identifier of the successfully updated offering(s)
@@ -320,7 +311,7 @@ export interface UpdateOfferingResponse {
   DebugInformation?: { [key: string]: any } | undefined;
 }
 
-/** Update message for changing the LifecycleState of an already published offering */
+/** Request payload for changing the lifecycle state of an existing offering. */
 export interface UpdateOfferingLifecycleRequest {
   offerings: UpdateOfferingLifecycleRequest_UpdateOfferingLifecycle[];
 }
@@ -410,7 +401,7 @@ export interface UpdateOfferingLifecycleResponse {
   DebugInformation?: { [key: string]: any } | undefined;
 }
 
-/** ---------------------------------------------- GetOffering ---------------------------------------------- */
+/** Request payload for retrieving offerings. */
 export interface GetOfferingRequest {
   offerings: GetOfferingRequest_Offering[];
 }
@@ -436,7 +427,7 @@ export interface PontusxGetOffering {
   did: string;
 }
 
-/** ---------------------------------------------- QueryOfferings ---------------------------------------------- */
+/** Request payload for searching offerings. */
 export interface QueryOfferingsRequest {
   query?: QueryOfferingsRequest_Query | undefined;
 }
@@ -454,12 +445,11 @@ export interface QueryOfferingsResponse {
 export interface XfscQueryOfferings {
   did: string;
   issuer: string;
-  /** TODO */
   name: string;
 }
 
 export interface PontusxQueryOfferings {
-  /** make use of default values in proto. See: https://protobuf.dev/programming-guides/proto3/#default */
+  /** Optional identifier of the offering. */
   did?: string | undefined;
   name?: string | undefined;
   description?: string | undefined;
@@ -470,27 +460,49 @@ export interface PontusxQueryOfferings {
   pageSize?: number | undefined;
 }
 
-/** ---------------------------------------------- AccessService ---------------------------------------------- */
+/** Request payload for retrieving a consumable access URL for a service. */
 export interface AccessServiceRequest {
+  service?: AccessServiceRequest_Service | undefined;
+}
+
+export interface AccessServiceRequest_Service {
+  pontusxService?: PontusxAccessService | undefined;
+  xfscService?: XfscAccessService | undefined;
+}
+
+export interface PontusxAccessService {
   did: string;
-  /** defaults to the first service of the asset's metadata */
+  /** Defaults to the first service in the asset metadata. */
   serviceId?:
     | string
     | undefined;
-  /** defaults to the first file of the service */
-  fileIndex?: number | undefined;
+  /** Defaults to the first file in the selected service. */
+  fileIndex?:
+    | number
+    | undefined;
+  /** Optional user-provided parameters forwarded to the service. */
   userdata: { [key: string]: string };
 }
 
-export interface AccessServiceRequest_UserdataEntry {
+export interface PontusxAccessService_UserdataEntry {
   key: string;
   value: string;
 }
 
+export interface XfscAccessService {
+  vc: string;
+}
+
 export interface AccessServiceResponse {
+  /**
+   * Identifier of the requested service offering
+   * example: did:op:123 in Pontus-X ecosystem
+   */
+  id: string;
   accessUrl: string;
 }
 
+/** Request payload for starting a compute-to-data job in Pontus-X. */
 export interface CreateComputeToDataRequest {
   did: string;
   algorithm: string;
@@ -516,9 +528,8 @@ export interface ComputeToDataStatusResponse {
 }
 
 /**
- * The compute to data result request can be used to get the results from a job.
- * With the jobindex a specific result files (ordered by name 0-n) can be fetched
- * By default only the first result file will be returned
+ * Request payload for retrieving compute-to-data job results.
+ * Use jobIndex to fetch a specific result file; by default the first result is returned.
  */
 export interface CreateComputeToDataResultRequest {
   jobId: string;
@@ -532,10 +543,7 @@ export interface GetComputeToDataResultResponse {
   data: string;
 }
 
-/**
- * Main metadata information for the asset used in CreateOfferingRequest and UpdateOfferingRequest
- * in the Pontus-X Ecosystem (Ocean Protocol)
- */
+/** Core asset metadata used for Pontus-X create and update operations. */
 export interface Metadata {
   /**
    * type of the asset
@@ -781,10 +789,7 @@ export interface TrustedAlgorihm {
   containerSectionChecksum?: string | undefined;
 }
 
-/**
- * Additional information about the asset used in CreateOfferingRequest and UpdateOfferingRequest
- * Taylored for Pontus-X Ecosystem and workaround for Gaia-X Framework implementation (normally customizable)
- */
+/** Additional Pontus-X specific metadata, primarily for Gaia-X related information. */
 export interface AdditionalInformation {
   /** Boolean to indicate if the publisher specifies it's own terms and conditions for consumption of the asset */
   termsAndConditions: boolean;
@@ -792,7 +797,7 @@ export interface AdditionalInformation {
   gaiaXInformation?: gaiaX | undefined;
 }
 
-/** Information related to Gaia-X compliance used in AdditionalInformation */
+/** Gaia-X related compliance information referenced by AdditionalInformation. */
 export interface gaiaX {
   /** Identifier if the asset contains personally identifiable information */
   containsPII: boolean;
@@ -815,7 +820,7 @@ export interface gaiaX_ServiceSelfDescription {
   isVerified?: boolean | undefined;
 }
 
-/** Static URL to Terms and Conditions defined by the publisher of the asset used in gaiaX */
+/** Publisher-defined terms and conditions URL referenced by Gaia-X metadata. */
 export interface Terms {
   url: string;
 }
@@ -841,7 +846,7 @@ export interface ConsumerParameter {
   options: { [key: string]: any }[];
 }
 
-/** Message for credential allow- and denylists in PontusX */
+/** Credential allowlist and denylist configuration for Pontus-X. */
 export interface CredentialLists {
   /** List of allowed credentials */
   allow: string[];
@@ -3135,11 +3140,151 @@ export const PontusxQueryOfferings: MessageFns<PontusxQueryOfferings> = {
 };
 
 function createBaseAccessServiceRequest(): AccessServiceRequest {
-  return { did: "", serviceId: undefined, fileIndex: undefined, userdata: {} };
+  return { service: undefined };
 }
 
 export const AccessServiceRequest: MessageFns<AccessServiceRequest> = {
   encode(message: AccessServiceRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.service !== undefined) {
+      AccessServiceRequest_Service.encode(message.service, writer.uint32(82).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AccessServiceRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAccessServiceRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 10: {
+          if (tag !== 82) {
+            break;
+          }
+
+          message.service = AccessServiceRequest_Service.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): AccessServiceRequest {
+    return { service: isSet(object.service) ? AccessServiceRequest_Service.fromJSON(object.service) : undefined };
+  },
+
+  toJSON(message: AccessServiceRequest): unknown {
+    const obj: any = {};
+    if (message.service !== undefined) {
+      obj.service = AccessServiceRequest_Service.toJSON(message.service);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AccessServiceRequest>, I>>(base?: I): AccessServiceRequest {
+    return AccessServiceRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AccessServiceRequest>, I>>(object: I): AccessServiceRequest {
+    const message = createBaseAccessServiceRequest();
+    message.service = (object.service !== undefined && object.service !== null)
+      ? AccessServiceRequest_Service.fromPartial(object.service)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseAccessServiceRequest_Service(): AccessServiceRequest_Service {
+  return { pontusxService: undefined, xfscService: undefined };
+}
+
+export const AccessServiceRequest_Service: MessageFns<AccessServiceRequest_Service> = {
+  encode(message: AccessServiceRequest_Service, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.pontusxService !== undefined) {
+      PontusxAccessService.encode(message.pontusxService, writer.uint32(10).fork()).join();
+    }
+    if (message.xfscService !== undefined) {
+      XfscAccessService.encode(message.xfscService, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): AccessServiceRequest_Service {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAccessServiceRequest_Service();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.pontusxService = PontusxAccessService.decode(reader, reader.uint32());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.xfscService = XfscAccessService.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): AccessServiceRequest_Service {
+    return {
+      pontusxService: isSet(object.pontusxService) ? PontusxAccessService.fromJSON(object.pontusxService) : undefined,
+      xfscService: isSet(object.xfscService) ? XfscAccessService.fromJSON(object.xfscService) : undefined,
+    };
+  },
+
+  toJSON(message: AccessServiceRequest_Service): unknown {
+    const obj: any = {};
+    if (message.pontusxService !== undefined) {
+      obj.pontusxService = PontusxAccessService.toJSON(message.pontusxService);
+    }
+    if (message.xfscService !== undefined) {
+      obj.xfscService = XfscAccessService.toJSON(message.xfscService);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AccessServiceRequest_Service>, I>>(base?: I): AccessServiceRequest_Service {
+    return AccessServiceRequest_Service.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AccessServiceRequest_Service>, I>>(object: I): AccessServiceRequest_Service {
+    const message = createBaseAccessServiceRequest_Service();
+    message.pontusxService = (object.pontusxService !== undefined && object.pontusxService !== null)
+      ? PontusxAccessService.fromPartial(object.pontusxService)
+      : undefined;
+    message.xfscService = (object.xfscService !== undefined && object.xfscService !== null)
+      ? XfscAccessService.fromPartial(object.xfscService)
+      : undefined;
+    return message;
+  },
+};
+
+function createBasePontusxAccessService(): PontusxAccessService {
+  return { did: "", serviceId: undefined, fileIndex: undefined, userdata: {} };
+}
+
+export const PontusxAccessService: MessageFns<PontusxAccessService> = {
+  encode(message: PontusxAccessService, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.did !== "") {
       writer.uint32(10).string(message.did);
     }
@@ -3150,15 +3295,15 @@ export const AccessServiceRequest: MessageFns<AccessServiceRequest> = {
       writer.uint32(24).int32(message.fileIndex);
     }
     Object.entries(message.userdata).forEach(([key, value]) => {
-      AccessServiceRequest_UserdataEntry.encode({ key: key as any, value }, writer.uint32(34).fork()).join();
+      PontusxAccessService_UserdataEntry.encode({ key: key as any, value }, writer.uint32(34).fork()).join();
     });
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): AccessServiceRequest {
+  decode(input: BinaryReader | Uint8Array, length?: number): PontusxAccessService {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseAccessServiceRequest();
+    const message = createBasePontusxAccessService();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -3191,7 +3336,7 @@ export const AccessServiceRequest: MessageFns<AccessServiceRequest> = {
             break;
           }
 
-          const entry4 = AccessServiceRequest_UserdataEntry.decode(reader, reader.uint32());
+          const entry4 = PontusxAccessService_UserdataEntry.decode(reader, reader.uint32());
           if (entry4.value !== undefined) {
             message.userdata[entry4.key] = entry4.value;
           }
@@ -3206,7 +3351,7 @@ export const AccessServiceRequest: MessageFns<AccessServiceRequest> = {
     return message;
   },
 
-  fromJSON(object: any): AccessServiceRequest {
+  fromJSON(object: any): PontusxAccessService {
     return {
       did: isSet(object.did) ? globalThis.String(object.did) : "",
       serviceId: isSet(object.serviceId) ? globalThis.String(object.serviceId) : undefined,
@@ -3220,7 +3365,7 @@ export const AccessServiceRequest: MessageFns<AccessServiceRequest> = {
     };
   },
 
-  toJSON(message: AccessServiceRequest): unknown {
+  toJSON(message: PontusxAccessService): unknown {
     const obj: any = {};
     if (message.did !== "") {
       obj.did = message.did;
@@ -3243,11 +3388,11 @@ export const AccessServiceRequest: MessageFns<AccessServiceRequest> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<AccessServiceRequest>, I>>(base?: I): AccessServiceRequest {
-    return AccessServiceRequest.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<PontusxAccessService>, I>>(base?: I): PontusxAccessService {
+    return PontusxAccessService.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<AccessServiceRequest>, I>>(object: I): AccessServiceRequest {
-    const message = createBaseAccessServiceRequest();
+  fromPartial<I extends Exact<DeepPartial<PontusxAccessService>, I>>(object: I): PontusxAccessService {
+    const message = createBasePontusxAccessService();
     message.did = object.did ?? "";
     message.serviceId = object.serviceId ?? undefined;
     message.fileIndex = object.fileIndex ?? undefined;
@@ -3261,12 +3406,12 @@ export const AccessServiceRequest: MessageFns<AccessServiceRequest> = {
   },
 };
 
-function createBaseAccessServiceRequest_UserdataEntry(): AccessServiceRequest_UserdataEntry {
+function createBasePontusxAccessService_UserdataEntry(): PontusxAccessService_UserdataEntry {
   return { key: "", value: "" };
 }
 
-export const AccessServiceRequest_UserdataEntry: MessageFns<AccessServiceRequest_UserdataEntry> = {
-  encode(message: AccessServiceRequest_UserdataEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const PontusxAccessService_UserdataEntry: MessageFns<PontusxAccessService_UserdataEntry> = {
+  encode(message: PontusxAccessService_UserdataEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.key !== "") {
       writer.uint32(10).string(message.key);
     }
@@ -3276,10 +3421,10 @@ export const AccessServiceRequest_UserdataEntry: MessageFns<AccessServiceRequest
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): AccessServiceRequest_UserdataEntry {
+  decode(input: BinaryReader | Uint8Array, length?: number): PontusxAccessService_UserdataEntry {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseAccessServiceRequest_UserdataEntry();
+    const message = createBasePontusxAccessService_UserdataEntry();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -3308,14 +3453,14 @@ export const AccessServiceRequest_UserdataEntry: MessageFns<AccessServiceRequest
     return message;
   },
 
-  fromJSON(object: any): AccessServiceRequest_UserdataEntry {
+  fromJSON(object: any): PontusxAccessService_UserdataEntry {
     return {
       key: isSet(object.key) ? globalThis.String(object.key) : "",
       value: isSet(object.value) ? globalThis.String(object.value) : "",
     };
   },
 
-  toJSON(message: AccessServiceRequest_UserdataEntry): unknown {
+  toJSON(message: PontusxAccessService_UserdataEntry): unknown {
     const obj: any = {};
     if (message.key !== "") {
       obj.key = message.key;
@@ -3326,29 +3471,90 @@ export const AccessServiceRequest_UserdataEntry: MessageFns<AccessServiceRequest
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<AccessServiceRequest_UserdataEntry>, I>>(
+  create<I extends Exact<DeepPartial<PontusxAccessService_UserdataEntry>, I>>(
     base?: I,
-  ): AccessServiceRequest_UserdataEntry {
-    return AccessServiceRequest_UserdataEntry.fromPartial(base ?? ({} as any));
+  ): PontusxAccessService_UserdataEntry {
+    return PontusxAccessService_UserdataEntry.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<AccessServiceRequest_UserdataEntry>, I>>(
+  fromPartial<I extends Exact<DeepPartial<PontusxAccessService_UserdataEntry>, I>>(
     object: I,
-  ): AccessServiceRequest_UserdataEntry {
-    const message = createBaseAccessServiceRequest_UserdataEntry();
+  ): PontusxAccessService_UserdataEntry {
+    const message = createBasePontusxAccessService_UserdataEntry();
     message.key = object.key ?? "";
     message.value = object.value ?? "";
     return message;
   },
 };
 
+function createBaseXfscAccessService(): XfscAccessService {
+  return { vc: "" };
+}
+
+export const XfscAccessService: MessageFns<XfscAccessService> = {
+  encode(message: XfscAccessService, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.vc !== "") {
+      writer.uint32(10).string(message.vc);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): XfscAccessService {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseXfscAccessService();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.vc = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): XfscAccessService {
+    return { vc: isSet(object.vc) ? globalThis.String(object.vc) : "" };
+  },
+
+  toJSON(message: XfscAccessService): unknown {
+    const obj: any = {};
+    if (message.vc !== "") {
+      obj.vc = message.vc;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<XfscAccessService>, I>>(base?: I): XfscAccessService {
+    return XfscAccessService.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<XfscAccessService>, I>>(object: I): XfscAccessService {
+    const message = createBaseXfscAccessService();
+    message.vc = object.vc ?? "";
+    return message;
+  },
+};
+
 function createBaseAccessServiceResponse(): AccessServiceResponse {
-  return { accessUrl: "" };
+  return { id: "", accessUrl: "" };
 }
 
 export const AccessServiceResponse: MessageFns<AccessServiceResponse> = {
   encode(message: AccessServiceResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
     if (message.accessUrl !== "") {
-      writer.uint32(10).string(message.accessUrl);
+      writer.uint32(18).string(message.accessUrl);
     }
     return writer;
   },
@@ -3365,6 +3571,14 @@ export const AccessServiceResponse: MessageFns<AccessServiceResponse> = {
             break;
           }
 
+          message.id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
           message.accessUrl = reader.string();
           continue;
         }
@@ -3378,11 +3592,17 @@ export const AccessServiceResponse: MessageFns<AccessServiceResponse> = {
   },
 
   fromJSON(object: any): AccessServiceResponse {
-    return { accessUrl: isSet(object.accessUrl) ? globalThis.String(object.accessUrl) : "" };
+    return {
+      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      accessUrl: isSet(object.accessUrl) ? globalThis.String(object.accessUrl) : "",
+    };
   },
 
   toJSON(message: AccessServiceResponse): unknown {
     const obj: any = {};
+    if (message.id !== "") {
+      obj.id = message.id;
+    }
     if (message.accessUrl !== "") {
       obj.accessUrl = message.accessUrl;
     }
@@ -3394,6 +3614,7 @@ export const AccessServiceResponse: MessageFns<AccessServiceResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<AccessServiceResponse>, I>>(object: I): AccessServiceResponse {
     const message = createBaseAccessServiceResponse();
+    message.id = object.id ?? "";
     message.accessUrl = object.accessUrl ?? "";
     return message;
   },
@@ -5583,10 +5804,10 @@ export const CredentialLists: MessageFns<CredentialLists> = {
   },
 };
 
-/** service definition for gateway */
+/** Public gateway API for publishing, querying, and consuming offerings across supported ecosystems. */
 export type ecosystemsgatewayService = typeof ecosystemsgatewayService;
 export const ecosystemsgatewayService = {
-  /** Publication-Endpoints */
+  /** Publication endpoints */
   createOffering: {
     path: "/eupg.ecosystemsgateway.ecosystemsgateway/CreateOffering",
     requestStream: false,
@@ -5616,7 +5837,7 @@ export const ecosystemsgatewayService = {
       Buffer.from(UpdateOfferingLifecycleResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer) => UpdateOfferingLifecycleResponse.decode(value),
   },
-  /** Comsumer-Endpoints */
+  /** Consumer endpoints */
   getOffering: {
     path: "/eupg.ecosystemsgateway.ecosystemsgateway/GetOffering",
     requestStream: false,
@@ -5644,7 +5865,7 @@ export const ecosystemsgatewayService = {
     responseSerialize: (value: AccessServiceResponse) => Buffer.from(AccessServiceResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer) => AccessServiceResponse.decode(value),
   },
-  /** C2D-Endpoints */
+  /** Compute-to-data endpoints */
   runComputeToDataJob: {
     path: "/eupg.ecosystemsgateway.ecosystemsgateway/RunComputeToDataJob",
     requestStream: false,
@@ -5680,22 +5901,22 @@ export const ecosystemsgatewayService = {
 } as const;
 
 export interface ecosystemsgatewayServer extends UntypedServiceImplementation {
-  /** Publication-Endpoints */
+  /** Publication endpoints */
   createOffering: handleUnaryCall<CreateOfferingRequest, CreateOfferingResponse>;
   updateOffering: handleUnaryCall<UpdateOfferingRequest, UpdateOfferingResponse>;
   updateOfferingLifecycle: handleUnaryCall<UpdateOfferingLifecycleRequest, UpdateOfferingLifecycleResponse>;
-  /** Comsumer-Endpoints */
+  /** Consumer endpoints */
   getOffering: handleUnaryCall<GetOfferingRequest, GetOfferingResponse>;
   queryOfferings: handleUnaryCall<QueryOfferingsRequest, QueryOfferingsResponse>;
   accessService: handleUnaryCall<AccessServiceRequest, AccessServiceResponse>;
-  /** C2D-Endpoints */
+  /** Compute-to-data endpoints */
   runComputeToDataJob: handleUnaryCall<CreateComputeToDataRequest, ComputeToDataResponse>;
   getComputeToDataStatus: handleUnaryCall<ComputeToDataStatusRequest, ComputeToDataStatusResponse>;
   getComputeToDataResult: handleUnaryCall<CreateComputeToDataResultRequest, GetComputeToDataResultResponse>;
 }
 
 export interface ecosystemsgatewayClient extends Client {
-  /** Publication-Endpoints */
+  /** Publication endpoints */
   createOffering(
     request: CreateOfferingRequest,
     callback: (error: ServiceError | null, response: CreateOfferingResponse) => void,
@@ -5741,7 +5962,7 @@ export interface ecosystemsgatewayClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: UpdateOfferingLifecycleResponse) => void,
   ): ClientUnaryCall;
-  /** Comsumer-Endpoints */
+  /** Consumer endpoints */
   getOffering(
     request: GetOfferingRequest,
     callback: (error: ServiceError | null, response: GetOfferingResponse) => void,
@@ -5787,7 +6008,7 @@ export interface ecosystemsgatewayClient extends Client {
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: AccessServiceResponse) => void,
   ): ClientUnaryCall;
-  /** C2D-Endpoints */
+  /** Compute-to-data endpoints */
   runComputeToDataJob(
     request: CreateComputeToDataRequest,
     callback: (error: ServiceError | null, response: ComputeToDataResponse) => void,

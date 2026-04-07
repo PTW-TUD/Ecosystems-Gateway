@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "title": "Ecosystem Gateway API",
-    "description": "Interconnectivity by desing",
+    "description": "HTTP/JSON gateway for publishing, querying, and consuming ecosystem offerings.",
     "version": "1.0"
   },
   "tags": [
@@ -23,7 +23,8 @@
   "paths": {
     "/grpc/AccessService": {
       "post": {
-        "summary": "AccessService",
+        "summary": "Access service",
+        "description": "Requests an access URL for a published service.",
         "operationId": "ecosystemsgateway_AccessService",
         "responses": {
           "200": {
@@ -42,6 +43,7 @@
         "parameters": [
           {
             "name": "body",
+            "description": "Request payload for retrieving a consumable access URL for a service.",
             "in": "body",
             "required": true,
             "schema": {
@@ -56,7 +58,8 @@
     },
     "/grpc/CreateOffering": {
       "post": {
-        "summary": "Create a service offering",
+        "summary": "Create offering",
+        "description": "Publishes one or more offerings to Pontus-X and/or XFSC.",
         "operationId": "ecosystemsgateway_CreateOffering",
         "responses": {
           "200": {
@@ -75,6 +78,7 @@
         "parameters": [
           {
             "name": "body",
+            "description": "Request payload for creating offerings in one or more supported ecosystems.",
             "in": "body",
             "required": true,
             "schema": {
@@ -89,7 +93,8 @@
     },
     "/grpc/GetComputeToDataResult": {
       "post": {
-        "summary": "GetComputeToDataResult",
+        "summary": "Get compute-to-data result",
+        "description": "Returns the output of a completed compute-to-data job.",
         "operationId": "ecosystemsgateway_GetComputeToDataResult",
         "responses": {
           "200": {
@@ -108,6 +113,7 @@
         "parameters": [
           {
             "name": "body",
+            "description": "Request payload for retrieving compute-to-data job results.\r\nUse jobIndex to fetch a specific result file; by default the first result is returned.",
             "in": "body",
             "required": true,
             "schema": {
@@ -122,7 +128,8 @@
     },
     "/grpc/GetComputeToDataStatus": {
       "post": {
-        "summary": "GetComputeToDataStatus",
+        "summary": "Get compute-to-data status",
+        "description": "Returns the current execution status of a compute-to-data job.",
         "operationId": "ecosystemsgateway_GetComputeToDataStatus",
         "responses": {
           "200": {
@@ -155,7 +162,8 @@
     },
     "/grpc/GetOffering": {
       "post": {
-        "summary": "GetOffering",
+        "summary": "Get offering",
+        "description": "Fetches one or more offerings by identifier or lookup criteria.",
         "operationId": "ecosystemsgateway_GetOffering",
         "responses": {
           "200": {
@@ -174,6 +182,7 @@
         "parameters": [
           {
             "name": "body",
+            "description": "Request payload for retrieving offerings.",
             "in": "body",
             "required": true,
             "schema": {
@@ -188,7 +197,8 @@
     },
     "/grpc/QueryOfferings": {
       "post": {
-        "summary": "QueryOfferings",
+        "summary": "Query offerings",
+        "description": "Searches offerings in the selected ecosystem.",
         "operationId": "ecosystemsgateway_QueryOfferings",
         "responses": {
           "200": {
@@ -207,6 +217,7 @@
         "parameters": [
           {
             "name": "body",
+            "description": "Request payload for searching offerings.",
             "in": "body",
             "required": true,
             "schema": {
@@ -221,7 +232,8 @@
     },
     "/grpc/RunComputeToDataJob": {
       "post": {
-        "summary": "RunComputeToDataJob",
+        "summary": "Run compute-to-data job",
+        "description": "Starts a compute-to-data job for a published asset.",
         "operationId": "ecosystemsgateway_RunComputeToDataJob",
         "responses": {
           "200": {
@@ -240,6 +252,7 @@
         "parameters": [
           {
             "name": "body",
+            "description": "Request payload for starting a compute-to-data job in Pontus-X.",
             "in": "body",
             "required": true,
             "schema": {
@@ -254,7 +267,8 @@
     },
     "/grpc/UpdateOffering": {
       "post": {
-        "summary": "UpdateOffering",
+        "summary": "Update offering",
+        "description": "Updates an existing offering in the target ecosystem.",
         "operationId": "ecosystemsgateway_UpdateOffering",
         "responses": {
           "200": {
@@ -273,6 +287,7 @@
         "parameters": [
           {
             "name": "body",
+            "description": "Request payload for updating already published offerings.",
             "in": "body",
             "required": true,
             "schema": {
@@ -287,7 +302,8 @@
     },
     "/grpc/UpdateOfferingLifecycle": {
       "post": {
-        "summary": "UpdateOfferingLifecycle",
+        "summary": "Update offering lifecycle",
+        "description": "Changes the lifecycle state of an existing offering.",
         "operationId": "ecosystemsgateway_UpdateOfferingLifecycle",
         "responses": {
           "200": {
@@ -306,6 +322,7 @@
         "parameters": [
           {
             "name": "body",
+            "description": "Request payload for changing the lifecycle state of an existing offering.",
             "in": "body",
             "required": true,
             "schema": {
@@ -324,7 +341,7 @@
       "type": "object",
       "properties": {
         "service": {
-          "$ref": "#/definitions/ecosystemsgatewayService"
+          "$ref": "#/definitions/eupgEcosystemsgatewayService"
         },
         "index": {
           "type": "integer",
@@ -368,30 +385,30 @@
     "ecosystemsgatewayAccessServiceRequest": {
       "type": "object",
       "properties": {
-        "did": {
-          "type": "string"
-        },
-        "serviceId": {
-          "type": "string",
-          "title": "defaults to the first service of the asset's metadata"
-        },
-        "fileIndex": {
-          "type": "integer",
-          "format": "int32",
-          "title": "defaults to the first file of the service"
-        },
-        "userdata": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
+        "service": {
+          "$ref": "#/definitions/ecosystemsgatewayAccessServiceRequestService"
         }
       },
-      "title": "---------------------------------------------- AccessService ----------------------------------------------"
+      "description": "Request payload for retrieving a consumable access URL for a service."
+    },
+    "ecosystemsgatewayAccessServiceRequestService": {
+      "type": "object",
+      "properties": {
+        "pontusxService": {
+          "$ref": "#/definitions/ecosystemsgatewayPontusxAccessService"
+        },
+        "xfscService": {
+          "$ref": "#/definitions/ecosystemsgatewayXfscAccessService"
+        }
+      }
     },
     "ecosystemsgatewayAccessServiceResponse": {
       "type": "object",
       "properties": {
+        "id": {
+          "type": "string",
+          "title": "Identifier of the requested service offering \r\nexample: did:op:123 in Pontus-X ecosystem"
+        },
         "accessUrl": {
           "type": "string"
         }
@@ -409,7 +426,7 @@
           "title": "Information in the context of Gaia-X compliance including the link to the Self-Description of the offering (VP)"
         }
       },
-      "title": "Additional information about the asset used in CreateOfferingRequest and UpdateOfferingRequest\r\nTaylored for Pontus-X Ecosystem and workaround for Gaia-X Framework implementation (normally customizable)"
+      "description": "Additional Pontus-X specific metadata, primarily for Gaia-X related information."
     },
     "ecosystemsgatewayAlgorithmMetadata": {
       "type": "object",
@@ -584,7 +601,8 @@
             "type": "string"
           }
         }
-      }
+      },
+      "description": "Request payload for starting a compute-to-data job in Pontus-X."
     },
     "ecosystemsgatewayCreateComputeToDataResultRequest": {
       "type": "object",
@@ -600,7 +618,7 @@
           "$ref": "#/definitions/ecosystemsgatewayComputeToDataResultType"
         }
       },
-      "title": "The compute to data result request can be used to get the results from a job.\r\nWith the jobindex a specific result files (ordered by name 0-n) can be fetched\r\nBy default only the first result file will be returned"
+      "description": "Request payload for retrieving compute-to-data job results.\r\nUse jobIndex to fetch a specific result file; by default the first result is returned."
     },
     "ecosystemsgatewayCreateOfferingRequest": {
       "type": "object",
@@ -724,7 +742,7 @@
           }
         }
       },
-      "title": "Create message to publish a Offering with the given information to different ecosystems\r\nAt the moment Pontus-X and XFSC are supported"
+      "description": "Request payload for creating offerings in one or more supported ecosystems."
     },
     "ecosystemsgatewayCreateOfferingRequestOffering": {
       "type": "object",
@@ -752,7 +770,7 @@
           "title": "Debug information"
         }
       },
-      "title": "Response to CreateOfferingRequest"
+      "description": "Response returned after creating offerings."
     },
     "ecosystemsgatewayCredentialLists": {
       "type": "object",
@@ -772,7 +790,7 @@
           "title": "List of denied credentials"
         }
       },
-      "title": "Message for credential allow- and denylists in PontusX"
+      "description": "Credential allowlist and denylist configuration for Pontus-X."
     },
     "ecosystemsgatewayFiles": {
       "type": "object",
@@ -818,7 +836,7 @@
           }
         }
       },
-      "title": "---------------------------------------------- GetOffering ----------------------------------------------"
+      "description": "Request payload for retrieving offerings."
     },
     "ecosystemsgatewayGetOfferingRequestOffering": {
       "type": "object",
@@ -881,7 +899,31 @@
           "title": "Information about asset of type algorithm\r\nOnly optional for dataset -\u003e Non-optional for algorithm"
         }
       },
-      "title": "Main metadata information for the asset used in CreateOfferingRequest and UpdateOfferingRequest \r\nin the Pontus-X Ecosystem (Ocean Protocol)"
+      "description": "Core asset metadata used for Pontus-X create and update operations."
+    },
+    "ecosystemsgatewayPontusxAccessService": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string"
+        },
+        "serviceId": {
+          "type": "string",
+          "description": "Defaults to the first service in the asset metadata."
+        },
+        "fileIndex": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Defaults to the first file in the selected service."
+        },
+        "userdata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Optional user-provided parameters forwarded to the service."
+        }
+      }
     },
     "ecosystemsgatewayPontusxGetOffering": {
       "type": "object",
@@ -902,8 +944,7 @@
         "ASSET_UNLISTED"
       ],
       "default": "ACTIVE",
-      "description": "- ACTIVE: Fully functional asset\r\nDiscoverable in Portal and Ordering allowed\r\nListed under the owner's profile\n - END_OF_LIFE: This state indicates that the asset is usually deprecated or outdated\r\nDiscoverable, but not orderable\r\nNot listed under the owner's profile\n - DEPRECATED: This state indicates that another asset has deprecated the current asset\r\nNot discoverable and not orderable\r\nNot listed under the owner's profile\n - REVOKED_BY_PUBLISHER: Publisher has explicitly revoked access or ownership rights to the asset\r\nNot discoverable and not orderable\n - ORDERING_DISABLED_TEMPORARILY: Users can view the asset and gather information, but they cannot place orders at that moment\r\nDiscoverable, but not orderable\r\nListed under the owner's profile.\n - ASSET_UNLISTED: Not discoverable, but orderable\r\nListed under the owner's profile",
-      "title": "Possible lifecycle states of asset in the pontus-x ecosystem"
+      "description": "Possible lifecycle states for an asset in the Pontus-X ecosystem.\n\n - ACTIVE: Fully functional asset\r\nDiscoverable in Portal and Ordering allowed\r\nListed under the owner's profile\n - END_OF_LIFE: This state indicates that the asset is usually deprecated or outdated\r\nDiscoverable, but not orderable\r\nNot listed under the owner's profile\n - DEPRECATED: This state indicates that another asset has deprecated the current asset\r\nNot discoverable and not orderable\r\nNot listed under the owner's profile\n - REVOKED_BY_PUBLISHER: Publisher has explicitly revoked access or ownership rights to the asset\r\nNot discoverable and not orderable\n - ORDERING_DISABLED_TEMPORARILY: Users can view the asset and gather information, but they cannot place orders at that moment\r\nDiscoverable, but not orderable\r\nListed under the owner's profile.\n - ASSET_UNLISTED: Not discoverable, but orderable\r\nListed under the owner's profile"
     },
     "ecosystemsgatewayPontusxOffering": {
       "type": "object",
@@ -920,7 +961,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/ecosystemsgatewayService"
+            "$ref": "#/definitions/eupgEcosystemsgatewayService"
           },
           "title": "Services that are exposed by the asset to interact with it\r\nCardinality: 1..n -\u003e At least one service has to be passed for publishing"
         },
@@ -929,14 +970,14 @@
           "title": "Allowlist \u0026 Denylist of Credentials for the offering"
         }
       },
-      "title": "Message for publication into the Pontus-X ecosystem"
+      "description": "Offering payload for publication into the Pontus-X ecosystem."
     },
     "ecosystemsgatewayPontusxQueryOfferings": {
       "type": "object",
       "properties": {
         "did": {
           "type": "string",
-          "title": "make use of default values in proto. See: https://protobuf.dev/programming-guides/proto3/#default"
+          "description": "Optional identifier of the offering."
         },
         "name": {
           "type": "string"
@@ -1031,7 +1072,7 @@
           "title": "The data that is submitted to the credential event service\r\nAt the moment: Has to be a (Compliance) VC issued by the Gaia-X compliance engine"
         }
       },
-      "title": "Publish info used in UpdateOfferingRequest\r\nUsed for additionally publishing Offering to Credential Event Service"
+      "description": "Supplemental data for publishing an offering update to the Credential Event Service."
     },
     "ecosystemsgatewayQueryOfferingsRequest": {
       "type": "object",
@@ -1040,7 +1081,7 @@
           "$ref": "#/definitions/QueryOfferingsRequestQuery"
         }
       },
-      "title": "---------------------------------------------- QueryOfferings ----------------------------------------------"
+      "description": "Request payload for searching offerings."
     },
     "ecosystemsgatewayQueryOfferingsResponse": {
       "type": "object",
@@ -1057,7 +1098,216 @@
         }
       }
     },
-    "ecosystemsgatewayService": {
+    "ecosystemsgatewayTerms": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        }
+      },
+      "description": "Publisher-defined terms and conditions URL referenced by Gaia-X metadata."
+    },
+    "ecosystemsgatewayTrustedAlgorihm": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string",
+          "title": "Decentralised identifier of the already published algorithm\r\nexample did:op:456"
+        },
+        "filesChecksum": {
+          "type": "string",
+          "title": "Hash of trusted algorithm's files\r\nCan be created over Ocean Provider FileInfoEndpoint with parameter withChecksum = True\r\nIf the algorithm has multiple files, filesChecksum is a concatenated string of all files checksums\r\nOptional because this is already handled by nautilus"
+        },
+        "containerSectionChecksum": {
+          "type": "string",
+          "title": "Hash of algorithm's image details (entrypoint and image checksum)\r\nProduced by: sha256(algorithm_ddo.metadata.algorithm.container.entrypoint + algorithm_ddo.metadata.algorithm.container.checksum)"
+        }
+      }
+    },
+    "ecosystemsgatewayUpdateOfferingLifecycleRequest": {
+      "type": "object",
+      "properties": {
+        "offerings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ecosystemsgatewayUpdateOfferingLifecycleRequestUpdateOfferingLifecycle"
+          }
+        }
+      },
+      "description": "Request payload for changing the lifecycle state of an existing offering."
+    },
+    "ecosystemsgatewayUpdateOfferingLifecycleRequestUpdateOfferingLifecycle": {
+      "type": "object",
+      "properties": {
+        "pontusxUpdateOfferingLifecycle": {
+          "$ref": "#/definitions/ecosystemsgatewayPontusxUpdateOfferingLifecycle"
+        },
+        "xfscUpdateOfferingLifecycle": {
+          "$ref": "#/definitions/ecosystemsgatewayXfscUpdateOfferingLifecycle"
+        }
+      }
+    },
+    "ecosystemsgatewayUpdateOfferingLifecycleResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "List of identifier of the successfully changed offering(s) \r\nexample: did:op:123 in Pontus-X ecosystem"
+        },
+        "DebugInformation": {
+          "type": "object"
+        }
+      }
+    },
+    "ecosystemsgatewayUpdateOfferingRequest": {
+      "type": "object",
+      "properties": {
+        "offerings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ecosystemsgatewayUpdateOfferingRequestUpdateOffering"
+          }
+        }
+      },
+      "description": "Request payload for updating already published offerings."
+    },
+    "ecosystemsgatewayUpdateOfferingRequestUpdateOffering": {
+      "type": "object",
+      "properties": {
+        "pontusxUpdateOffering": {
+          "$ref": "#/definitions/ecosystemsgatewayPontusxUpdateOffering"
+        },
+        "xfscUpdateOffering": {
+          "$ref": "#/definitions/ecosystemsgatewayXfscUpdateOffering"
+        },
+        "publishInfo": {
+          "$ref": "#/definitions/ecosystemsgatewayPublishInfo",
+          "title": "Optional information about the published asset\r\nIf this Information is set, it is used to publish the offering to the Credential Event Service"
+        }
+      }
+    },
+    "ecosystemsgatewayUpdateOfferingResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "List of identifier of the successfully updated offering(s) \r\nexample: did:op:123 in Pontus-X ecosystem"
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Locations of the offering which where published to the Credential Event Service"
+        },
+        "DebugInformation": {
+          "type": "object"
+        }
+      },
+      "description": "Response returned after updating offerings."
+    },
+    "ecosystemsgatewayXfscAccessService": {
+      "type": "object",
+      "properties": {
+        "vc": {
+          "type": "string"
+        }
+      }
+    },
+    "ecosystemsgatewayXfscGetOffering": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "ecosystemsgatewayXfscOffering": {
+      "type": "object",
+      "properties": {
+        "VP": {
+          "type": "string",
+          "description": "Gaia-X compliant Verifiable Presentation of the service offering as JSON-LD."
+        }
+      },
+      "description": "Offering payload for publication into the Cross Federation Services Catalogue (XFSC)."
+    },
+    "ecosystemsgatewayXfscQueryOfferings": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "ecosystemsgatewayXfscUpdateOffering": {
+      "type": "object",
+      "properties": {
+        "hash": {
+          "type": "string",
+          "description": "Hash of the original Verifiable Presentation published to the catalogue."
+        },
+        "VP": {
+          "type": "string",
+          "description": "Updated Gaia-X compliant Verifiable Presentation of the service offering as JSON-LD."
+        }
+      }
+    },
+    "ecosystemsgatewayXfscUpdateOfferingLifecycle": {
+      "type": "object",
+      "properties": {
+        "hash": {
+          "type": "string",
+          "title": "String containing the hash of the original Verifiable Presentation published to the catalogue"
+        },
+        "to": {
+          "$ref": "#/definitions/XfscUpdateOfferingLifecycleXfscLifecycleStates",
+          "title": "XFSC lifecycle state to which the offering should be changed"
+        }
+      }
+    },
+    "ecosystemsgatewaygaiaX": {
+      "type": "object",
+      "properties": {
+        "containsPII": {
+          "type": "boolean",
+          "title": "Identifier if the asset contains personally identifiable information"
+        },
+        "termsAndConditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ecosystemsgatewayTerms"
+          },
+          "title": "Terms and conditions additionally set by the publisher of the asset\r\nShould only be passed if boolean in AdditionalInformation is true"
+        },
+        "serviceSD": {
+          "$ref": "#/definitions/gaiaXServiceSelfDescription"
+        }
+      },
+      "description": "Gaia-X related compliance information referenced by AdditionalInformation."
+    },
+    "eupgEcosystemsgatewayService": {
       "type": "object",
       "properties": {
         "name": {
@@ -1113,208 +1363,6 @@
         }
       },
       "title": "Services define the access for an asset"
-    },
-    "ecosystemsgatewayTerms": {
-      "type": "object",
-      "properties": {
-        "url": {
-          "type": "string"
-        }
-      },
-      "title": "Static URL to Terms and Conditions defined by the publisher of the asset used in gaiaX"
-    },
-    "ecosystemsgatewayTrustedAlgorihm": {
-      "type": "object",
-      "properties": {
-        "did": {
-          "type": "string",
-          "title": "Decentralised identifier of the already published algorithm\r\nexample did:op:456"
-        },
-        "filesChecksum": {
-          "type": "string",
-          "title": "Hash of trusted algorithm's files\r\nCan be created over Ocean Provider FileInfoEndpoint with parameter withChecksum = True\r\nIf the algorithm has multiple files, filesChecksum is a concatenated string of all files checksums\r\nOptional because this is already handled by nautilus"
-        },
-        "containerSectionChecksum": {
-          "type": "string",
-          "title": "Hash of algorithm's image details (entrypoint and image checksum)\r\nProduced by: sha256(algorithm_ddo.metadata.algorithm.container.entrypoint + algorithm_ddo.metadata.algorithm.container.checksum)"
-        }
-      }
-    },
-    "ecosystemsgatewayUpdateOfferingLifecycleRequest": {
-      "type": "object",
-      "properties": {
-        "offerings": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/ecosystemsgatewayUpdateOfferingLifecycleRequestUpdateOfferingLifecycle"
-          }
-        }
-      },
-      "title": "Update message for changing the LifecycleState of an already published offering"
-    },
-    "ecosystemsgatewayUpdateOfferingLifecycleRequestUpdateOfferingLifecycle": {
-      "type": "object",
-      "properties": {
-        "pontusxUpdateOfferingLifecycle": {
-          "$ref": "#/definitions/ecosystemsgatewayPontusxUpdateOfferingLifecycle"
-        },
-        "xfscUpdateOfferingLifecycle": {
-          "$ref": "#/definitions/ecosystemsgatewayXfscUpdateOfferingLifecycle"
-        }
-      }
-    },
-    "ecosystemsgatewayUpdateOfferingLifecycleResponse": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "title": "List of identifier of the successfully changed offering(s) \r\nexample: did:op:123 in Pontus-X ecosystem"
-        },
-        "DebugInformation": {
-          "type": "object"
-        }
-      }
-    },
-    "ecosystemsgatewayUpdateOfferingRequest": {
-      "type": "object",
-      "properties": {
-        "offerings": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/ecosystemsgatewayUpdateOfferingRequestUpdateOffering"
-          }
-        }
-      },
-      "title": "Update message for an already published Offering\r\nTODO only hash of VP for XFSC"
-    },
-    "ecosystemsgatewayUpdateOfferingRequestUpdateOffering": {
-      "type": "object",
-      "properties": {
-        "pontusxUpdateOffering": {
-          "$ref": "#/definitions/ecosystemsgatewayPontusxUpdateOffering"
-        },
-        "xfscUpdateOffering": {
-          "$ref": "#/definitions/ecosystemsgatewayXfscUpdateOffering"
-        },
-        "publishInfo": {
-          "$ref": "#/definitions/ecosystemsgatewayPublishInfo",
-          "title": "Optional information about the published asset\r\nIf this Information is set, it is used to publish the offering to the Credential Event Service"
-        }
-      }
-    },
-    "ecosystemsgatewayUpdateOfferingResponse": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "title": "List of identifier of the successfully updated offering(s) \r\nexample: did:op:123 in Pontus-X ecosystem"
-        },
-        "locations": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "title": "Locations of the offering which where published to the Credential Event Service"
-        },
-        "DebugInformation": {
-          "type": "object"
-        }
-      },
-      "title": "Response to UpdateOfferingRequest"
-    },
-    "ecosystemsgatewayXfscGetOffering": {
-      "type": "object",
-      "properties": {
-        "did": {
-          "type": "string"
-        },
-        "issuer": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        }
-      }
-    },
-    "ecosystemsgatewayXfscOffering": {
-      "type": "object",
-      "properties": {
-        "VP": {
-          "type": "string",
-          "title": "String containing the Gaia-X conformant Verifiable Presentation as JSON-LD for the Service Offering"
-        }
-      },
-      "title": "Message for publication into the Cross Federation Services Catalogue"
-    },
-    "ecosystemsgatewayXfscQueryOfferings": {
-      "type": "object",
-      "properties": {
-        "did": {
-          "type": "string"
-        },
-        "issuer": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string",
-          "title": "TODO"
-        }
-      }
-    },
-    "ecosystemsgatewayXfscUpdateOffering": {
-      "type": "object",
-      "properties": {
-        "hash": {
-          "type": "string",
-          "title": "String containing the hash of the original Verifiable Presentation published to the catalogue"
-        },
-        "VP": {
-          "type": "string",
-          "title": "String containing the Gaia-X conformant Verifiable Presentation as JSON-LD for the Service Offering"
-        }
-      }
-    },
-    "ecosystemsgatewayXfscUpdateOfferingLifecycle": {
-      "type": "object",
-      "properties": {
-        "hash": {
-          "type": "string",
-          "title": "String containing the hash of the original Verifiable Presentation published to the catalogue"
-        },
-        "to": {
-          "$ref": "#/definitions/XfscUpdateOfferingLifecycleXfscLifecycleStates",
-          "title": "XFSC lifecycle state to which the offering should be changed"
-        }
-      }
-    },
-    "ecosystemsgatewaygaiaX": {
-      "type": "object",
-      "properties": {
-        "containsPII": {
-          "type": "boolean",
-          "title": "Identifier if the asset contains personally identifiable information"
-        },
-        "termsAndConditions": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/ecosystemsgatewayTerms"
-          },
-          "title": "Terms and conditions additionally set by the publisher of the asset\r\nShould only be passed if boolean in AdditionalInformation is true"
-        },
-        "serviceSD": {
-          "$ref": "#/definitions/gaiaXServiceSelfDescription"
-        }
-      },
-      "title": "Information related to Gaia-X compliance used in AdditionalInformation"
     },
     "gaiaXServiceSelfDescription": {
       "type": "object",

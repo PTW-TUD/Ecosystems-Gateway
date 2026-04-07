@@ -308,7 +308,7 @@ export class GrpcController {
         ),
       );
       const resultOfferings = queryResult[0];
-      for (let asset of resultOfferings) {
+      for (const asset of resultOfferings) {
         result.push(JSON.stringify(asset));
       }
       resultTotal = queryResult[1];
@@ -336,16 +336,27 @@ export class GrpcController {
   ): Promise<AccessServiceResponse> {
     this.logger.debug('grpc method AccessService called');
     this.logger.verbose(data);
-    let result = await this.runRpc('accessService', () =>
-      this.pontusxService.accessService(
-        data.did,
-        data.serviceId,
-        data.fileIndex,
-        data.userdata,
-      ),
-    );
+
+    let result: string;
+
+    if (data.service.pontusxService !== undefined) {
+      result = await this.runRpc('accessService', () =>
+        this.pontusxService.accessService(
+          data.service.pontusxService.did,
+          data.service.pontusxService.serviceId,
+          data.service.pontusxService.fileIndex,
+          data.service.pontusxService.userdata,
+        ),
+      );
+    } else {
+      throw new RpcException({
+        code: GrpcStatusCode.UNIMPLEMENTED,
+        message: 'xfscAccess is currently not supported',
+      });
+    }
     if (result) {
       return {
+        id: data.service.pontusxService.did,
         accessUrl: result,
       };
     }
@@ -361,7 +372,7 @@ export class GrpcController {
   ): Promise<ComputeToDataResponse> {
     this.logger.debug('grpc method RunComputeToDataJob called');
     this.logger.verbose(data);
-    let result = await this.runRpc('requestComputeToData', () =>
+    const result = await this.runRpc('requestComputeToData', () =>
       this.pontusxService.requestComputeToData(
         data.did,
         data.algorithm,
@@ -385,7 +396,7 @@ export class GrpcController {
   ): Promise<ComputeToDataStatusResponse> {
     this.logger.debug('grpc method RunComputeToDataJob called');
     this.logger.verbose(data);
-    let result = await this.runRpc('getComputeToDataStatus', () =>
+    const result = await this.runRpc('getComputeToDataStatus', () =>
       this.pontusxService.getComputeToDataStatus(data.jobId),
     );
     if (result) {

@@ -17,7 +17,7 @@ option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
     info: {
         title: "Ecosystem Gateway API";
         version: "1.0";
-        description: "Interconnectivity by desing";
+        description: "HTTP/JSON gateway for publishing, querying, and consuming ecosystem offerings.";
     };
     // Host intentionally omitted to allow same-origin usage from Swagger UI
     base_path: "/";
@@ -26,16 +26,17 @@ option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
     produces: "application/json";
 };
 
-//service definition for gateway
+// Public gateway API for publishing, querying, and consuming offerings across supported ecosystems.
 service ecosystemsgateway{
-    // Publication-Endpoints
+    // Publication endpoints
     rpc CreateOffering(CreateOfferingRequest) returns (CreateOfferingResponse){
         option (google.api.http) = {
             post: "/grpc/CreateOffering";
             body: "*";
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "Create a service offering";
+            summary: "Create offering";
+            description: "Publishes one or more offerings to Pontus-X and/or XFSC.";
             tags: "ecosystemsgateway";
         };
     }
@@ -45,7 +46,8 @@ service ecosystemsgateway{
             body: "*";
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "UpdateOffering";
+            summary: "Update offering";
+            description: "Updates an existing offering in the target ecosystem.";
             tags: "ecosystemsgateway";
         };
     }
@@ -55,19 +57,21 @@ service ecosystemsgateway{
             body: "*";
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "UpdateOfferingLifecycle";
+            summary: "Update offering lifecycle";
+            description: "Changes the lifecycle state of an existing offering.";
             tags: "ecosystemsgateway";
         };
     }
 
-    // Comsumer-Endpoints
+    // Consumer endpoints
     rpc GetOffering(GetOfferingRequest) returns (GetOfferingResponse) {
         option (google.api.http) = {
             post: "/grpc/GetOffering";
             body: "*";
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "GetOffering";
+            summary: "Get offering";
+            description: "Fetches one or more offerings by identifier or lookup criteria.";
             tags: "ecosystemsgateway";
         };
     }
@@ -77,7 +81,8 @@ service ecosystemsgateway{
             body: "*";
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "QueryOfferings";
+            summary: "Query offerings";
+            description: "Searches offerings in the selected ecosystem.";
             tags: "ecosystemsgateway";
         };
     }
@@ -87,19 +92,21 @@ service ecosystemsgateway{
             body: "*";
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "AccessService";
+            summary: "Access service";
+            description: "Requests an access URL for a published service.";
             tags: "ecosystemsgateway";
         };
     }
 
-    // C2D-Endpoints
+    // Compute-to-data endpoints
     rpc RunComputeToDataJob(CreateComputeToDataRequest) returns (ComputeToDataResponse){
         option (google.api.http) = {
             post: "/grpc/RunComputeToDataJob";
             body: "*";
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "RunComputeToDataJob";
+            summary: "Run compute-to-data job";
+            description: "Starts a compute-to-data job for a published asset.";
             tags: "ecosystemsgateway";
         };
     }
@@ -109,7 +116,8 @@ service ecosystemsgateway{
             body: "*";
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "GetComputeToDataStatus";
+            summary: "Get compute-to-data status";
+            description: "Returns the current execution status of a compute-to-data job.";
             tags: "ecosystemsgateway";
         };
     }
@@ -119,17 +127,14 @@ service ecosystemsgateway{
             body: "*";
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-            summary: "GetComputeToDataResult";
+            summary: "Get compute-to-data result";
+            description: "Returns the output of a completed compute-to-data job.";
             tags: "ecosystemsgateway";
         };
     }
 }
 
-/*
----------------------------------------------- CreateOffering ----------------------------------------------
-*/
-// Create message to publish a Offering with the given information to different ecosystems
-// At the moment Pontus-X and XFSC are supported
+// Request payload for creating offerings in one or more supported ecosystems.
 message CreateOfferingRequest {
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
         example: "{\n    \"offerings\": [\n        {\n            \"pontusxOffering\": {\n                \"metadata\": {\n                    \"type\": \"anim\",\n                    \"name\": \"Excepteur ex dolor\",\n                    \"description\": \"eu consequat\",\n                    \"author\": \"qui occaecat officia Ut sint\",\n                    \"licence\": \"incididunt\",\n                    \"tags\": [\n                        \"exercitation tempor in irure veniam\",\n                        \"consequat\"\n                    ],\n                    \"algorithm\": {\n                        \"language\": \"dolore esse adipisicing\",\n                        \"version\": \"in\",\n                        \"consumerParameters\": [\n                            {\n                                \"name\": \"deserunt ex sunt\",\n                                \"type\": \"do labore Excepteur consectetur\",\n                                \"label\": \"reprehenderit proident nostrud\",\n                                \"required\": false,\n                                \"description\": \"velit\",\n                                \"default\": \"commodo est in ex aliquip\",\n                                \"options\": [\n                                    {\n                                        \"fields\": {}\n                                    }\n                                ]\n                            }\n                        ],\n                        \"container\": {\n                            \"entrypoint\": \"in\",\n                            \"image\": \"reprehenderit velit\",\n                            \"tag\": \"ut\",\n                            \"checksum\": \"anim dolor sed elit\"\n                        }\n                    }\n                },\n                \"additionalInformation\": {\n                    \"termsAndConditions\": false,\n                    \"gaiaXInformation\": {\n                        \"containsPII\": false,\n                        \"termsAndConditions\": [\n                            {\n                                \"url\": \"Lorem nostrud magna incididunt officia\"\n                            }\n                        ],\n                        \"serviceSD\": {\n                            \"url\": \"sunt voluptate eu\",\n                            \"isVerified\": false\n                        }\n                    }\n                },\n                \"services\": [\n                    {\n                        \"name\": \"reprehenderit qui nostrud\",\n                        \"description\": \"culpa consequat pariatur\",\n                        \"type\": \"occaecat laborum sunt ipsum\",\n                        \"pricing\": {\n                            \"pricingType\": 1,\n                            \"fixedRate\": 3599842091\n                        },\n                        \"files\": [\n                            {\n                                \"url\": \"et mollit eu ullamco\",\n                                \"method\": \"exercitation dolor\",\n                                \"headers\": {\n                                    \"key\": \"\",\n                                    \"value\": \"\"\n                                }\n                            }\n                        ],\n                        \"timeout\": 3474029621,\n                        \"tokenName\": \"sit\",\n                        \"tokenSymbol\": \"nisi consequat dolore dolor eiusmod\",\n                        \"serviceEndpoint\": \"elit sunt et ipsum in\",\n                        \"computeOptions\": {\n                            \"allowRawAlgorithm\": true,\n                            \"allowNetworkAccess\": true,\n                            \"trustedAlgorithms\": [\n                                {\n                                    \"did\": \"sint dolor Lorem\",\n                                    \"filesChecksum\": \"officia culpa mollit\",\n                                    \"containerSectionChecksum\": \"nisi laboris eu ex\"\n                                }\n                            ],\n                            \"trustedPublishers\": [\n                                \"in sint\",\n                                \"aliqua eu eiusmod voluptate irure\"\n                            ]\n                        },\n                        \"consumerParameters\": []\n                    }\n                ],\n                \"credentials\": {\n                    \"allow\": [\n                        \"aliquip\"\n                    ],\n                    \"deny\": [\n                        \"minim elit\"\n                    ]\n                }\n            },\n            \"xfscOffering\": {\n                \"VP\": \"deserunt adipisicing\"\n            }\n        }\n    ]\n}"
@@ -145,13 +150,13 @@ message CreateOfferingRequest {
     repeated Offering offerings = 10;
 }
 
-// Message for publication into the Cross Federation Services Catalogue
+// Offering payload for publication into the Cross Federation Services Catalogue (XFSC).
 message XfscOffering {
-    //String containing the Gaia-X conformant Verifiable Presentation as JSON-LD for the Service Offering
+    // Gaia-X compliant Verifiable Presentation of the service offering as JSON-LD.
     string VP = 1;
 }
 
-// Message for publication into the Pontus-X ecosystem
+// Offering payload for publication into the Pontus-X ecosystem.
 message PontusxOffering {
     // The main information about the asset to publish
     Metadata metadata = 1;
@@ -167,8 +172,7 @@ message PontusxOffering {
     optional CredentialLists credentials = 4;
 }
 
-
-// Response to CreateOfferingRequest
+// Response returned after creating offerings.
 message CreateOfferingResponse {
     // List of identifier of the successfully published offering(s) 
     // example: did:op:123 in Pontus-X ecosystem
@@ -179,11 +183,7 @@ message CreateOfferingResponse {
 }
 
 
-/*
----------------------------------------------- UpdateOffering ----------------------------------------------
-*/
-// Update message for an already published Offering
-// TODO only hash of VP for XFSC
+// Request payload for updating already published offerings.
 message UpdateOfferingRequest {
     reserved 1 to 5, 7;
 
@@ -201,10 +201,10 @@ message UpdateOfferingRequest {
 }
 
 message XfscUpdateOffering {
-    // String containing the hash of the original Verifiable Presentation published to the catalogue
+    // Hash of the original Verifiable Presentation published to the catalogue.
     string hash = 1;
 
-    // String containing the Gaia-X conformant Verifiable Presentation as JSON-LD for the Service Offering
+    // Updated Gaia-X compliant Verifiable Presentation of the service offering as JSON-LD.
     string VP = 2;
 }
 
@@ -233,8 +233,7 @@ message PontusxUpdateOffering {
     optional CredentialLists credentials = 5;
 }
 
-// Publish info used in UpdateOfferingRequest
-// Used for additionally publishing Offering to Credential Event Service
+// Supplemental data for publishing an offering update to the Credential Event Service.
 message PublishInfo{
     // The source where to find the published offering
     // example: https://www.pontus-x.eu/asset/did:op:ac74139fa102d32f326ccdab3727a95299f1c2b6add9158385439e5b06810833
@@ -245,8 +244,7 @@ message PublishInfo{
     string data = 2;
 }
 
-
-// Response to UpdateOfferingRequest
+// Response returned after updating offerings.
 message UpdateOfferingResponse{
     // List of identifier of the successfully updated offering(s) 
     // example: did:op:123 in Pontus-X ecosystem
@@ -259,10 +257,7 @@ message UpdateOfferingResponse{
 }
 
 
-/*
----------------------------------------------- UpdateOfferingLifecycle ----------------------------------------------
-*/
-// Update message for changing the LifecycleState of an already published offering
+// Request payload for changing the lifecycle state of an existing offering.
 message UpdateOfferingLifecycleRequest {
     reserved 1, 2;
 
@@ -306,7 +301,6 @@ message XfscUpdateOfferingLifecycle {
     XfscLifecycleStates to = 2;
 }
 
-
 message UpdateOfferingLifecycleResponse {
     // List of identifier of the successfully changed offering(s) 
     // example: did:op:123 in Pontus-X ecosystem
@@ -315,9 +309,7 @@ message UpdateOfferingLifecycleResponse {
     google.protobuf.Struct DebugInformation = 2;
 }
 
-/*
----------------------------------------------- GetOffering ----------------------------------------------
-*/
+// Request payload for retrieving offerings.
 message GetOfferingRequest {
     message Offering {
         oneof EcosystemOffering {
@@ -345,9 +337,7 @@ message PontusxGetOffering {
     string did = 1;
 }
 
-/*
----------------------------------------------- QueryOfferings ----------------------------------------------
-*/
+// Request payload for searching offerings.
 message QueryOfferingsRequest {
     message Query {
         oneof EcosystemQuery {
@@ -367,11 +357,10 @@ message XfscQueryOfferings {
     string did = 1;
     string issuer = 2;
     string name = 3;
-    //TODO
 }
 
 message PontusxQueryOfferings {
-    //make use of default values in proto. See: https://protobuf.dev/programming-guides/proto3/#default
+    // Optional identifier of the offering.
     optional string did = 1;
     optional string name = 2;
     optional string description = 3;
@@ -382,26 +371,39 @@ message PontusxQueryOfferings {
     optional int32 pageSize = 8;
 }
 
-/*
----------------------------------------------- AccessService ----------------------------------------------
-*/
+// Request payload for retrieving a consumable access URL for a service.
 message AccessServiceRequest {
+    message Service {
+        oneof EcosystemService {
+            PontusxAccessService pontusxService = 1;
+            XfscAccessService xfscService = 2;
+        }
+    }
+    Service service = 10;
+}
+
+message PontusxAccessService {
     string did = 1;
-    // defaults to the first service of the asset's metadata
+    // Defaults to the first service in the asset metadata.
     optional string serviceId = 2;
-    // defaults to the first file of the service
+    // Defaults to the first file in the selected service.
     optional int32 fileIndex = 3;
+    // Optional user-provided parameters forwarded to the service.
     map<string, string> userdata = 4;
 }
 
-message AccessServiceResponse {
-    string accessUrl = 1;
+message XfscAccessService {
+    string vc = 1;
 }
 
-/*
----------------------------------------------- Compute2Data (Pontus-X) ----------------------------------------------
-*/
+message AccessServiceResponse {
+    // Identifier of the requested service offering 
+    // example: did:op:123 in Pontus-X ecosystem
+    string id = 1;
+    string accessUrl = 2;
+}
 
+// Request payload for starting a compute-to-data job in Pontus-X.
 message CreateComputeToDataRequest {
     string did = 1;
     string algorithm = 2;
@@ -426,9 +428,8 @@ enum ComputeToDataResultType {
     C2D_URI = 1;
 }
 
-// The compute to data result request can be used to get the results from a job.
-// With the jobindex a specific result files (ordered by name 0-n) can be fetched
-// By default only the first result file will be returned
+// Request payload for retrieving compute-to-data job results.
+// Use jobIndex to fetch a specific result file; by default the first result is returned.
 message CreateComputeToDataResultRequest {
     string jobId = 1;
     optional int32 jobIndex = 3;
@@ -448,11 +449,7 @@ message GetComputeToDataResultResponse {
 }
 
 
-/*
----------------------------------------------- Pontus-X related ----------------------------------------------
-*/
-// Main metadata information for the asset used in CreateOfferingRequest and UpdateOfferingRequest 
-// in the Pontus-X Ecosystem (Ocean Protocol)
+// Core asset metadata used for Pontus-X create and update operations.
 message Metadata {
     // type of the asset
     // Can be either 'dataset' or 'algorithm'
@@ -620,8 +617,7 @@ message TrustedAlgorihm {
     optional string containerSectionChecksum = 3;
 }
 
-// Additional information about the asset used in CreateOfferingRequest and UpdateOfferingRequest
-// Taylored for Pontus-X Ecosystem and workaround for Gaia-X Framework implementation (normally customizable)
+// Additional Pontus-X specific metadata, primarily for Gaia-X related information.
 message AdditionalInformation{
     reserved 1, 2, 3;
     
@@ -632,7 +628,7 @@ message AdditionalInformation{
     gaiaX gaiaXInformation = 5;
 }
 
-// Information related to Gaia-X compliance used in AdditionalInformation
+// Gaia-X related compliance information referenced by AdditionalInformation.
 message gaiaX{
     // Identifier if the asset contains personally identifiable information
     bool containsPII = 1;
@@ -653,7 +649,7 @@ message gaiaX{
     ServiceSelfDescription serviceSD = 3;
 }
 
-// Static URL to Terms and Conditions defined by the publisher of the asset used in gaiaX
+// Publisher-defined terms and conditions URL referenced by Gaia-X metadata.
 message Terms{
     string url = 1;
 }
@@ -683,7 +679,7 @@ message ConsumerParameter {
     repeated google.protobuf.Struct options = 10;
 }
 
-// Possible lifecycle states of asset in the pontus-x ecosystem
+// Possible lifecycle states for an asset in the Pontus-X ecosystem.
 enum PontusxLifecycleStates{
     // Fully functional asset
     // Discoverable in Portal and Ordering allowed
@@ -714,7 +710,7 @@ enum PontusxLifecycleStates{
     ASSET_UNLISTED = 5;
 }
 
-// Message for credential allow- and denylists in PontusX
+// Credential allowlist and denylist configuration for Pontus-X.
 message CredentialLists {
     // List of allowed credentials
     repeated string allow = 1;
