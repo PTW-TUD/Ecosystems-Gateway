@@ -112,7 +112,12 @@ export function mapToRpcException(
   metadata.set('x-service', ctx.service);
   metadata.set('x-where', ctx.where);
 
-  return new RpcException({ code, message, details, metadata });
+  const rpcException = new RpcException({ code, message, details, metadata });
+  if (typeof err?.stack === 'string') {
+    rpcException.stack = err.stack;
+  }
+
+  return rpcException;
 }
 
 function safeStringify(v: unknown): string | undefined {

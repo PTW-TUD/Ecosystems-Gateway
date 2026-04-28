@@ -149,10 +149,6 @@ export class PontusxService implements OnModuleInit {
       const result = await this.nautilus.publish(asset);
       return result;
     } catch (err: any) {
-      this.logger.error(
-        `publishAsset failed: ${err?.message ?? err}`,
-        err?.stack,
-      );
       if (isRpcException(err)) throw err;
       throw mapToRpcException(err, {
         service: 'pontusx',
@@ -285,10 +281,6 @@ export class PontusxService implements OnModuleInit {
         ces: cesResult,
       };
     } catch (err: any) {
-      this.logger.error(
-        `updateOffering failed: ${err?.message ?? err}`,
-        err?.stack,
-      );
       if (isRpcException(err)) throw err;
       throw mapToRpcException(err, {
         service: 'pontusx',
@@ -310,7 +302,6 @@ export class PontusxService implements OnModuleInit {
 
       return result;
     } catch (err: any) {
-      this.logger.error(`setState failed: ${err?.message ?? err}`, err?.stack);
       if (isRpcException(err)) throw err;
       throw mapToRpcException(err, { service: 'pontusx', where: 'setState' });
     }
@@ -878,10 +869,6 @@ export class PontusxService implements OnModuleInit {
 
       return jobIds;
     } catch (err: any) {
-      this.logger.error(
-        `requestComputeToData failed: ${err?.message ?? err}`,
-        err?.stack,
-      );
       if (isRpcException(err)) throw err;
       throw mapToRpcException(err, {
         service: 'pontusx',
