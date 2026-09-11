@@ -3,7 +3,7 @@ import { AppModule } from './app.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { resolve, join } from 'path';
 import { ConfigService } from '@nestjs/config';
-import { Logger, LogLevel } from '@nestjs/common';
+import { ConsoleLogger, Logger, LogLevel } from '@nestjs/common';
 //import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { existsSync, readFileSync } from 'fs';
 import * as swaggerUi from 'swagger-ui-express';
@@ -21,7 +21,9 @@ async function bootstrap() {
   // log level needs to be set on app creation
   const logLevelsEnv = process.env.NESTJS_LOG_LEVELS || 'log';
   const loggerLevels = logLevelsEnv.split(',') as LogLevel[];
-  const app = await NestFactory.create(AppModule, { logger: loggerLevels });
+  const app = await NestFactory.create(AppModule, {
+    logger: new ConsoleLogger({ logLevels: loggerLevels, depth: Infinity }),
+  });
   const LOGGER = new Logger('main');
   const configService = app.get<ConfigService>(ConfigService);
 

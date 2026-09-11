@@ -1,0 +1,28 @@
+services:
+  ecosystem-gateway:
+    #image: 'ghcr.io/ptw-tud/ecosystems-gateway:latest'
+    build:
+      context: .
+    container_name: ecosystem-gateway
+    env_file:
+      - ./.env
+    ports:
+      - '5002:5002'
+      - '3000:3000'
+
+  redis:
+    image: 'docker.dragonflydb.io/dragonflydb/dragonfly'
+    container_name: redis-eg
+    ulimits:
+      memlock: -1
+    ports:
+      - '6379:6379'
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    hostname: redis-commander-eg
+    restart: unless-stopped
+    environment:
+      - REDIS_HOSTS=local:redis-eg:6379
+    ports:
+      - '8081:8081'

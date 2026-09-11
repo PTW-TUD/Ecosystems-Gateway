@@ -1,10 +1,11 @@
-FROM node:18-alpine AS build
+FROM node:22-alpine AS build
 
 RUN apk update && apk add python3 make gcc g++ bash
 
 WORKDIR /usr/src/app
 
-COPY --chown=node:node package*.json ./
+COPY --chown=node:node package*.json .npmrc ./
+COPY --chown=node:node scripts ./scripts
 RUN npm ci
 
 COPY --chown=node:node buf.yaml buf.gen.yaml ./
@@ -17,8 +18,8 @@ RUN npm run build
 # Set NODE_ENV environment variable
 ENV NODE_ENV=production
 
-# Running `npm ci` removes the existing node_modules directory and passing in --only=production ensures that only the production dependencies are installed. This ensures that the node_modules directory is as optimized as possible
-RUN npm ci --only=production && npm cache clean --force
+# Running `npm ci` removes the existing node_modules directory and passing in --omit=dev ensures that only the production dependencies are installed. This ensures that the node_modules directory is as optimized as possible
+RUN npm ci --omit=dev && npm cache clean --force
 
 USER node
 
@@ -26,7 +27,7 @@ USER node
 # PRODUCTION
 ###################
 
-FROM node:18-alpine AS production
+FROM node:22-alpine AS production
 
 # Copy the bundled code from the build stage to the production image
 COPY --chown=node:node --from=build /usr/src/app/node_modules ./node_modules

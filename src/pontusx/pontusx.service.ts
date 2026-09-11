@@ -37,7 +37,11 @@ import {
 } from '../generated/spp_v2';
 import { CredentialEventServiceService } from '../credential-event-service/credential-event-service.service';
 import { RpcException } from '@nestjs/microservices';
-import { isRpcException, mapToRpcException } from '../grpc-error.util';
+import {
+  formatErrorMessage,
+  isRpcException,
+  mapToRpcException,
+} from '../grpc-error.util';
 import { status as GrpcStatusCode, Metadata } from '@grpc/grpc-js';
 import Redis from 'ioredis';
 import { InjectRedis } from '@nestjs-modules/ioredis';
@@ -149,10 +153,6 @@ export class PontusxService implements OnModuleInit {
       const result = await this.nautilus.publish(asset);
       return result;
     } catch (err: any) {
-      this.logger.error(
-        `publishAsset failed: ${err?.message ?? err}`,
-        err?.stack,
-      );
       if (isRpcException(err)) throw err;
       throw mapToRpcException(err, {
         service: 'pontusx',
@@ -285,10 +285,6 @@ export class PontusxService implements OnModuleInit {
         ces: cesResult,
       };
     } catch (err: any) {
-      this.logger.error(
-        `updateOffering failed: ${err?.message ?? err}`,
-        err?.stack,
-      );
       if (isRpcException(err)) throw err;
       throw mapToRpcException(err, {
         service: 'pontusx',
@@ -310,7 +306,6 @@ export class PontusxService implements OnModuleInit {
 
       return result;
     } catch (err: any) {
-      this.logger.error(`setState failed: ${err?.message ?? err}`, err?.stack);
       if (isRpcException(err)) throw err;
       throw mapToRpcException(err, { service: 'pontusx', where: 'setState' });
     }
@@ -755,7 +750,7 @@ export class PontusxService implements OnModuleInit {
     } catch (err) {
       throw new RpcException({
         code: GrpcStatusCode.NOT_FOUND,
-        message: `Asset couldn't be retrieved: ${err}`,
+        message: `Asset couldn't be retrieved: ${formatErrorMessage(err)}`,
         metadata,
       });
     }
@@ -795,7 +790,7 @@ export class PontusxService implements OnModuleInit {
         .catch((err) => {
           throw new RpcException({
             code: GrpcStatusCode.FAILED_PRECONDITION,
-            message: `Couldn't get access to the asset: ${err}`,
+            message: `Couldn't get access to the asset: ${formatErrorMessage(err)}`,
             metadata: metadata,
           });
         });
@@ -829,7 +824,7 @@ export class PontusxService implements OnModuleInit {
         (err) => {
           throw new RpcException({
             code: GrpcStatusCode.NOT_FOUND,
-            message: `Asset not found: ${err}`,
+            message: `Asset not found: ${formatErrorMessage(err)}`,
             metadata,
           });
         },
@@ -852,7 +847,7 @@ export class PontusxService implements OnModuleInit {
         .catch((err) => {
           throw new RpcException({
             code: GrpcStatusCode.NOT_FOUND,
-            message: `Compute to Data job can't start: ${err}`,
+            message: `Compute to Data job can't start: ${formatErrorMessage(err)}`,
             metadata,
           });
         });
@@ -878,10 +873,6 @@ export class PontusxService implements OnModuleInit {
 
       return jobIds;
     } catch (err: any) {
-      this.logger.error(
-        `requestComputeToData failed: ${err?.message ?? err}`,
-        err?.stack,
-      );
       if (isRpcException(err)) throw err;
       throw mapToRpcException(err, {
         service: 'pontusx',
