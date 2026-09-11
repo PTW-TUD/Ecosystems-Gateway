@@ -1,5 +1,6 @@
 import { RpcException } from '@nestjs/microservices';
 import { Metadata, status as GrpcStatusCode } from '@grpc/grpc-js';
+import { inspect } from 'node:util';
 
 export type GrpcErrorObject = {
   code?: number; // gRPC status code (from @grpc/grpc-js status enum)
@@ -23,7 +24,7 @@ export function extractRpcError(
   const payload = typeof e.getError === 'function' ? e.getError() : undefined;
 
   if (typeof payload === 'string') {
-    return { message: payload };
+    return { message: formatErrorMessage(payload) };
   }
   if (isGrpcErrorObject(payload)) {
     return {
@@ -31,14 +32,11 @@ export function extractRpcError(
         typeof (payload as any).code === 'number'
           ? (payload as any).code
           : undefined,
-      message:
-        typeof (payload as any).message === 'string'
-          ? (payload as any).message
-          : 'Internal error',
+      message: formatErrorMessage(payload),
       details:
-        typeof (payload as any).details === 'string'
-          ? (payload as any).details
-          : undefined,
+        payload.details == null
+          ? undefined
+          : stringifyErrorValue(payload.details),
       metadata: (payload as any).metadata as any,
     };
   }
@@ -72,19 +70,15 @@ export function mapToRpcException(
       : undefined) ??
     (typeof err?.status === 'number' ? err.status : undefined);
 
-  const rawMessage =
-    err?.response?.data?.message ??
-    err?.message ??
-    (typeof err === 'string' ? err : undefined) ??
-    'Internal error';
-
-  const message = String(rawMessage);
+  const message = formatErrorMessage(err);
 
   // Prefer structured response body as "details"
   const details =
     err?.response?.data != null
-      ? safeStringify(err.response.data)
-      : err?.details;
+      ? stringifyErrorValue(err.response.data)
+      : err?.details == null
+        ? undefined
+        : stringifyErrorValue(err.details);
 
   // Map to gRPC status codes
   let code = defaultCode;
@@ -114,17 +108,125 @@ export function mapToRpcException(
 
   const rpcException = new RpcException({ code, message, details, metadata });
   if (typeof err?.stack === 'string') {
-    rpcException.stack = err.stack;
+    rpcException.stack = err.stack.replace(
+      /^[^\r\n]*/,
+      `${err.name || 'Error'}: ${message}`,
+    );
   }
 
   return rpcException;
 }
 
-function safeStringify(v: unknown): string | undefined {
-  try {
-    const s = JSON.stringify(v);
-    return s.length > 8000 ? s.slice(0, 8000) + '…' : s;
-  } catch {
-    return undefined;
+/** Human-readable summary; structured details remain separate. */
+export function formatErrorMessage(err: any): string {
+  if (isRpcException(err)) return formatErrorMessage(err.getError());
+  const value =
+    (typeof err?.code === 'number' &&
+    typeof err?.details === 'string' &&
+    typeof err?.message === 'string' &&
+    err.message.startsWith(`${err.code} ${GrpcStatusCode[err.code]}: `)
+      ? err.details
+      : undefined) ??
+    err?.response?.data?.message ??
+    err?.response?.data?.errors ??
+    err?.message ??
+    err?.details ??
+    err;
+  return value == null ? 'Internal error' : summarizeErrorValue(value);
+}
+
+/** Decode JSON details when available without changing ordinary text errors. */
+export function extractErrorDetails(err: any): unknown {
+  const value = err?.response?.data ?? err?.details;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' ? parsed : undefined;
+    } catch {
+      return undefined;
+    }
   }
+  return value != null && typeof value === 'object' ? value : undefined;
+}
+
+function summarizeErrorValue(value: unknown): string {
+  if (typeof value === 'string') {
+    // Accept complete JSON or a contextual message ending in valid JSON.
+    const match = value.match(/^(.*?:\s*)([\[{][\s\S]*)$/);
+    const prefix = match?.[1] ?? '';
+    const candidate = match?.[2] ?? value;
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed != null && typeof parsed === 'object')
+        return summarizeErrorValue(parsed);
+    } catch {
+      /* Plain text, or JSON with a contextual prefix. */
+    }
+    if (prefix) {
+      try {
+        const parsed = JSON.parse(candidate);
+        if (parsed != null && typeof parsed === 'object')
+          return prefix + summarizeErrorValue(parsed);
+      } catch {
+        /* Preserve unrecognized messages verbatim. */
+      }
+    }
+    return value;
+  }
+
+  const ancestors = new Set<object>();
+  const parts: string[] = [];
+  const visit = (entry: unknown, path: string, depth: number) => {
+    if (parts.length >= 50) return;
+    if (entry !== null && typeof entry === 'object') {
+      if (ancestors.has(entry) || depth >= 20) {
+        parts.push(
+          `${path || 'error'}: ${ancestors.has(entry) ? '[Circular]' : '[Nested details]'}`,
+        );
+        return;
+      }
+      ancestors.add(entry);
+      const entries = Object.entries(entry);
+      if (!entries.length)
+        parts.push(`${path || 'error'}: ${Array.isArray(entry) ? '[]' : '{}'}`);
+      for (const [key, child] of entries) {
+        const wrapper =
+          !path &&
+          entries.length === 1 &&
+          ['errors', 'error', 'message'].includes(key);
+        const childPath = wrapper
+          ? ''
+          : Array.isArray(entry)
+            ? child !== null && typeof child === 'object'
+              ? `${path}[${key}]`
+              : path
+            : path
+              ? `${path}.${key}`
+              : key;
+        visit(child, childPath, depth + 1);
+        if (parts.length >= 50) break;
+      }
+      ancestors.delete(entry);
+    } else {
+      parts.push(`${path ? `${path}: ` : ''}${String(entry)}`);
+    }
+  };
+  visit(value, '', 0);
+  const summary = parts.join('; ') + (parts.length >= 50 ? '; …' : '');
+  return summary.length > 8000 ? summary.slice(0, 8000) + '…' : summary;
+}
+
+function stringifyErrorValue(v: unknown): string {
+  if (typeof v === 'string') return v;
+  let text: string;
+  try {
+    text = JSON.stringify(v, (_key, value) =>
+      typeof value === 'bigint' ? value.toString() : value,
+    );
+  } catch {
+    // Circular objects must not make the error handler itself throw.
+    text = inspect(v, { depth: null, customInspect: false, getters: false });
+  }
+  text ??= 'Internal error';
+  return text.length > 8000 ? text.slice(0, 8000) + '…' : text;
 }

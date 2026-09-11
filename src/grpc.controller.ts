@@ -73,7 +73,7 @@ export class GrpcController {
       const p = extractRpcError(mapped);
       this.logger.error(
         `[${method}] ✗ mapped in ${ms}ms: ${p.message}`,
-        err?.stack,
+        mapped.stack,
       );
       throw mapped;
     }

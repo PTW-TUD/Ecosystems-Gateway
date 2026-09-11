@@ -5,6 +5,7 @@ RUN apk update && apk add python3 make gcc g++ bash
 WORKDIR /usr/src/app
 
 COPY --chown=node:node package*.json .npmrc ./
+COPY --chown=node:node scripts ./scripts
 RUN npm ci
 
 COPY --chown=node:node buf.yaml buf.gen.yaml ./

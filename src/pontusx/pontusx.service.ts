@@ -37,7 +37,11 @@ import {
 } from '../generated/spp_v2';
 import { CredentialEventServiceService } from '../credential-event-service/credential-event-service.service';
 import { RpcException } from '@nestjs/microservices';
-import { isRpcException, mapToRpcException } from '../grpc-error.util';
+import {
+  formatErrorMessage,
+  isRpcException,
+  mapToRpcException,
+} from '../grpc-error.util';
 import { status as GrpcStatusCode, Metadata } from '@grpc/grpc-js';
 import Redis from 'ioredis';
 import { InjectRedis } from '@nestjs-modules/ioredis';
@@ -746,7 +750,7 @@ export class PontusxService implements OnModuleInit {
     } catch (err) {
       throw new RpcException({
         code: GrpcStatusCode.NOT_FOUND,
-        message: `Asset couldn't be retrieved: ${err}`,
+        message: `Asset couldn't be retrieved: ${formatErrorMessage(err)}`,
         metadata,
       });
     }
@@ -786,7 +790,7 @@ export class PontusxService implements OnModuleInit {
         .catch((err) => {
           throw new RpcException({
             code: GrpcStatusCode.FAILED_PRECONDITION,
-            message: `Couldn't get access to the asset: ${err}`,
+            message: `Couldn't get access to the asset: ${formatErrorMessage(err)}`,
             metadata: metadata,
           });
         });
@@ -820,7 +824,7 @@ export class PontusxService implements OnModuleInit {
         (err) => {
           throw new RpcException({
             code: GrpcStatusCode.NOT_FOUND,
-            message: `Asset not found: ${err}`,
+            message: `Asset not found: ${formatErrorMessage(err)}`,
             metadata,
           });
         },
@@ -843,7 +847,7 @@ export class PontusxService implements OnModuleInit {
         .catch((err) => {
           throw new RpcException({
             code: GrpcStatusCode.NOT_FOUND,
-            message: `Compute to Data job can't start: ${err}`,
+            message: `Compute to Data job can't start: ${formatErrorMessage(err)}`,
             metadata,
           });
         });

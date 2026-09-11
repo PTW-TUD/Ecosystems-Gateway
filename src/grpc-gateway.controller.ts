@@ -15,6 +15,7 @@ import {
 import { status as GrpcStatusCode } from '@grpc/grpc-js';
 import { ConfigService } from '@nestjs/config';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { extractErrorDetails, formatErrorMessage } from './grpc-error.util';
 
 @ApiTags('grpc')
 @Controller('grpc')
@@ -85,10 +86,14 @@ export class GrpcGatewayController {
         grpcCode != undefined
           ? ((GrpcStatusCode as any)[grpcCode] ?? 'UNKNOWN')
           : 'UNKNOWN';
-      this.logger.error(`Error calling gRPC method ${methodName}:`, error);
+      const message = formatErrorMessage(error);
+      this.logger.error(
+        `Error calling gRPC method ${methodName} (${grpcCodeName}): ${message}`,
+      );
       throw new HttpException(
         {
-          message: error.message,
+          message,
+          details: extractErrorDetails(error),
           grpc: {
             code: grpcCode ?? null,
             name: grpcCodeName,
