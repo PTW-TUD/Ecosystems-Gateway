@@ -172,9 +172,7 @@ describe('HTTP and gRPC gateway (e2e)', () => {
       .send({ offerings: [{ pontusxOffering: { did: 'did:op:test' } }] })
       .expect(400);
     expect(response.body.grpc.code).toBe(status.INVALID_ARGUMENT);
-    expect(response.body.message).toBe(
-      `services: ${errors.services}`,
-    );
+    expect(response.body.message).toBe(`services: ${errors.services}`);
     expect(response.body.details).toEqual({ errors });
   });
 });

@@ -17,7 +17,7 @@ const original =
   'throw new Error(`Validating Metadata failed: ${validateResult?.errors}`);';
 const patched =
   'throw Object.assign(new Error(`Validating Metadata failed: ${typeof validateResult?.errors === "string" ? validateResult.errors : JSON.stringify(validateResult?.errors)}`), { status: 400, details: validateResult?.errors });';
-  // 'throw new Error(`Validating Metadata failed: ${typeof validateResult?.errors === "string" ? validateResult.errors : JSON.stringify(validateResult?.errors)}`)'
+// 'throw new Error(`Validating Metadata failed: ${typeof validateResult?.errors === "string" ? validateResult.errors : JSON.stringify(validateResult?.errors)}`)'
 
 for (const format of ['_cjs', '_esm']) {
   const file = join(root, format, 'publish', 'index.js');
