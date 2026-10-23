@@ -1,13 +1,14 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { AppModule } from './app.module.js';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { resolve, join } from 'path';
 import { ConfigService } from '@nestjs/config';
-import { ConsoleLogger, Logger, LogLevel } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 //import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { existsSync, readFileSync } from 'fs';
-import * as swaggerUi from 'swagger-ui-express';
+import swaggerUi from 'swagger-ui-express';
 import { ReflectionService } from '@grpc/reflection';
+import { createAppLogger, readLoggingSettings } from './logging.js';
 
 // ---- helper ----
 function toBool(input: unknown, defaultVal = false): boolean {
@@ -17,14 +18,14 @@ function toBool(input: unknown, defaultVal = false): boolean {
   return s === '1' || s === 'true' || s === 'yes' || s === 'on';
 }
 
+// The logger is created before the app, so that startup errors are logged the same way.
+const loggingSettings = readLoggingSettings();
+const appLogger = createAppLogger(loggingSettings);
+
 async function bootstrap() {
-  // log level needs to be set on app creation
-  const logLevelsEnv = process.env.NESTJS_LOG_LEVELS || 'log';
-  const loggerLevels = logLevelsEnv.split(',') as LogLevel[];
-  const app = await NestFactory.create(AppModule, {
-    logger: new ConsoleLogger({ logLevels: loggerLevels, depth: Infinity }),
-  });
+  const app = await NestFactory.create(AppModule, { logger: appLogger });
   const LOGGER = new Logger('main');
+  loggingSettings.problems.forEach((problem) => LOGGER.warn(problem));
   const configService = app.get<ConfigService>(ConfigService);
 
   // ===========================================================
@@ -43,7 +44,10 @@ async function bootstrap() {
       false,
     );
 
-    const protoPath = join(__dirname, './_proto_runtime/spp_v2.runtime.proto');
+    const protoPath = join(
+      import.meta.dirname,
+      './_proto_runtime/spp_v3.runtime.proto',
+    );
     if (!existsSync(protoPath)) {
       LOGGER.error(`Proto not found at ${protoPath}.`);
       process.exit(1);
@@ -53,7 +57,7 @@ async function bootstrap() {
       transport: Transport.GRPC,
       options: {
         url: GRPC_BIND,
-        package: 'eupg.ecosystemsgateway',
+        package: 'eupg.ecosystemsgateway.v3',
         protoPath: protoPath,
         loader: {
           keepCase: true,
@@ -61,8 +65,13 @@ async function bootstrap() {
           defaults: true,
           oneofs: true,
           includeDirs: [
-            join(__dirname, './_proto'),
-            resolve(__dirname, '..', 'node_modules', 'google-proto-files'),
+            join(import.meta.dirname, './_proto'),
+            resolve(
+              import.meta.dirname,
+              '..',
+              'node_modules',
+              'google-proto-files',
+            ),
           ],
         },
         onLoadPackageDefinition: ENABLE_GRPC_REFLECTION
@@ -86,9 +95,9 @@ async function bootstrap() {
   // ===========================================================
   const openapiPathCandidates = [
     // when running from compiled dist/
-    resolve(__dirname, 'openapi', 'spp_v2.swagger.json'),
+    resolve(import.meta.dirname, 'openapi', 'spp_v3.swagger.json'),
     // when running directly from project root
-    resolve(process.cwd(), 'openapi', 'spp_v2.swagger.json'),
+    resolve(process.cwd(), 'openapi', 'spp_v3.swagger.json'),
   ];
   let openapiDoc: any | null = null;
   for (const p of openapiPathCandidates) {
@@ -110,7 +119,7 @@ async function bootstrap() {
     LOGGER.log('Swagger UI mounted at /docs');
   } else {
     LOGGER.warn(
-      'No OpenAPI doc found in ./openapi/. Generate spp_v2.swagger.json first.',
+      'No OpenAPI doc found in ./openapi/. Generate spp_v3.swagger.json first.',
     );
   }
 
@@ -150,6 +159,6 @@ async function bootstrap() {
 }
 
 bootstrap().catch((err) => {
-  console.error(err);
+  appLogger.fatal(`Startup failed: ${err?.message ?? err}`, err?.stack, 'main');
   process.exit(1);
 });

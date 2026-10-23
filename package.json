@@ -4,9 +4,12 @@
   "description": "",
   "author": "",
   "private": true,
+  "type": "module",
   "license": "AGPL-3.0",
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
-    "postinstall": "node scripts/patch-nautilus.cjs",
     "build": "nest build",
     "format-check": "prettier . --check",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -15,20 +18,22 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test": "vitest run --project unit",
+    "test:watch": "vitest --project unit",
+    "test:cov": "vitest run --project unit --coverage",
+    "test:debug": "vitest --project unit --inspect-brk --no-file-parallelism",
+    "test:e2e": "vitest run --project e2e",
     "pretty": "prettier --write \"./**/*.{js,jsx,mjs,cjs,ts,tsx,json}\"",
-    "proto:gen": "buf generate"
+    "proto:gen": "buf generate && node scripts/generate-runtime-proto.mjs",
+    "proto:lint": "buf lint",
+    "proto:breaking": "buf breaking --against .git#branch=main"
   },
   "pre-commit": [
     "pretty"
   ],
   "dependencies": {
     "@bufbuild/protobuf": "2.12.0",
-    "@deltadao/nautilus": "1.1.0",
+    "@deltadao/nautilus": "2.0.0-beta.3",
     "@grpc/grpc-js": "1.14.4",
     "@grpc/proto-loader": "0.8.1",
     "@grpc/reflection": "1.0.4",
@@ -41,14 +46,12 @@
     "@nestjs/platform-express": "11.2.3",
     "@nestjs/schedule": "6.1.3",
     "@nestjs/swagger": "11.4.7",
-    "@oceanprotocol/lib": "3.4.6",
+    "@oceanprotocol/lib": "9.2.1",
     "async-mutex": "^0.5.0",
     "axios": "1.20.0",
-    "ethers": "5.8.0",
+    "ethers": "6.17.0",
     "google-proto-files": "4.2.0",
-    "graphql": "16.13.2",
     "ioredis": "5.10.1",
-    "react": "19.2.5",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "swagger-ui-express": "^5.0.1"
@@ -59,46 +62,28 @@
     "@eslint/js": "9.39.4",
     "@nestjs/cli": "11.0.24",
     "@nestjs/testing": "11.2.3",
-    "@types/jest": "30.0.0",
     "@types/node": "22.19.17",
     "@types/supertest": "6.0.3",
     "@types/swagger-ui-express": "^4.1.8",
     "@typescript-eslint/eslint-plugin": "8.59.0",
     "@typescript-eslint/parser": "8.59.0",
+    "@vitest/coverage-v8": "5.0.5",
     "eslint": "9.39.4",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-prettier": "5.5.5",
     "globals": "17.5.0",
-    "jest": "30.3.0",
     "pre-commit": "2.0.0",
     "prettier": "3.8.3",
     "supertest": "7.2.2",
-    "ts-jest": "29.4.9",
     "ts-node": "10.9.2",
     "tsconfig-paths": "4.2.0",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
   },
   "overrides": {
     "@nestjs/platform-express": {
       "multer": "2.3.0"
     },
     "ws@^8.0.0": "8.21.3"
-  },
-  "jest": {
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
-    "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
-    },
-    "collectCoverageFrom": [
-      "**/*.(t|j)s"
-    ],
-    "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
   }
 }

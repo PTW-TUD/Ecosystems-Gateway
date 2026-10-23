@@ -1,6 +1,7 @@
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { HttpException, HttpStatus, Logger } from '@nestjs/common';
-import * as qs from 'qs';
+import qs from 'qs';
+import { formatErrorMessage } from '../grpc-error.util.js';
 
 import {
   XFSC_USERNAME,
@@ -9,7 +10,7 @@ import {
   XFSC_CAT_TOKEN_ENDPOINT,
   CLIENT_SECRET,
   CLIENT_ID,
-} from './config';
+} from './config.js';
 
 export class XfscService {
   private readonly username: string;
@@ -52,18 +53,16 @@ export class XfscService {
     try {
       response = await axios.request(config);
       this.logger.log('Successfully published in XFSC CAT.');
-      this.logger.debug(response.data);
+      this.logger.debug(`XFSC CAT returned id ${response.data['id']}`);
       return response.data['id'];
     } catch (error) {
+      if (error?.response?.status == 409) {
+        this.logger.warn('The VP is already published in XFSC CAT.');
+        return;
+      }
       this.logger.error(
         'Error occurred while trying to Publish VP to XFSC Cat.',
       );
-
-      this.logger.debug({ err: error?.response?.status });
-
-      if (error?.response?.status == 409) {
-        return;
-      }
 
       this.handleError(error);
     }
@@ -72,7 +71,8 @@ export class XfscService {
   async update(token: string, hash: string, VP: JSON): Promise<string> {
     // returns ID
 
-    this.delete(token, hash);
+    // Awaited: a failed delete must fail the update, not reject unobserved and end the process.
+    await this.delete(token, hash);
 
     const id: string = await this.publish(token, VP); // Publish function already returns the SD's ID
     this.logger.log('Published updated SD successfully.');
@@ -96,11 +96,10 @@ export class XfscService {
     try {
       await axios.request(config);
 
-      this.logger.log('Successfully deleted SD with hash: ', hash);
+      this.logger.log(`Successfully deleted SD with hash: ${hash}`);
     } catch (error) {
       this.logger.error(
-        'Error occured while trying to delete SD with hash: ',
-        hash,
+        `Error occured while trying to delete SD with hash: ${hash}`,
       );
 
       this.handleError(error);
@@ -125,11 +124,13 @@ export class XfscService {
     try {
       response = await axios.request(config);
 
-      this.logger.log('Successfully revoked SD (${hash}).');
+      this.logger.log(`Successfully revoked SD (${hash}).`);
 
       return response.data['id'];
     } catch (error) {
-      this.logger.error('Error occurred while processing the request: ');
+      this.logger.error(
+        `Error occurred while revoking SD (${hash}): ${formatErrorMessage(error)}`,
+      );
 
       throw error;
     }
@@ -230,21 +231,22 @@ export class XfscService {
   handleError(error): void {
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError;
+      const request = `${axiosError.config?.method?.toUpperCase() ?? 'Request'} ${axiosError.config?.url ?? ''}`;
 
-      console.error('Error message:', axiosError.message);
-
+      // Not the request or the response headers: they carry the bearer token and cookies.
       if (axiosError.response) {
-        this.logger.error('Status code:', axiosError.response.status);
-        this.logger.error('Response data:', axiosError.response.data);
-        this.logger.error('Response headers:', axiosError.response.headers);
-      } else if (axiosError.request) {
-        this.logger.error('Request:', axiosError.request);
+        this.logger.error(
+          `${request} failed with HTTP ${axiosError.response.status}: ${formatErrorMessage(axiosError)}`,
+        );
       } else {
-        this.logger.error('Error', axiosError.message);
+        this.logger.error(`${request} failed: ${axiosError.message}`);
       }
       throw new HttpException('Error', HttpStatus.BAD_GATEWAY);
     } else {
-      this.logger.error('Non-Axios error occurred: ', error);
+      this.logger.error(
+        `Non-Axios error occurred: ${formatErrorMessage(error)}`,
+        error?.stack,
+      );
       throw new HttpException('Error', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }

@@ -1,17 +1,16 @@
-const tsParser = require('@typescript-eslint/parser');
-const typescriptEslintEslintPlugin = require('@typescript-eslint/eslint-plugin');
-const globals = require('globals');
-const js = require('@eslint/js');
-
-const { FlatCompat } = require('@eslint/eslintrc');
+import tsParser from '@typescript-eslint/parser';
+import typescriptEslintEslintPlugin from '@typescript-eslint/eslint-plugin';
+import globals from 'globals';
+import js from '@eslint/js';
+import { FlatCompat } from '@eslint/eslintrc';
 
 const compat = new FlatCompat({
-  baseDirectory: __dirname,
+  baseDirectory: import.meta.dirname,
   recommendedConfig: js.configs.recommended,
   allConfig: js.configs.all,
 });
 
-module.exports = [
+export default [
   ...compat.extends(
     'plugin:@typescript-eslint/recommended',
     'plugin:prettier/recommended',
@@ -25,12 +24,11 @@ module.exports = [
 
       parserOptions: {
         project: 'tsconfig.json',
-        tsconfigRootDir: __dirname,
+        tsconfigRootDir: import.meta.dirname,
       },
 
       globals: {
         ...globals.node,
-        ...globals.jest,
       },
     },
 

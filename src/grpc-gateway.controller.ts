@@ -11,11 +11,11 @@ import {
 import {
   loadGrpcClient,
   loadGrpcServiceDefinition,
-} from './grpc-client.loader';
+} from './grpc-client.loader.js';
 import { status as GrpcStatusCode } from '@grpc/grpc-js';
 import { ConfigService } from '@nestjs/config';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { extractErrorDetails, formatErrorMessage } from './grpc-error.util';
+import { extractErrorDetails, formatErrorMessage } from './grpc-error.util.js';
 
 @ApiTags('grpc')
 @Controller('grpc')
@@ -27,15 +27,15 @@ export class GrpcGatewayController {
   constructor(private readonly configService: ConfigService) {
     this.logger = new Logger(GrpcGatewayController.name);
     this.grpcClient = loadGrpcClient(
-      './_proto_runtime/spp_v2.runtime.proto',
-      'eupg.ecosystemsgateway',
+      './_proto_runtime/spp_v3.runtime.proto',
+      'eupg.ecosystemsgateway.v3',
       'ecosystemsgateway',
       configService.get('GRPC_BIND', '0.0.0.0:5002'), // TODO: Fix default values
     );
 
     this.grpcDefinitions = loadGrpcServiceDefinition(
-      './_proto_runtime/spp_v2.runtime.proto',
-      'eupg.ecosystemsgateway',
+      './_proto_runtime/spp_v3.runtime.proto',
+      'eupg.ecosystemsgateway.v3',
       'ecosystemsgateway',
     );
 
@@ -87,7 +87,9 @@ export class GrpcGatewayController {
           ? ((GrpcStatusCode as any)[grpcCode] ?? 'UNKNOWN')
           : 'UNKNOWN';
       const message = formatErrorMessage(error);
-      this.logger.error(
+      // the gRPC controller has logged the failure already; 4xx are the client's
+      const log = httpStatus >= 500 ? 'error' : 'warn';
+      this.logger[log](
         `Error calling gRPC method ${methodName} (${grpcCodeName}): ${message}`,
       );
       throw new HttpException(

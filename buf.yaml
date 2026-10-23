@@ -5,12 +5,24 @@ modules:
 
 # External deps resolved via the Buf Schema Registry (no vendoring):
 deps:
-  - buf.build/googleapis/googleapis          # google/api/*.proto
-  - buf.build/grpc-ecosystem/grpc-gateway    # protoc-gen-openapiv2/options/*.proto
+  - buf.build/googleapis/googleapis # google/api/*.proto
+  - buf.build/grpc-ecosystem/grpc-gateway # protoc-gen-openapiv2/options/*.proto
 
 lint:
   use:
-    - DEFAULT
+    - STANDARD
+  # The API predates these naming rules; following them would rename messages, fields,
+  # enum values and the package or service, which breaks existing gRPC and JSON clients.
+  except:
+    - PACKAGE_DIRECTORY_MATCH
+    - SERVICE_PASCAL_CASE
+    - SERVICE_SUFFIX
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME
+    - ONEOF_LOWER_SNAKE_CASE
+    - FIELD_LOWER_SNAKE_CASE
+    - ENUM_VALUE_PREFIX
+    - ENUM_ZERO_VALUE_SUFFIX
 
 breaking:
   use:

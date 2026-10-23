@@ -7,16 +7,24 @@ export function loadGrpcServiceDefinition(
   packageName: string,
   serviceName: string,
 ) {
-  const packageDefinition = protoLoader.loadSync(join(__dirname, protoPath), {
-    keepCase: true,
-    longs: String,
-    defaults: true,
-    oneofs: true,
-    includeDirs: [
-      join(__dirname, './_proto'),
-      resolve(__dirname, '..', 'node_modules', 'google-proto-files'),
-    ],
-  });
+  const packageDefinition = protoLoader.loadSync(
+    join(import.meta.dirname, protoPath),
+    {
+      keepCase: true,
+      longs: String,
+      defaults: true,
+      oneofs: true,
+      includeDirs: [
+        join(import.meta.dirname, './_proto'),
+        resolve(
+          import.meta.dirname,
+          '..',
+          'node_modules',
+          'google-proto-files',
+        ),
+      ],
+    },
+  );
 
   const protoDescriptor = grpc.loadPackageDefinition(packageDefinition) as any;
   const grpcPackage = getGrpcPackage(protoDescriptor, packageName);
@@ -49,16 +57,24 @@ export function loadGrpcClient(
   serviceName: string,
   url: string,
 ) {
-  const packageDefinition = protoLoader.loadSync(join(__dirname, protoPath), {
-    keepCase: true,
-    longs: String,
-    defaults: true,
-    oneofs: true,
-    includeDirs: [
-      join(__dirname, './_proto'),
-      resolve(__dirname, '..', 'node_modules', 'google-proto-files'),
-    ],
-  });
+  const packageDefinition = protoLoader.loadSync(
+    join(import.meta.dirname, protoPath),
+    {
+      keepCase: true,
+      longs: String,
+      defaults: true,
+      oneofs: true,
+      includeDirs: [
+        join(import.meta.dirname, './_proto'),
+        resolve(
+          import.meta.dirname,
+          '..',
+          'node_modules',
+          'google-proto-files',
+        ),
+      ],
+    },
+  );
 
   const protoDescriptor = grpc.loadPackageDefinition(packageDefinition) as any;
   const grpcPackage = getGrpcPackage(protoDescriptor, packageName);

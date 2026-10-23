@@ -1,3 +1,12 @@
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  beforeEach,
+  afterAll,
+  vi,
+} from 'vitest';
 import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -12,16 +21,18 @@ import { ReflectionService } from '@grpc/reflection';
 import { readFileSync } from 'fs';
 import { createServer } from 'net';
 import { join } from 'path';
-import * as request from 'supertest';
-import * as swaggerUi from 'swagger-ui-express';
-import { AppModule } from '../src/app.module';
-import { GrpcGatewayController } from '../src/grpc-gateway.controller';
-import { PontusxService } from '../src/pontusx/pontusx.service';
-import { XfscService } from '../src/xfsc/xfsc.service';
+import request from 'supertest';
+import swaggerUi from 'swagger-ui-express';
+import { AppModule } from '../src/app.module.js';
+import { GrpcGatewayController } from '../src/grpc-gateway.controller.js';
+import { PontusxService } from '../src/pontusx/pontusx.service.js';
+import { XfscService } from '../src/xfsc/xfsc.service.js';
 
 describe('HTTP and gRPC gateway (e2e)', () => {
   let app: INestApplication;
-  const getOffering = jest.fn();
+  const getOffering = vi.fn();
+  const queryOfferings = vi.fn();
+  const requestComputeToData = vi.fn();
 
   beforeAll(async () => {
     const port = await new Promise<number>((resolve, reject) => {
@@ -50,9 +61,9 @@ describe('HTTP and gRPC gateway (e2e)', () => {
       })
       // Keep real Nest modules and transports, with no Redis or ecosystem calls.
       .overrideProvider(getRedisConnectionToken())
-      .useValue({ quit: jest.fn().mockResolvedValue('OK') })
+      .useValue({ quit: vi.fn().mockResolvedValue('OK') })
       .overrideProvider(PontusxService)
-      .useValue({ getOffering })
+      .useValue({ getOffering, queryOfferings, requestComputeToData })
       .overrideProvider(XfscService)
       .useValue({})
       .compile();
@@ -62,17 +73,19 @@ describe('HTTP and gRPC gateway (e2e)', () => {
       transport: Transport.GRPC,
       options: {
         url: grpcBind,
-        package: 'eupg.ecosystemsgateway',
+        package: 'eupg.ecosystemsgateway.v3',
         protoPath: join(
-          __dirname,
-          '../src/_proto_runtime/spp_v2.runtime.proto',
+          import.meta.dirname,
+          '../src/_proto_runtime/spp_v3.runtime.proto',
         ),
         loader: {
           keepCase: true,
           longs: String,
           defaults: true,
           oneofs: true,
-          includeDirs: [join(__dirname, '../node_modules/google-proto-files')],
+          includeDirs: [
+            join(import.meta.dirname, '../node_modules/google-proto-files'),
+          ],
         },
         onLoadPackageDefinition: (pkg, server) => {
           new ReflectionService(pkg).addToServer(server);
@@ -81,7 +94,7 @@ describe('HTTP and gRPC gateway (e2e)', () => {
     });
     const openapiDoc = JSON.parse(
       readFileSync(
-        join(__dirname, '../src/openapi/spp_v2.swagger.json'),
+        join(import.meta.dirname, '../src/openapi/spp_v3.swagger.json'),
         'utf8',
       ),
     );
@@ -92,6 +105,8 @@ describe('HTTP and gRPC gateway (e2e)', () => {
 
   beforeEach(() => {
     getOffering.mockReset();
+    queryOfferings.mockReset();
+    requestComputeToData.mockReset();
   });
 
   afterAll(async () => {
@@ -125,7 +140,10 @@ describe('HTTP and gRPC gateway (e2e)', () => {
   });
 
   it('forwards HTTP requests through gRPC and serializes the response', async () => {
-    const offering = { id: 'did:op:test', metadata: { name: 'Test offering' } };
+    const offering = {
+      id: 'did:ope:test',
+      metadata: { name: 'Test offering' },
+    };
     getOffering.mockResolvedValue(offering);
     const response = await request(app.getHttpServer())
       .post('/grpc/GetOffering')
@@ -133,6 +151,58 @@ describe('HTTP and gRPC gateway (e2e)', () => {
       .expect(201);
     expect(getOffering).toHaveBeenCalledWith(offering.id);
     expect(response.body.offerings).toEqual([JSON.stringify(offering)]);
+  });
+
+  it('answers QueryOfferings', async () => {
+    queryOfferings.mockResolvedValue([[{ id: 'did:ope:1' }], 1]);
+    const response = await request(app.getHttpServer())
+      .post('/grpc/QueryOfferings')
+      .send({ query: { pontusxQuery: { name: 'data', page: 1 } } })
+      .expect(201);
+    expect(response.body).toEqual({
+      offerings: [JSON.stringify({ id: 'did:ope:1' })],
+      total: 1,
+    });
+  });
+
+  it('answers a QueryOfferings without matches with an empty list', async () => {
+    queryOfferings.mockResolvedValue([[], 0]);
+    const response = await request(app.getHttpServer())
+      .post('/grpc/QueryOfferings')
+      .send({ query: { pontusxQuery: { name: 'nothing' } } })
+      .expect(201);
+    expect(response.body).toEqual({ offerings: [], total: 0 });
+  });
+
+  it('passes the compute options of a job to the service', async () => {
+    requestComputeToData.mockResolvedValue(['0xenv-job']);
+    const response = await request(app.getHttpServer())
+      .post('/grpc/RunComputeToDataJob')
+      .send({
+        did: 'did:ope:data',
+        algorithm: 'did:ope:algo',
+        algorithmParameters: { threshold: '0.5' },
+        computeEnv: 'env-1',
+        resources: [{ id: 'cpu', amount: 2 }],
+        free: true,
+      })
+      .expect(201);
+    expect(response.body).toEqual({ jobId: ['0xenv-job'] });
+    expect(requestComputeToData).toHaveBeenCalledWith(
+      expect.objectContaining({
+        did: 'did:ope:data',
+        algorithm: 'did:ope:algo',
+        userdata: {},
+        algorithmParameters: { threshold: '0.5' },
+        computeEnv: 'env-1',
+        resources: [{ id: 'cpu', amount: 2 }],
+        free: true,
+      }),
+    );
+    // unset optional fields are left out
+    expect(requestComputeToData.mock.calls[0][0]).not.toHaveProperty(
+      'maxJobDuration',
+    );
   });
 
   it('maps gRPC errors to HTTP status codes', async () => {
@@ -144,7 +214,7 @@ describe('HTTP and gRPC gateway (e2e)', () => {
     );
     const response = await request(app.getHttpServer())
       .post('/grpc/GetOffering')
-      .send({ offerings: [{ pontusxOffering: { did: 'did:op:missing' } }] })
+      .send({ offerings: [{ pontusxOffering: { did: 'did:ope:missing' } }] })
       .expect(404);
     expect(response.body.grpc).toEqual({
       code: status.NOT_FOUND,
@@ -169,7 +239,7 @@ describe('HTTP and gRPC gateway (e2e)', () => {
     });
     const response = await request(app.getHttpServer())
       .post('/grpc/GetOffering')
-      .send({ offerings: [{ pontusxOffering: { did: 'did:op:test' } }] })
+      .send({ offerings: [{ pontusxOffering: { did: 'did:ope:test' } }] })
       .expect(400);
     expect(response.body.grpc.code).toBe(status.INVALID_ARGUMENT);
     expect(response.body.message).toBe(`services: ${errors.services}`);

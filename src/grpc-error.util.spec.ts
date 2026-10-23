@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { RpcException } from '@nestjs/microservices';
 import { status } from '@grpc/grpc-js';
 import {
@@ -5,7 +6,7 @@ import {
   extractErrorDetails,
   formatErrorMessage,
   mapToRpcException,
-} from './grpc-error.util';
+} from './grpc-error.util.js';
 
 const context = { service: 'pontusx', where: 'publishAsset' };
 

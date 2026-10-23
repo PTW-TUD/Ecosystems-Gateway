@@ -2,7 +2,7 @@
 // versions:
 //   protoc-gen-ts_proto  v2.3.0
 //   protoc               unknown
-// source: spp_v2.proto
+// source: spp_v3.proto
 
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
@@ -18,12 +18,15 @@ import {
   type ServiceError,
   type UntypedServiceImplementation,
 } from "@grpc/grpc-js";
-import { Struct } from "./google/protobuf/struct";
+import { Struct } from "./google/protobuf/struct.js";
 
-export const protobufPackage = "eupg.ecosystemsgateway";
+export const protobufPackage = "eupg.ecosystemsgateway.v3";
 
+/** How the result of a compute-to-data job is returned. */
 export enum ComputeToDataResultType {
+  /** C2D_DATA - The result, base64 encoded, fetched and cached by the gateway once the job finished */
   C2D_DATA = 0,
+  /** C2D_URI - A download URL of the ocean-node for the result */
   C2D_URI = 1,
   UNRECOGNIZED = -1,
 }
@@ -55,6 +58,7 @@ export function computeToDataResultTypeToJSON(object: ComputeToDataResultType): 
   }
 }
 
+/** Processing state of a compute-to-data result. */
 export enum ComputeToDataResponseState {
   QUEUED = 0,
   IN_PROGRESS = 1,
@@ -180,7 +184,7 @@ export function pontusxLifecycleStatesToJSON(object: PontusxLifecycleStates): st
   }
 }
 
-/** Request payload for creating offerings in one or more supported ecosystems. */
+/** Request payload for publishing one or more offerings. */
 export interface CreateOfferingRequest {
   offerings: CreateOfferingRequest_Offering[];
 }
@@ -190,13 +194,13 @@ export interface CreateOfferingRequest_Offering {
   xfscOffering?: XfscOffering | undefined;
 }
 
-/** Offering payload for publication into the Cross Federation Services Catalogue (XFSC). */
+/** Offering for the XFSC federated catalogue. */
 export interface XfscOffering {
   /** Gaia-X compliant Verifiable Presentation of the service offering as JSON-LD. */
-  VP: string;
+  vp: string;
 }
 
-/** Offering payload for publication into the Pontus-X ecosystem. */
+/** Offering for Pontus-X, published as a DDO v5 asset. */
 export interface PontusxOffering {
   /** The main information about the asset to publish */
   metadata?:
@@ -214,7 +218,10 @@ export interface PontusxOffering {
    * Cardinality: 1..n -> At least one service has to be passed for publishing
    */
   services: Service[];
-  /** Allowlist & Denylist of Credentials for the offering */
+  /**
+   * Allowlist & Denylist of wallet addresses for the offering.
+   * Without allow addresses everyone is allowed.
+   */
   credentials?: CredentialLists | undefined;
 }
 
@@ -222,11 +229,11 @@ export interface PontusxOffering {
 export interface CreateOfferingResponse {
   /**
    * List of identifier of the successfully published offering(s)
-   * example: did:op:123 in Pontus-X ecosystem
+   * example: did:ope:123 in Pontus-X ecosystem
    */
   id: string[];
   /** Debug information */
-  DebugInformation?: { [key: string]: any } | undefined;
+  debugInformation?: { [key: string]: any } | undefined;
 }
 
 /** Request payload for updating already published offerings. */
@@ -246,20 +253,22 @@ export interface UpdateOfferingRequest_UpdateOffering {
   publishInfo?: PublishInfo | undefined;
 }
 
+/** Update of an offering in the XFSC federated catalogue. */
 export interface XfscUpdateOffering {
   /** Hash of the original Verifiable Presentation published to the catalogue. */
   hash: string;
   /** Updated Gaia-X compliant Verifiable Presentation of the service offering as JSON-LD. */
-  VP: string;
+  vp: string;
 }
 
+/** Update of a published Pontus-X offering. Fields that are not given are kept. */
 export interface PontusxUpdateOffering {
   /**
    * Decentralised identifier for the already published offering
-   * example: did:op:1234
+   * example: did:ope:1234
    */
   did: string;
-  /** The main information about the asset to publish */
+  /** The main information about the asset */
   metadata?:
     | Metadata
     | undefined;
@@ -269,7 +278,11 @@ export interface PontusxUpdateOffering {
    */
   additionalInformation?: AdditionalInformation | undefined;
   updateServices: PontusxUpdateOffering_UpdateService[];
-  /** Allowlist & Denylist of Credentials for the offering */
+  /**
+   * Allowlist & Denylist of wallet addresses for the offering. When given, these lists
+   * replace the stored address lists; without allow addresses everyone is allowed.
+   * When omitted, the stored lists are kept.
+   */
   credentials?: CredentialLists | undefined;
 }
 
@@ -289,7 +302,7 @@ export interface PontusxUpdateOffering_UpdateService {
 export interface PublishInfo {
   /**
    * The source where to find the published offering
-   * example: https://www.pontus-x.eu/asset/did:op:ac74139fa102d32f326ccdab3727a95299f1c2b6add9158385439e5b06810833
+   * example: https://www.pontus-x.eu/asset/did:ope:ac74139fa102d32f326ccdab3727a95299f1c2b6add9158385439e5b06810833
    */
   source: string;
   /**
@@ -303,12 +316,13 @@ export interface PublishInfo {
 export interface UpdateOfferingResponse {
   /**
    * List of identifier of the successfully updated offering(s)
-   * example: did:op:123 in Pontus-X ecosystem
+   * example: did:ope:123 in Pontus-X ecosystem
    */
   id: string[];
   /** Locations of the offering which where published to the Credential Event Service */
   locations: string[];
-  DebugInformation?: { [key: string]: any } | undefined;
+  /** Debug information */
+  debugInformation?: { [key: string]: any } | undefined;
 }
 
 /** Request payload for changing the lifecycle state of an existing offering. */
@@ -321,16 +335,18 @@ export interface UpdateOfferingLifecycleRequest_UpdateOfferingLifecycle {
   xfscUpdateOfferingLifecycle?: XfscUpdateOfferingLifecycle | undefined;
 }
 
+/** Lifecycle change of a Pontus-X offering. */
 export interface PontusxUpdateOfferingLifecycle {
   /**
    * Decentralised identifier for the already published offering
-   * example: did:op:1234
+   * example: did:ope:1234
    */
   did: string;
   /** Pontus-X lifecycle state to which the offering should be changed */
   to: PontusxLifecycleStates;
 }
 
+/** Lifecycle change of an XFSC offering. */
 export interface XfscUpdateOfferingLifecycle {
   /** String containing the hash of the original Verifiable Presentation published to the catalogue */
   hash: string;
@@ -392,13 +408,15 @@ export function xfscUpdateOfferingLifecycle_XfscLifecycleStatesToJSON(
   }
 }
 
+/** Response returned after changing lifecycle states. */
 export interface UpdateOfferingLifecycleResponse {
   /**
    * List of identifier of the successfully changed offering(s)
-   * example: did:op:123 in Pontus-X ecosystem
+   * example: did:ope:123 in Pontus-X ecosystem
    */
   id: string[];
-  DebugInformation?: { [key: string]: any } | undefined;
+  /** Debug information */
+  debugInformation?: { [key: string]: any } | undefined;
 }
 
 /** Request payload for retrieving offerings. */
@@ -411,19 +429,23 @@ export interface GetOfferingRequest_Offering {
   xfscOffering?: XfscGetOffering | undefined;
 }
 
+/** Offerings found, each as a JSON document (a DDO v5 for Pontus-X). */
 export interface GetOfferingResponse {
   offerings: string[];
   /** Debug information */
-  DebugInformation?: { [key: string]: any } | undefined;
+  debugInformation?: { [key: string]: any } | undefined;
 }
 
+/** Lookup of an offering in the XFSC federated catalogue. */
 export interface XfscGetOffering {
   did: string;
   issuer: string;
   name: string;
 }
 
+/** Lookup of a Pontus-X offering. */
 export interface PontusxGetOffering {
+  /** example: did:ope:1234 */
   did: string;
 }
 
@@ -437,25 +459,40 @@ export interface QueryOfferingsRequest_Query {
   xfscQuery?: XfscQueryOfferings | undefined;
 }
 
+/** Offerings found, each as a JSON document (a DDO v5 for Pontus-X), and the total number of matches. */
 export interface QueryOfferingsResponse {
   offerings: string[];
   total: number;
 }
 
+/** Search in the XFSC federated catalogue. */
 export interface XfscQueryOfferings {
   did: string;
   issuer: string;
   name: string;
 }
 
+/** Search of Pontus-X offerings; all given criteria have to match. */
 export interface PontusxQueryOfferings {
   /** Optional identifier of the offering. */
   did?: string | undefined;
   name?: string | undefined;
   description?: string | undefined;
-  author?: string | undefined;
-  metadataType?: string | undefined;
-  serviceType?: string | undefined;
+  author?:
+    | string
+    | undefined;
+  /** 'dataset' or 'algorithm' */
+  metadataType?:
+    | string
+    | undefined;
+  /** 'access' or 'compute' */
+  serviceType?:
+    | string
+    | undefined;
+  /**
+   * Page to return, starting at 0 (the first page)
+   * Defaults to the first page; pageSize defaults to 50
+   */
   page?: number | undefined;
   pageSize?: number | undefined;
 }
@@ -470,9 +507,11 @@ export interface AccessServiceRequest_Service {
   xfscService?: XfscAccessService | undefined;
 }
 
+/** Access to a service of a Pontus-X offering. */
 export interface PontusxAccessService {
+  /** example: did:ope:1234 */
   did: string;
-  /** Defaults to the first service in the asset metadata. */
+  /** Defaults to the first access service of the asset. */
   serviceId?:
     | string
     | undefined;
@@ -480,7 +519,7 @@ export interface PontusxAccessService {
   fileIndex?:
     | number
     | undefined;
-  /** Optional user-provided parameters forwarded to the service. */
+  /** Values for the consumer parameters of the service. */
   userdata: { [key: string]: string };
 }
 
@@ -489,24 +528,60 @@ export interface PontusxAccessService_UserdataEntry {
   value: string;
 }
 
+/** Access to an XFSC offering. */
 export interface XfscAccessService {
   vc: string;
 }
 
+/** Response returned with the access URL. */
 export interface AccessServiceResponse {
   /**
    * Identifier of the requested service offering
-   * example: did:op:123 in Pontus-X ecosystem
+   * example: did:ope:123 in Pontus-X ecosystem
    */
   id: string;
+  /** Download URL of the ocean-node */
   accessUrl: string;
 }
 
 /** Request payload for starting a compute-to-data job in Pontus-X. */
 export interface CreateComputeToDataRequest {
+  /** DID of the dataset */
   did: string;
-  algorithm: string;
+  /** Compute service of the dataset; defaults to its first compute service */
+  serviceId?:
+    | string
+    | undefined;
+  /** Values for the consumer parameters of the dataset's compute service */
   userdata: { [key: string]: string };
+  /** DID of the algorithm to run on the dataset */
+  algorithm: string;
+  /** Service of the algorithm; defaults to its compute service, else its first service */
+  algorithmServiceId?:
+    | string
+    | undefined;
+  /** Values for the consumer parameters of the algorithm's service */
+  algorithmUserdata: { [key: string]: string };
+  /** Values for the consumer parameters of the algorithm itself (Metadata.algorithm.consumerParameters) */
+  algorithmParameters: { [key: string]: string };
+  /** Compute environment of the ocean-node; defaults to the gateway's COMPUTE_ENV, else the node's first */
+  computeEnv?:
+    | string
+    | undefined;
+  /**
+   * Resources to request, e.g. cpu, ram (GB) and disk (GB), with ids as the environment lists them
+   * Defaults to the environment's minimum of each, at least 1 cpu, ram and disk
+   */
+  resources: ComputeResource[];
+  /** Maximum job duration in seconds; capped to the environment's limit */
+  maxJobDuration?:
+    | number
+    | undefined;
+  /**
+   * Runs the job in the environment's free tier: nothing is ordered or paid, but the
+   * environment has to offer one and its limits apply
+   */
+  free?: boolean | undefined;
 }
 
 export interface CreateComputeToDataRequest_UserdataEntry {
@@ -514,36 +589,69 @@ export interface CreateComputeToDataRequest_UserdataEntry {
   value: string;
 }
 
+export interface CreateComputeToDataRequest_AlgorithmUserdataEntry {
+  key: string;
+  value: string;
+}
+
+export interface CreateComputeToDataRequest_AlgorithmParametersEntry {
+  key: string;
+  value: string;
+}
+
+/** A resource requested for a compute job. */
+export interface ComputeResource {
+  /** Resource id as the compute environment lists it, e.g. "cpu", "ram" or "disk" */
+  id: string;
+  /** Amount in the unit of the environment, e.g. cores or GB */
+  amount: number;
+}
+
+/** Response returned after starting a compute-to-data job. */
 export interface ComputeToDataResponse {
+  /** ocean-node job ids in the form <environmentHash>-<jobId> */
   jobId: string[];
 }
 
+/** Request payload for the status of a compute-to-data job. */
 export interface ComputeToDataStatusRequest {
+  /** ocean-node job id in the form <environmentHash>-<jobId> */
   jobId: string;
 }
 
+/** Status of a compute-to-data job. */
 export interface ComputeToDataStatusResponse {
+  /**
+   * Compute-to-Data v2 status code of the ocean-node, e.g. 1 queued, 40 running algorithm,
+   * 70 finished; a job that ends below 70 failed
+   */
   status: number;
+  /** Description of the status code */
   description: string;
 }
 
 /**
  * Request payload for retrieving compute-to-data job results.
- * Use jobIndex to fetch a specific result file; by default the first result is returned.
+ * By default the job's output archive (outputs.tar) is returned; for C2D_URI, jobIndex selects another result file of the job.
  */
 export interface CreateComputeToDataResultRequest {
+  /** ocean-node job id in the form <environmentHash>-<jobId> */
   jobId: string;
-  jobIndex?: number | undefined;
   computeToDataReturnType: ComputeToDataResultType;
+  jobIndex?: number | undefined;
 }
 
 /** The result can either be a URL or a full data, see CreateComputeToDataResultRequest */
 export interface GetComputeToDataResultResponse {
   state: ComputeToDataResponseState;
+  /** The result, or for a result not yet fetched a status message */
   data: string;
 }
 
-/** Core asset metadata used for Pontus-X create and update operations. */
+/**
+ * Core asset metadata used for Pontus-X create and update operations.
+ * On an update, given values replace the stored ones; tags and categories are added to the stored ones.
+ */
 export interface Metadata {
   /**
    * type of the asset
@@ -565,18 +673,52 @@ export interface Metadata {
   author: string;
   /**
    * Short name referencing the license of the asset
-   * example: CC-BY, Public Domain
+   * example: CC-BY-4.0, Public Domain
    */
-  licence: string;
+  license: string;
   /** Optional keywords or tags used to describe the content of the offering */
   tags: string[];
   /**
    * Information about asset of type algorithm
    * Only optional for dataset -> Non-optional for algorithm
    */
-  algorithm?: AlgorithmMetadata | undefined;
+  algorithm?:
+    | AlgorithmMetadata
+    | undefined;
+  /**
+   * Organisation that provides the asset (DDO v5 providedBy)
+   * Defaults to the gateway's PROVIDED_BY, else the author
+   */
+  providedBy?:
+    | string
+    | undefined;
+  /** Title to display instead of the name */
+  displayTitle?:
+    | string
+    | undefined;
+  /** Holder of the copyright of the asset */
+  copyrightHolder?:
+    | string
+    | undefined;
+  /** Language of the content, as a BCP 47 tag, e.g. "en" or "de" */
+  language?:
+    | string
+    | undefined;
+  /** Optional categories of the offering */
+  categories: string[];
+  /**
+   * Links to further information, as label and URL
+   * example: {"website": "https://example.org"}
+   */
+  links: { [key: string]: string };
 }
 
+export interface Metadata_LinksEntry {
+  key: string;
+  value: string;
+}
+
+/** Metadata of an algorithm. */
 export interface AlgorithmMetadata {
   /** Language used to implement the software, e.g. "python" */
   language?:
@@ -587,14 +729,15 @@ export interface AlgorithmMetadata {
     | string
     | undefined;
   /**
-   * Optional consumer parameters similar as in Service
-   * Implemented here to gain access to user input at algorithm runtime
+   * Optional consumer parameters of the algorithm
+   * Their values are given with CreateComputeToDataRequest.algorithmParameters
    */
   consumerParameters: ConsumerParameter[];
   /** Information about the Docker image for running the algorithm */
   container?: Container | undefined;
 }
 
+/** Docker image of an algorithm. */
 export interface Container {
   /**
    * The command to execute, or script to run inside the Docker image, e.g. "node $ALGO"
@@ -635,6 +778,7 @@ export interface Service {
   /**
    * Describing how long the service can be used after consumption is initiated.
    * Expressed in seconds; where 0 represents no time limit
+   * Defaults to 86400 (one day) when publishing; an update keeps the stored timeout unless one is given
    */
   timeout?:
     | number
@@ -654,8 +798,9 @@ export interface Service {
     | string
     | undefined;
   /**
-   * URL (schema + host) of the Provider responsible for provisioning of the data service
-   * If no value is given the standard provider given in the network config is used (i.e. deltaDAO provider)
+   * URL (schema + host) of the ocean-node that serves the service; its files are encrypted for this node
+   * If no value is given the gateway's ocean-node (OCEAN_NODE_URI) is used
+   * An update keeps the stored endpoint unless one is given, and can only change it together with the files
    */
   serviceEndpoint?:
     | string
@@ -667,7 +812,10 @@ export interface Service {
   computeOptions?:
     | ComputeOptions
     | undefined;
-  /** Optional message that defines required consumer input before consuming the asset/service */
+  /**
+   * Optional message that defines required consumer input before consuming the asset/service
+   * On an update, the given parameters replace the stored ones; none given keeps them
+   */
   consumerParameters: ConsumerParameter[];
 }
 
@@ -675,14 +823,22 @@ export interface Service {
 export interface Pricing {
   /** Definition if the asset is free or has to be payed with a fixed currency */
   pricingType: Pricing_PricingType;
-  /** The actual amount of currency (according to Pricing Type) that has to be payed */
-  fixedRate?: number | undefined;
+  /**
+   * The price in units of the currency (according to Pricing Type) as a decimal number, e.g. "0.5"
+   * Defaults to the network's configured price of the pricing type
+   */
+  price?: string | undefined;
 }
 
+/**
+ * The payment tokens a network offers: OP Sepolia FREE and FIXED_EURAU (devEURAU),
+ * the Pontus-X networks all of them
+ */
 export enum Pricing_PricingType {
   FREE = 0,
   FIXED_OCEAN = 1,
   FIXED_EUROE = 2,
+  FIXED_EURAU = 3,
   UNRECOGNIZED = -1,
 }
 
@@ -697,6 +853,9 @@ export function pricing_PricingTypeFromJSON(object: any): Pricing_PricingType {
     case 2:
     case "FIXED_EUROE":
       return Pricing_PricingType.FIXED_EUROE;
+    case 3:
+    case "FIXED_EURAU":
+      return Pricing_PricingType.FIXED_EURAU;
     case -1:
     case "UNRECOGNIZED":
     default:
@@ -712,6 +871,8 @@ export function pricing_PricingTypeToJSON(object: Pricing_PricingType): string {
       return "FIXED_OCEAN";
     case Pricing_PricingType.FIXED_EUROE:
       return "FIXED_EUROE";
+    case Pricing_PricingType.FIXED_EURAU:
+      return "FIXED_EURAU";
     case Pricing_PricingType.UNRECOGNIZED:
     default:
       return "UNRECOGNIZED";
@@ -740,53 +901,71 @@ export interface Files_HeadersEntry {
   value: string;
 }
 
+/**
+ * Which algorithms may run on a compute service.
+ * When publishing, a list that is not given trusts nobody; on an update, it keeps the stored one.
+ * Without trusted algorithms, trusted publishers and raw algorithms, no algorithm can run.
+ */
 export interface ComputeOptions {
   /**
    * If true, any passed raw text will be allowed to run. Useful for an algorithm drag & drop use case, but increases risk of data escape through malicious user input.
-   * Optional because default value in connector is false
+   * Defaults to false when publishing; an update keeps the stored value unless one is given
    */
   allowRawAlgorithm?:
     | boolean
     | undefined;
   /**
    * If true, the algorithm job will have network access.
-   * Optional because default value in connector is false
+   * Defaults to false when publishing; an update keeps the stored value unless one is given
    */
   allowNetworkAccess?:
     | boolean
     | undefined;
   /**
-   * Algorithm that is allowed/trusted by the publisher to be used on asset/service
-   * If not defined, then any published algorithm is allowed. If empty array, then no algorithm is allowed.
+   * Published algorithms the publisher allows to run on the service
+   * When given, replaces the stored ones
    */
-  trustedAlgorithms: TrustedAlgorihm[];
+  trustedAlgorithms?:
+    | TrustedAlgorithms
+    | undefined;
   /**
-   * Define publishers with their wallet address (0x...) from which all published algorithms are allowed
-   * If not defined, then any published algorithm is allowed. If empty array, then no algorithm is allowed.
+   * Publishers whose published algorithms may all run on the service
+   * When given, replaces the stored ones
    */
-  trustedPublishers: string[];
+  trustedPublishers?: TrustedPublishers | undefined;
 }
 
-export interface TrustedAlgorihm {
+/** Published algorithms trusted to run on a compute service. */
+export interface TrustedAlgorithms {
+  /** Trusts every published algorithm; algorithms is ignored then */
+  all: boolean;
+  /** The trusted algorithms; empty trusts none */
+  algorithms: TrustedAlgorithm[];
+}
+
+/**
+ * A published algorithm trusted to run on a compute service.
+ * Its file and container checksums are read from its DDO and the ocean-node.
+ */
+export interface TrustedAlgorithm {
   /**
    * Decentralised identifier of the already published algorithm
-   * example did:op:456
+   * example: did:ope:456
    */
   did: string;
   /**
-   * Hash of trusted algorithm's files
-   * Can be created over Ocean Provider FileInfoEndpoint with parameter withChecksum = True
-   * If the algorithm has multiple files, filesChecksum is a concatenated string of all files checksums
-   * Optional because this is already handled by nautilus
+   * Services of the algorithm that are trusted
+   * Defaults to its compute service, else its first service
    */
-  filesChecksum?:
-    | string
-    | undefined;
-  /**
-   * Hash of algorithm's image details (entrypoint and image checksum)
-   * Produced by: sha256(algorithm_ddo.metadata.algorithm.container.entrypoint + algorithm_ddo.metadata.algorithm.container.checksum)
-   */
-  containerSectionChecksum?: string | undefined;
+  serviceIds: string[];
+}
+
+/** Publishers whose published algorithms are trusted to run on a compute service. */
+export interface TrustedPublishers {
+  /** Trusts the algorithms of every publisher; addresses is ignored then */
+  all: boolean;
+  /** Wallet addresses (0x...) of the trusted publishers; empty trusts none */
+  addresses: string[];
 }
 
 /** Additional Pontus-X specific metadata, primarily for Gaia-X related information. */
@@ -794,11 +973,11 @@ export interface AdditionalInformation {
   /** Boolean to indicate if the publisher specifies it's own terms and conditions for consumption of the asset */
   termsAndConditions: boolean;
   /** Information in the context of Gaia-X compliance including the link to the Self-Description of the offering (VP) */
-  gaiaXInformation?: gaiaX | undefined;
+  gaiaXInformation?: GaiaX | undefined;
 }
 
 /** Gaia-X related compliance information referenced by AdditionalInformation. */
-export interface gaiaX {
+export interface GaiaX {
   /** Identifier if the asset contains personally identifiable information */
   containsPII: boolean;
   /**
@@ -806,11 +985,11 @@ export interface gaiaX {
    * Should only be passed if boolean in AdditionalInformation is true
    */
   termsAndConditions: Terms[];
-  serviceSD?: gaiaX_ServiceSelfDescription | undefined;
+  serviceSD?: GaiaX_ServiceSelfDescription | undefined;
 }
 
 /** Endpoint to the Gaia-X compliant Self-Description (VP) of the offering */
-export interface gaiaX_ServiceSelfDescription {
+export interface GaiaX_ServiceSelfDescription {
   /** Static URL of the self-description */
   url: string;
   /**
@@ -846,11 +1025,14 @@ export interface ConsumerParameter {
   options: { [key: string]: any }[];
 }
 
-/** Credential allowlist and denylist configuration for Pontus-X. */
+/**
+ * Wallet address allowlist and denylist for Pontus-X, checked by the ocean-node or its
+ * policy server before anything is ordered or paid.
+ */
 export interface CredentialLists {
-  /** List of allowed credentials */
+  /** Addresses allowed to access the offering; empty or "*" allows everyone */
   allow: string[];
-  /** List of denied credentials */
+  /** Addresses denied access to the offering */
   deny: string[];
 }
 
@@ -861,7 +1043,7 @@ function createBaseCreateOfferingRequest(): CreateOfferingRequest {
 export const CreateOfferingRequest: MessageFns<CreateOfferingRequest> = {
   encode(message: CreateOfferingRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     for (const v of message.offerings) {
-      CreateOfferingRequest_Offering.encode(v!, writer.uint32(82).fork()).join();
+      CreateOfferingRequest_Offering.encode(v!, writer.uint32(10).fork()).join();
     }
     return writer;
   },
@@ -873,8 +1055,8 @@ export const CreateOfferingRequest: MessageFns<CreateOfferingRequest> = {
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
-        case 10: {
-          if (tag !== 82) {
+        case 1: {
+          if (tag !== 10) {
             break;
           }
 
@@ -999,13 +1181,13 @@ export const CreateOfferingRequest_Offering: MessageFns<CreateOfferingRequest_Of
 };
 
 function createBaseXfscOffering(): XfscOffering {
-  return { VP: "" };
+  return { vp: "" };
 }
 
 export const XfscOffering: MessageFns<XfscOffering> = {
   encode(message: XfscOffering, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.VP !== "") {
-      writer.uint32(10).string(message.VP);
+    if (message.vp !== "") {
+      writer.uint32(10).string(message.vp);
     }
     return writer;
   },
@@ -1022,7 +1204,7 @@ export const XfscOffering: MessageFns<XfscOffering> = {
             break;
           }
 
-          message.VP = reader.string();
+          message.vp = reader.string();
           continue;
         }
       }
@@ -1035,13 +1217,13 @@ export const XfscOffering: MessageFns<XfscOffering> = {
   },
 
   fromJSON(object: any): XfscOffering {
-    return { VP: isSet(object.VP) ? globalThis.String(object.VP) : "" };
+    return { vp: isSet(object.vp) ? globalThis.String(object.vp) : "" };
   },
 
   toJSON(message: XfscOffering): unknown {
     const obj: any = {};
-    if (message.VP !== "") {
-      obj.VP = message.VP;
+    if (message.vp !== "") {
+      obj.vp = message.vp;
     }
     return obj;
   },
@@ -1051,7 +1233,7 @@ export const XfscOffering: MessageFns<XfscOffering> = {
   },
   fromPartial<I extends Exact<DeepPartial<XfscOffering>, I>>(object: I): XfscOffering {
     const message = createBaseXfscOffering();
-    message.VP = object.VP ?? "";
+    message.vp = object.vp ?? "";
     return message;
   },
 };
@@ -1174,7 +1356,7 @@ export const PontusxOffering: MessageFns<PontusxOffering> = {
 };
 
 function createBaseCreateOfferingResponse(): CreateOfferingResponse {
-  return { id: [], DebugInformation: undefined };
+  return { id: [], debugInformation: undefined };
 }
 
 export const CreateOfferingResponse: MessageFns<CreateOfferingResponse> = {
@@ -1182,8 +1364,8 @@ export const CreateOfferingResponse: MessageFns<CreateOfferingResponse> = {
     for (const v of message.id) {
       writer.uint32(10).string(v!);
     }
-    if (message.DebugInformation !== undefined) {
-      Struct.encode(Struct.wrap(message.DebugInformation), writer.uint32(26).fork()).join();
+    if (message.debugInformation !== undefined) {
+      Struct.encode(Struct.wrap(message.debugInformation), writer.uint32(18).fork()).join();
     }
     return writer;
   },
@@ -1203,12 +1385,12 @@ export const CreateOfferingResponse: MessageFns<CreateOfferingResponse> = {
           message.id.push(reader.string());
           continue;
         }
-        case 3: {
-          if (tag !== 26) {
+        case 2: {
+          if (tag !== 18) {
             break;
           }
 
-          message.DebugInformation = Struct.unwrap(Struct.decode(reader, reader.uint32()));
+          message.debugInformation = Struct.unwrap(Struct.decode(reader, reader.uint32()));
           continue;
         }
       }
@@ -1223,7 +1405,7 @@ export const CreateOfferingResponse: MessageFns<CreateOfferingResponse> = {
   fromJSON(object: any): CreateOfferingResponse {
     return {
       id: globalThis.Array.isArray(object?.id) ? object.id.map((e: any) => globalThis.String(e)) : [],
-      DebugInformation: isObject(object.DebugInformation) ? object.DebugInformation : undefined,
+      debugInformation: isObject(object.debugInformation) ? object.debugInformation : undefined,
     };
   },
 
@@ -1232,8 +1414,8 @@ export const CreateOfferingResponse: MessageFns<CreateOfferingResponse> = {
     if (message.id?.length) {
       obj.id = message.id;
     }
-    if (message.DebugInformation !== undefined) {
-      obj.DebugInformation = message.DebugInformation;
+    if (message.debugInformation !== undefined) {
+      obj.debugInformation = message.debugInformation;
     }
     return obj;
   },
@@ -1244,7 +1426,7 @@ export const CreateOfferingResponse: MessageFns<CreateOfferingResponse> = {
   fromPartial<I extends Exact<DeepPartial<CreateOfferingResponse>, I>>(object: I): CreateOfferingResponse {
     const message = createBaseCreateOfferingResponse();
     message.id = object.id?.map((e) => e) || [];
-    message.DebugInformation = object.DebugInformation ?? undefined;
+    message.debugInformation = object.debugInformation ?? undefined;
     return message;
   },
 };
@@ -1256,7 +1438,7 @@ function createBaseUpdateOfferingRequest(): UpdateOfferingRequest {
 export const UpdateOfferingRequest: MessageFns<UpdateOfferingRequest> = {
   encode(message: UpdateOfferingRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     for (const v of message.offerings) {
-      UpdateOfferingRequest_UpdateOffering.encode(v!, writer.uint32(82).fork()).join();
+      UpdateOfferingRequest_UpdateOffering.encode(v!, writer.uint32(10).fork()).join();
     }
     return writer;
   },
@@ -1268,8 +1450,8 @@ export const UpdateOfferingRequest: MessageFns<UpdateOfferingRequest> = {
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
-        case 10: {
-          if (tag !== 82) {
+        case 1: {
+          if (tag !== 10) {
             break;
           }
 
@@ -1324,7 +1506,7 @@ export const UpdateOfferingRequest_UpdateOffering: MessageFns<UpdateOfferingRequ
       XfscUpdateOffering.encode(message.xfscUpdateOffering, writer.uint32(18).fork()).join();
     }
     if (message.publishInfo !== undefined) {
-      PublishInfo.encode(message.publishInfo, writer.uint32(50).fork()).join();
+      PublishInfo.encode(message.publishInfo, writer.uint32(26).fork()).join();
     }
     return writer;
   },
@@ -1352,8 +1534,8 @@ export const UpdateOfferingRequest_UpdateOffering: MessageFns<UpdateOfferingRequ
           message.xfscUpdateOffering = XfscUpdateOffering.decode(reader, reader.uint32());
           continue;
         }
-        case 6: {
-          if (tag !== 50) {
+        case 3: {
+          if (tag !== 26) {
             break;
           }
 
@@ -1419,7 +1601,7 @@ export const UpdateOfferingRequest_UpdateOffering: MessageFns<UpdateOfferingRequ
 };
 
 function createBaseXfscUpdateOffering(): XfscUpdateOffering {
-  return { hash: "", VP: "" };
+  return { hash: "", vp: "" };
 }
 
 export const XfscUpdateOffering: MessageFns<XfscUpdateOffering> = {
@@ -1427,8 +1609,8 @@ export const XfscUpdateOffering: MessageFns<XfscUpdateOffering> = {
     if (message.hash !== "") {
       writer.uint32(10).string(message.hash);
     }
-    if (message.VP !== "") {
-      writer.uint32(18).string(message.VP);
+    if (message.vp !== "") {
+      writer.uint32(18).string(message.vp);
     }
     return writer;
   },
@@ -1453,7 +1635,7 @@ export const XfscUpdateOffering: MessageFns<XfscUpdateOffering> = {
             break;
           }
 
-          message.VP = reader.string();
+          message.vp = reader.string();
           continue;
         }
       }
@@ -1468,7 +1650,7 @@ export const XfscUpdateOffering: MessageFns<XfscUpdateOffering> = {
   fromJSON(object: any): XfscUpdateOffering {
     return {
       hash: isSet(object.hash) ? globalThis.String(object.hash) : "",
-      VP: isSet(object.VP) ? globalThis.String(object.VP) : "",
+      vp: isSet(object.vp) ? globalThis.String(object.vp) : "",
     };
   },
 
@@ -1477,8 +1659,8 @@ export const XfscUpdateOffering: MessageFns<XfscUpdateOffering> = {
     if (message.hash !== "") {
       obj.hash = message.hash;
     }
-    if (message.VP !== "") {
-      obj.VP = message.VP;
+    if (message.vp !== "") {
+      obj.vp = message.vp;
     }
     return obj;
   },
@@ -1489,7 +1671,7 @@ export const XfscUpdateOffering: MessageFns<XfscUpdateOffering> = {
   fromPartial<I extends Exact<DeepPartial<XfscUpdateOffering>, I>>(object: I): XfscUpdateOffering {
     const message = createBaseXfscUpdateOffering();
     message.hash = object.hash ?? "";
-    message.VP = object.VP ?? "";
+    message.vp = object.vp ?? "";
     return message;
   },
 };
@@ -1637,10 +1819,10 @@ function createBasePontusxUpdateOffering_UpdateService(): PontusxUpdateOffering_
 export const PontusxUpdateOffering_UpdateService: MessageFns<PontusxUpdateOffering_UpdateService> = {
   encode(message: PontusxUpdateOffering_UpdateService, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.service !== undefined) {
-      Service.encode(message.service, writer.uint32(26).fork()).join();
+      Service.encode(message.service, writer.uint32(10).fork()).join();
     }
     if (message.index !== undefined) {
-      writer.uint32(72).int32(message.index);
+      writer.uint32(16).int32(message.index);
     }
     return writer;
   },
@@ -1652,16 +1834,16 @@ export const PontusxUpdateOffering_UpdateService: MessageFns<PontusxUpdateOfferi
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
-        case 3: {
-          if (tag !== 26) {
+        case 1: {
+          if (tag !== 10) {
             break;
           }
 
           message.service = Service.decode(reader, reader.uint32());
           continue;
         }
-        case 9: {
-          if (tag !== 72) {
+        case 2: {
+          if (tag !== 16) {
             break;
           }
 
@@ -1789,7 +1971,7 @@ export const PublishInfo: MessageFns<PublishInfo> = {
 };
 
 function createBaseUpdateOfferingResponse(): UpdateOfferingResponse {
-  return { id: [], locations: [], DebugInformation: undefined };
+  return { id: [], locations: [], debugInformation: undefined };
 }
 
 export const UpdateOfferingResponse: MessageFns<UpdateOfferingResponse> = {
@@ -1798,10 +1980,10 @@ export const UpdateOfferingResponse: MessageFns<UpdateOfferingResponse> = {
       writer.uint32(10).string(v!);
     }
     for (const v of message.locations) {
-      writer.uint32(34).string(v!);
+      writer.uint32(18).string(v!);
     }
-    if (message.DebugInformation !== undefined) {
-      Struct.encode(Struct.wrap(message.DebugInformation), writer.uint32(26).fork()).join();
+    if (message.debugInformation !== undefined) {
+      Struct.encode(Struct.wrap(message.debugInformation), writer.uint32(26).fork()).join();
     }
     return writer;
   },
@@ -1821,8 +2003,8 @@ export const UpdateOfferingResponse: MessageFns<UpdateOfferingResponse> = {
           message.id.push(reader.string());
           continue;
         }
-        case 4: {
-          if (tag !== 34) {
+        case 2: {
+          if (tag !== 18) {
             break;
           }
 
@@ -1834,7 +2016,7 @@ export const UpdateOfferingResponse: MessageFns<UpdateOfferingResponse> = {
             break;
           }
 
-          message.DebugInformation = Struct.unwrap(Struct.decode(reader, reader.uint32()));
+          message.debugInformation = Struct.unwrap(Struct.decode(reader, reader.uint32()));
           continue;
         }
       }
@@ -1852,7 +2034,7 @@ export const UpdateOfferingResponse: MessageFns<UpdateOfferingResponse> = {
       locations: globalThis.Array.isArray(object?.locations)
         ? object.locations.map((e: any) => globalThis.String(e))
         : [],
-      DebugInformation: isObject(object.DebugInformation) ? object.DebugInformation : undefined,
+      debugInformation: isObject(object.debugInformation) ? object.debugInformation : undefined,
     };
   },
 
@@ -1864,8 +2046,8 @@ export const UpdateOfferingResponse: MessageFns<UpdateOfferingResponse> = {
     if (message.locations?.length) {
       obj.locations = message.locations;
     }
-    if (message.DebugInformation !== undefined) {
-      obj.DebugInformation = message.DebugInformation;
+    if (message.debugInformation !== undefined) {
+      obj.debugInformation = message.debugInformation;
     }
     return obj;
   },
@@ -1877,7 +2059,7 @@ export const UpdateOfferingResponse: MessageFns<UpdateOfferingResponse> = {
     const message = createBaseUpdateOfferingResponse();
     message.id = object.id?.map((e) => e) || [];
     message.locations = object.locations?.map((e) => e) || [];
-    message.DebugInformation = object.DebugInformation ?? undefined;
+    message.debugInformation = object.debugInformation ?? undefined;
     return message;
   },
 };
@@ -1889,7 +2071,7 @@ function createBaseUpdateOfferingLifecycleRequest(): UpdateOfferingLifecycleRequ
 export const UpdateOfferingLifecycleRequest: MessageFns<UpdateOfferingLifecycleRequest> = {
   encode(message: UpdateOfferingLifecycleRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     for (const v of message.offerings) {
-      UpdateOfferingLifecycleRequest_UpdateOfferingLifecycle.encode(v!, writer.uint32(82).fork()).join();
+      UpdateOfferingLifecycleRequest_UpdateOfferingLifecycle.encode(v!, writer.uint32(10).fork()).join();
     }
     return writer;
   },
@@ -1901,8 +2083,8 @@ export const UpdateOfferingLifecycleRequest: MessageFns<UpdateOfferingLifecycleR
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
-        case 10: {
-          if (tag !== 82) {
+        case 1: {
+          if (tag !== 10) {
             break;
           }
 
@@ -2201,7 +2383,7 @@ export const XfscUpdateOfferingLifecycle: MessageFns<XfscUpdateOfferingLifecycle
 };
 
 function createBaseUpdateOfferingLifecycleResponse(): UpdateOfferingLifecycleResponse {
-  return { id: [], DebugInformation: undefined };
+  return { id: [], debugInformation: undefined };
 }
 
 export const UpdateOfferingLifecycleResponse: MessageFns<UpdateOfferingLifecycleResponse> = {
@@ -2209,8 +2391,8 @@ export const UpdateOfferingLifecycleResponse: MessageFns<UpdateOfferingLifecycle
     for (const v of message.id) {
       writer.uint32(10).string(v!);
     }
-    if (message.DebugInformation !== undefined) {
-      Struct.encode(Struct.wrap(message.DebugInformation), writer.uint32(18).fork()).join();
+    if (message.debugInformation !== undefined) {
+      Struct.encode(Struct.wrap(message.debugInformation), writer.uint32(18).fork()).join();
     }
     return writer;
   },
@@ -2235,7 +2417,7 @@ export const UpdateOfferingLifecycleResponse: MessageFns<UpdateOfferingLifecycle
             break;
           }
 
-          message.DebugInformation = Struct.unwrap(Struct.decode(reader, reader.uint32()));
+          message.debugInformation = Struct.unwrap(Struct.decode(reader, reader.uint32()));
           continue;
         }
       }
@@ -2250,7 +2432,7 @@ export const UpdateOfferingLifecycleResponse: MessageFns<UpdateOfferingLifecycle
   fromJSON(object: any): UpdateOfferingLifecycleResponse {
     return {
       id: globalThis.Array.isArray(object?.id) ? object.id.map((e: any) => globalThis.String(e)) : [],
-      DebugInformation: isObject(object.DebugInformation) ? object.DebugInformation : undefined,
+      debugInformation: isObject(object.debugInformation) ? object.debugInformation : undefined,
     };
   },
 
@@ -2259,8 +2441,8 @@ export const UpdateOfferingLifecycleResponse: MessageFns<UpdateOfferingLifecycle
     if (message.id?.length) {
       obj.id = message.id;
     }
-    if (message.DebugInformation !== undefined) {
-      obj.DebugInformation = message.DebugInformation;
+    if (message.debugInformation !== undefined) {
+      obj.debugInformation = message.debugInformation;
     }
     return obj;
   },
@@ -2273,7 +2455,7 @@ export const UpdateOfferingLifecycleResponse: MessageFns<UpdateOfferingLifecycle
   ): UpdateOfferingLifecycleResponse {
     const message = createBaseUpdateOfferingLifecycleResponse();
     message.id = object.id?.map((e) => e) || [];
-    message.DebugInformation = object.DebugInformation ?? undefined;
+    message.debugInformation = object.debugInformation ?? undefined;
     return message;
   },
 };
@@ -2285,7 +2467,7 @@ function createBaseGetOfferingRequest(): GetOfferingRequest {
 export const GetOfferingRequest: MessageFns<GetOfferingRequest> = {
   encode(message: GetOfferingRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     for (const v of message.offerings) {
-      GetOfferingRequest_Offering.encode(v!, writer.uint32(82).fork()).join();
+      GetOfferingRequest_Offering.encode(v!, writer.uint32(10).fork()).join();
     }
     return writer;
   },
@@ -2297,8 +2479,8 @@ export const GetOfferingRequest: MessageFns<GetOfferingRequest> = {
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
-        case 10: {
-          if (tag !== 82) {
+        case 1: {
+          if (tag !== 10) {
             break;
           }
 
@@ -2421,7 +2603,7 @@ export const GetOfferingRequest_Offering: MessageFns<GetOfferingRequest_Offering
 };
 
 function createBaseGetOfferingResponse(): GetOfferingResponse {
-  return { offerings: [], DebugInformation: undefined };
+  return { offerings: [], debugInformation: undefined };
 }
 
 export const GetOfferingResponse: MessageFns<GetOfferingResponse> = {
@@ -2429,8 +2611,8 @@ export const GetOfferingResponse: MessageFns<GetOfferingResponse> = {
     for (const v of message.offerings) {
       writer.uint32(10).string(v!);
     }
-    if (message.DebugInformation !== undefined) {
-      Struct.encode(Struct.wrap(message.DebugInformation), writer.uint32(26).fork()).join();
+    if (message.debugInformation !== undefined) {
+      Struct.encode(Struct.wrap(message.debugInformation), writer.uint32(18).fork()).join();
     }
     return writer;
   },
@@ -2450,12 +2632,12 @@ export const GetOfferingResponse: MessageFns<GetOfferingResponse> = {
           message.offerings.push(reader.string());
           continue;
         }
-        case 3: {
-          if (tag !== 26) {
+        case 2: {
+          if (tag !== 18) {
             break;
           }
 
-          message.DebugInformation = Struct.unwrap(Struct.decode(reader, reader.uint32()));
+          message.debugInformation = Struct.unwrap(Struct.decode(reader, reader.uint32()));
           continue;
         }
       }
@@ -2472,7 +2654,7 @@ export const GetOfferingResponse: MessageFns<GetOfferingResponse> = {
       offerings: globalThis.Array.isArray(object?.offerings)
         ? object.offerings.map((e: any) => globalThis.String(e))
         : [],
-      DebugInformation: isObject(object.DebugInformation) ? object.DebugInformation : undefined,
+      debugInformation: isObject(object.debugInformation) ? object.debugInformation : undefined,
     };
   },
 
@@ -2481,8 +2663,8 @@ export const GetOfferingResponse: MessageFns<GetOfferingResponse> = {
     if (message.offerings?.length) {
       obj.offerings = message.offerings;
     }
-    if (message.DebugInformation !== undefined) {
-      obj.DebugInformation = message.DebugInformation;
+    if (message.debugInformation !== undefined) {
+      obj.debugInformation = message.debugInformation;
     }
     return obj;
   },
@@ -2493,7 +2675,7 @@ export const GetOfferingResponse: MessageFns<GetOfferingResponse> = {
   fromPartial<I extends Exact<DeepPartial<GetOfferingResponse>, I>>(object: I): GetOfferingResponse {
     const message = createBaseGetOfferingResponse();
     message.offerings = object.offerings?.map((e) => e) || [];
-    message.DebugInformation = object.DebugInformation ?? undefined;
+    message.debugInformation = object.debugInformation ?? undefined;
     return message;
   },
 };
@@ -2655,7 +2837,7 @@ function createBaseQueryOfferingsRequest(): QueryOfferingsRequest {
 export const QueryOfferingsRequest: MessageFns<QueryOfferingsRequest> = {
   encode(message: QueryOfferingsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.query !== undefined) {
-      QueryOfferingsRequest_Query.encode(message.query, writer.uint32(82).fork()).join();
+      QueryOfferingsRequest_Query.encode(message.query, writer.uint32(10).fork()).join();
     }
     return writer;
   },
@@ -2667,8 +2849,8 @@ export const QueryOfferingsRequest: MessageFns<QueryOfferingsRequest> = {
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
-        case 10: {
-          if (tag !== 82) {
+        case 1: {
+          if (tag !== 10) {
             break;
           }
 
@@ -3146,7 +3328,7 @@ function createBaseAccessServiceRequest(): AccessServiceRequest {
 export const AccessServiceRequest: MessageFns<AccessServiceRequest> = {
   encode(message: AccessServiceRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.service !== undefined) {
-      AccessServiceRequest_Service.encode(message.service, writer.uint32(82).fork()).join();
+      AccessServiceRequest_Service.encode(message.service, writer.uint32(10).fork()).join();
     }
     return writer;
   },
@@ -3158,8 +3340,8 @@ export const AccessServiceRequest: MessageFns<AccessServiceRequest> = {
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
-        case 10: {
-          if (tag !== 82) {
+        case 1: {
+          if (tag !== 10) {
             break;
           }
 
@@ -3621,7 +3803,19 @@ export const AccessServiceResponse: MessageFns<AccessServiceResponse> = {
 };
 
 function createBaseCreateComputeToDataRequest(): CreateComputeToDataRequest {
-  return { did: "", algorithm: "", userdata: {} };
+  return {
+    did: "",
+    serviceId: undefined,
+    userdata: {},
+    algorithm: "",
+    algorithmServiceId: undefined,
+    algorithmUserdata: {},
+    algorithmParameters: {},
+    computeEnv: undefined,
+    resources: [],
+    maxJobDuration: undefined,
+    free: undefined,
+  };
 }
 
 export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> = {
@@ -3629,12 +3823,38 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
     if (message.did !== "") {
       writer.uint32(10).string(message.did);
     }
-    if (message.algorithm !== "") {
-      writer.uint32(18).string(message.algorithm);
+    if (message.serviceId !== undefined) {
+      writer.uint32(18).string(message.serviceId);
     }
     Object.entries(message.userdata).forEach(([key, value]) => {
       CreateComputeToDataRequest_UserdataEntry.encode({ key: key as any, value }, writer.uint32(26).fork()).join();
     });
+    if (message.algorithm !== "") {
+      writer.uint32(34).string(message.algorithm);
+    }
+    if (message.algorithmServiceId !== undefined) {
+      writer.uint32(42).string(message.algorithmServiceId);
+    }
+    Object.entries(message.algorithmUserdata).forEach(([key, value]) => {
+      CreateComputeToDataRequest_AlgorithmUserdataEntry.encode({ key: key as any, value }, writer.uint32(50).fork())
+        .join();
+    });
+    Object.entries(message.algorithmParameters).forEach(([key, value]) => {
+      CreateComputeToDataRequest_AlgorithmParametersEntry.encode({ key: key as any, value }, writer.uint32(58).fork())
+        .join();
+    });
+    if (message.computeEnv !== undefined) {
+      writer.uint32(66).string(message.computeEnv);
+    }
+    for (const v of message.resources) {
+      ComputeResource.encode(v!, writer.uint32(74).fork()).join();
+    }
+    if (message.maxJobDuration !== undefined) {
+      writer.uint32(80).uint32(message.maxJobDuration);
+    }
+    if (message.free !== undefined) {
+      writer.uint32(88).bool(message.free);
+    }
     return writer;
   },
 
@@ -3658,7 +3878,7 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
             break;
           }
 
-          message.algorithm = reader.string();
+          message.serviceId = reader.string();
           continue;
         }
         case 3: {
@@ -3670,6 +3890,76 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
           if (entry3.value !== undefined) {
             message.userdata[entry3.key] = entry3.value;
           }
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.algorithm = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.algorithmServiceId = reader.string();
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          const entry6 = CreateComputeToDataRequest_AlgorithmUserdataEntry.decode(reader, reader.uint32());
+          if (entry6.value !== undefined) {
+            message.algorithmUserdata[entry6.key] = entry6.value;
+          }
+          continue;
+        }
+        case 7: {
+          if (tag !== 58) {
+            break;
+          }
+
+          const entry7 = CreateComputeToDataRequest_AlgorithmParametersEntry.decode(reader, reader.uint32());
+          if (entry7.value !== undefined) {
+            message.algorithmParameters[entry7.key] = entry7.value;
+          }
+          continue;
+        }
+        case 8: {
+          if (tag !== 66) {
+            break;
+          }
+
+          message.computeEnv = reader.string();
+          continue;
+        }
+        case 9: {
+          if (tag !== 74) {
+            break;
+          }
+
+          message.resources.push(ComputeResource.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 10: {
+          if (tag !== 80) {
+            break;
+          }
+
+          message.maxJobDuration = reader.uint32();
+          continue;
+        }
+        case 11: {
+          if (tag !== 88) {
+            break;
+          }
+
+          message.free = reader.bool();
           continue;
         }
       }
@@ -3684,13 +3974,33 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
   fromJSON(object: any): CreateComputeToDataRequest {
     return {
       did: isSet(object.did) ? globalThis.String(object.did) : "",
-      algorithm: isSet(object.algorithm) ? globalThis.String(object.algorithm) : "",
+      serviceId: isSet(object.serviceId) ? globalThis.String(object.serviceId) : undefined,
       userdata: isObject(object.userdata)
         ? Object.entries(object.userdata).reduce<{ [key: string]: string }>((acc, [key, value]) => {
           acc[key] = String(value);
           return acc;
         }, {})
         : {},
+      algorithm: isSet(object.algorithm) ? globalThis.String(object.algorithm) : "",
+      algorithmServiceId: isSet(object.algorithmServiceId) ? globalThis.String(object.algorithmServiceId) : undefined,
+      algorithmUserdata: isObject(object.algorithmUserdata)
+        ? Object.entries(object.algorithmUserdata).reduce<{ [key: string]: string }>((acc, [key, value]) => {
+          acc[key] = String(value);
+          return acc;
+        }, {})
+        : {},
+      algorithmParameters: isObject(object.algorithmParameters)
+        ? Object.entries(object.algorithmParameters).reduce<{ [key: string]: string }>((acc, [key, value]) => {
+          acc[key] = String(value);
+          return acc;
+        }, {})
+        : {},
+      computeEnv: isSet(object.computeEnv) ? globalThis.String(object.computeEnv) : undefined,
+      resources: globalThis.Array.isArray(object?.resources)
+        ? object.resources.map((e: any) => ComputeResource.fromJSON(e))
+        : [],
+      maxJobDuration: isSet(object.maxJobDuration) ? globalThis.Number(object.maxJobDuration) : undefined,
+      free: isSet(object.free) ? globalThis.Boolean(object.free) : undefined,
     };
   },
 
@@ -3699,8 +4009,8 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
     if (message.did !== "") {
       obj.did = message.did;
     }
-    if (message.algorithm !== "") {
-      obj.algorithm = message.algorithm;
+    if (message.serviceId !== undefined) {
+      obj.serviceId = message.serviceId;
     }
     if (message.userdata) {
       const entries = Object.entries(message.userdata);
@@ -3711,6 +4021,42 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
         });
       }
     }
+    if (message.algorithm !== "") {
+      obj.algorithm = message.algorithm;
+    }
+    if (message.algorithmServiceId !== undefined) {
+      obj.algorithmServiceId = message.algorithmServiceId;
+    }
+    if (message.algorithmUserdata) {
+      const entries = Object.entries(message.algorithmUserdata);
+      if (entries.length > 0) {
+        obj.algorithmUserdata = {};
+        entries.forEach(([k, v]) => {
+          obj.algorithmUserdata[k] = v;
+        });
+      }
+    }
+    if (message.algorithmParameters) {
+      const entries = Object.entries(message.algorithmParameters);
+      if (entries.length > 0) {
+        obj.algorithmParameters = {};
+        entries.forEach(([k, v]) => {
+          obj.algorithmParameters[k] = v;
+        });
+      }
+    }
+    if (message.computeEnv !== undefined) {
+      obj.computeEnv = message.computeEnv;
+    }
+    if (message.resources?.length) {
+      obj.resources = message.resources.map((e) => ComputeResource.toJSON(e));
+    }
+    if (message.maxJobDuration !== undefined) {
+      obj.maxJobDuration = Math.round(message.maxJobDuration);
+    }
+    if (message.free !== undefined) {
+      obj.free = message.free;
+    }
     return obj;
   },
 
@@ -3720,13 +4066,37 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
   fromPartial<I extends Exact<DeepPartial<CreateComputeToDataRequest>, I>>(object: I): CreateComputeToDataRequest {
     const message = createBaseCreateComputeToDataRequest();
     message.did = object.did ?? "";
-    message.algorithm = object.algorithm ?? "";
+    message.serviceId = object.serviceId ?? undefined;
     message.userdata = Object.entries(object.userdata ?? {}).reduce<{ [key: string]: string }>((acc, [key, value]) => {
       if (value !== undefined) {
         acc[key] = globalThis.String(value);
       }
       return acc;
     }, {});
+    message.algorithm = object.algorithm ?? "";
+    message.algorithmServiceId = object.algorithmServiceId ?? undefined;
+    message.algorithmUserdata = Object.entries(object.algorithmUserdata ?? {}).reduce<{ [key: string]: string }>(
+      (acc, [key, value]) => {
+        if (value !== undefined) {
+          acc[key] = globalThis.String(value);
+        }
+        return acc;
+      },
+      {},
+    );
+    message.algorithmParameters = Object.entries(object.algorithmParameters ?? {}).reduce<{ [key: string]: string }>(
+      (acc, [key, value]) => {
+        if (value !== undefined) {
+          acc[key] = globalThis.String(value);
+        }
+        return acc;
+      },
+      {},
+    );
+    message.computeEnv = object.computeEnv ?? undefined;
+    message.resources = object.resources?.map((e) => ComputeResource.fromPartial(e)) || [];
+    message.maxJobDuration = object.maxJobDuration ?? undefined;
+    message.free = object.free ?? undefined;
     return message;
   },
 };
@@ -3807,6 +4177,252 @@ export const CreateComputeToDataRequest_UserdataEntry: MessageFns<CreateComputeT
     const message = createBaseCreateComputeToDataRequest_UserdataEntry();
     message.key = object.key ?? "";
     message.value = object.value ?? "";
+    return message;
+  },
+};
+
+function createBaseCreateComputeToDataRequest_AlgorithmUserdataEntry(): CreateComputeToDataRequest_AlgorithmUserdataEntry {
+  return { key: "", value: "" };
+}
+
+export const CreateComputeToDataRequest_AlgorithmUserdataEntry: MessageFns<
+  CreateComputeToDataRequest_AlgorithmUserdataEntry
+> = {
+  encode(
+    message: CreateComputeToDataRequest_AlgorithmUserdataEntry,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    if (message.value !== "") {
+      writer.uint32(18).string(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateComputeToDataRequest_AlgorithmUserdataEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCreateComputeToDataRequest_AlgorithmUserdataEntry();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.value = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): CreateComputeToDataRequest_AlgorithmUserdataEntry {
+    return {
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+      value: isSet(object.value) ? globalThis.String(object.value) : "",
+    };
+  },
+
+  toJSON(message: CreateComputeToDataRequest_AlgorithmUserdataEntry): unknown {
+    const obj: any = {};
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    if (message.value !== "") {
+      obj.value = message.value;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<CreateComputeToDataRequest_AlgorithmUserdataEntry>, I>>(
+    base?: I,
+  ): CreateComputeToDataRequest_AlgorithmUserdataEntry {
+    return CreateComputeToDataRequest_AlgorithmUserdataEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CreateComputeToDataRequest_AlgorithmUserdataEntry>, I>>(
+    object: I,
+  ): CreateComputeToDataRequest_AlgorithmUserdataEntry {
+    const message = createBaseCreateComputeToDataRequest_AlgorithmUserdataEntry();
+    message.key = object.key ?? "";
+    message.value = object.value ?? "";
+    return message;
+  },
+};
+
+function createBaseCreateComputeToDataRequest_AlgorithmParametersEntry(): CreateComputeToDataRequest_AlgorithmParametersEntry {
+  return { key: "", value: "" };
+}
+
+export const CreateComputeToDataRequest_AlgorithmParametersEntry: MessageFns<
+  CreateComputeToDataRequest_AlgorithmParametersEntry
+> = {
+  encode(
+    message: CreateComputeToDataRequest_AlgorithmParametersEntry,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    if (message.value !== "") {
+      writer.uint32(18).string(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateComputeToDataRequest_AlgorithmParametersEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCreateComputeToDataRequest_AlgorithmParametersEntry();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.value = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): CreateComputeToDataRequest_AlgorithmParametersEntry {
+    return {
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+      value: isSet(object.value) ? globalThis.String(object.value) : "",
+    };
+  },
+
+  toJSON(message: CreateComputeToDataRequest_AlgorithmParametersEntry): unknown {
+    const obj: any = {};
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    if (message.value !== "") {
+      obj.value = message.value;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<CreateComputeToDataRequest_AlgorithmParametersEntry>, I>>(
+    base?: I,
+  ): CreateComputeToDataRequest_AlgorithmParametersEntry {
+    return CreateComputeToDataRequest_AlgorithmParametersEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CreateComputeToDataRequest_AlgorithmParametersEntry>, I>>(
+    object: I,
+  ): CreateComputeToDataRequest_AlgorithmParametersEntry {
+    const message = createBaseCreateComputeToDataRequest_AlgorithmParametersEntry();
+    message.key = object.key ?? "";
+    message.value = object.value ?? "";
+    return message;
+  },
+};
+
+function createBaseComputeResource(): ComputeResource {
+  return { id: "", amount: 0 };
+}
+
+export const ComputeResource: MessageFns<ComputeResource> = {
+  encode(message: ComputeResource, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
+    if (message.amount !== 0) {
+      writer.uint32(17).double(message.amount);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ComputeResource {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseComputeResource();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 17) {
+            break;
+          }
+
+          message.amount = reader.double();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ComputeResource {
+    return {
+      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      amount: isSet(object.amount) ? globalThis.Number(object.amount) : 0,
+    };
+  },
+
+  toJSON(message: ComputeResource): unknown {
+    const obj: any = {};
+    if (message.id !== "") {
+      obj.id = message.id;
+    }
+    if (message.amount !== 0) {
+      obj.amount = message.amount;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ComputeResource>, I>>(base?: I): ComputeResource {
+    return ComputeResource.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ComputeResource>, I>>(object: I): ComputeResource {
+    const message = createBaseComputeResource();
+    message.id = object.id ?? "";
+    message.amount = object.amount ?? 0;
     return message;
   },
 };
@@ -4004,7 +4620,7 @@ export const ComputeToDataStatusResponse: MessageFns<ComputeToDataStatusResponse
 };
 
 function createBaseCreateComputeToDataResultRequest(): CreateComputeToDataResultRequest {
-  return { jobId: "", jobIndex: undefined, computeToDataReturnType: 0 };
+  return { jobId: "", computeToDataReturnType: 0, jobIndex: undefined };
 }
 
 export const CreateComputeToDataResultRequest: MessageFns<CreateComputeToDataResultRequest> = {
@@ -4012,11 +4628,11 @@ export const CreateComputeToDataResultRequest: MessageFns<CreateComputeToDataRes
     if (message.jobId !== "") {
       writer.uint32(10).string(message.jobId);
     }
-    if (message.jobIndex !== undefined) {
-      writer.uint32(24).int32(message.jobIndex);
-    }
     if (message.computeToDataReturnType !== 0) {
       writer.uint32(16).int32(message.computeToDataReturnType);
+    }
+    if (message.jobIndex !== undefined) {
+      writer.uint32(24).int32(message.jobIndex);
     }
     return writer;
   },
@@ -4036,20 +4652,20 @@ export const CreateComputeToDataResultRequest: MessageFns<CreateComputeToDataRes
           message.jobId = reader.string();
           continue;
         }
-        case 3: {
-          if (tag !== 24) {
-            break;
-          }
-
-          message.jobIndex = reader.int32();
-          continue;
-        }
         case 2: {
           if (tag !== 16) {
             break;
           }
 
           message.computeToDataReturnType = reader.int32() as any;
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.jobIndex = reader.int32();
           continue;
         }
       }
@@ -4064,10 +4680,10 @@ export const CreateComputeToDataResultRequest: MessageFns<CreateComputeToDataRes
   fromJSON(object: any): CreateComputeToDataResultRequest {
     return {
       jobId: isSet(object.jobId) ? globalThis.String(object.jobId) : "",
-      jobIndex: isSet(object.jobIndex) ? globalThis.Number(object.jobIndex) : undefined,
       computeToDataReturnType: isSet(object.computeToDataReturnType)
         ? computeToDataResultTypeFromJSON(object.computeToDataReturnType)
         : 0,
+      jobIndex: isSet(object.jobIndex) ? globalThis.Number(object.jobIndex) : undefined,
     };
   },
 
@@ -4076,11 +4692,11 @@ export const CreateComputeToDataResultRequest: MessageFns<CreateComputeToDataRes
     if (message.jobId !== "") {
       obj.jobId = message.jobId;
     }
-    if (message.jobIndex !== undefined) {
-      obj.jobIndex = Math.round(message.jobIndex);
-    }
     if (message.computeToDataReturnType !== 0) {
       obj.computeToDataReturnType = computeToDataResultTypeToJSON(message.computeToDataReturnType);
+    }
+    if (message.jobIndex !== undefined) {
+      obj.jobIndex = Math.round(message.jobIndex);
     }
     return obj;
   },
@@ -4095,8 +4711,8 @@ export const CreateComputeToDataResultRequest: MessageFns<CreateComputeToDataRes
   ): CreateComputeToDataResultRequest {
     const message = createBaseCreateComputeToDataResultRequest();
     message.jobId = object.jobId ?? "";
-    message.jobIndex = object.jobIndex ?? undefined;
     message.computeToDataReturnType = object.computeToDataReturnType ?? 0;
+    message.jobIndex = object.jobIndex ?? undefined;
     return message;
   },
 };
@@ -4180,7 +4796,21 @@ export const GetComputeToDataResultResponse: MessageFns<GetComputeToDataResultRe
 };
 
 function createBaseMetadata(): Metadata {
-  return { type: "", name: "", description: "", author: "", licence: "", tags: [], algorithm: undefined };
+  return {
+    type: "",
+    name: "",
+    description: "",
+    author: "",
+    license: "",
+    tags: [],
+    algorithm: undefined,
+    providedBy: undefined,
+    displayTitle: undefined,
+    copyrightHolder: undefined,
+    language: undefined,
+    categories: [],
+    links: {},
+  };
 }
 
 export const Metadata: MessageFns<Metadata> = {
@@ -4197,8 +4827,8 @@ export const Metadata: MessageFns<Metadata> = {
     if (message.author !== "") {
       writer.uint32(34).string(message.author);
     }
-    if (message.licence !== "") {
-      writer.uint32(42).string(message.licence);
+    if (message.license !== "") {
+      writer.uint32(42).string(message.license);
     }
     for (const v of message.tags) {
       writer.uint32(50).string(v!);
@@ -4206,6 +4836,24 @@ export const Metadata: MessageFns<Metadata> = {
     if (message.algorithm !== undefined) {
       AlgorithmMetadata.encode(message.algorithm, writer.uint32(58).fork()).join();
     }
+    if (message.providedBy !== undefined) {
+      writer.uint32(66).string(message.providedBy);
+    }
+    if (message.displayTitle !== undefined) {
+      writer.uint32(74).string(message.displayTitle);
+    }
+    if (message.copyrightHolder !== undefined) {
+      writer.uint32(82).string(message.copyrightHolder);
+    }
+    if (message.language !== undefined) {
+      writer.uint32(90).string(message.language);
+    }
+    for (const v of message.categories) {
+      writer.uint32(98).string(v!);
+    }
+    Object.entries(message.links).forEach(([key, value]) => {
+      Metadata_LinksEntry.encode({ key: key as any, value }, writer.uint32(106).fork()).join();
+    });
     return writer;
   },
 
@@ -4253,7 +4901,7 @@ export const Metadata: MessageFns<Metadata> = {
             break;
           }
 
-          message.licence = reader.string();
+          message.license = reader.string();
           continue;
         }
         case 6: {
@@ -4272,6 +4920,57 @@ export const Metadata: MessageFns<Metadata> = {
           message.algorithm = AlgorithmMetadata.decode(reader, reader.uint32());
           continue;
         }
+        case 8: {
+          if (tag !== 66) {
+            break;
+          }
+
+          message.providedBy = reader.string();
+          continue;
+        }
+        case 9: {
+          if (tag !== 74) {
+            break;
+          }
+
+          message.displayTitle = reader.string();
+          continue;
+        }
+        case 10: {
+          if (tag !== 82) {
+            break;
+          }
+
+          message.copyrightHolder = reader.string();
+          continue;
+        }
+        case 11: {
+          if (tag !== 90) {
+            break;
+          }
+
+          message.language = reader.string();
+          continue;
+        }
+        case 12: {
+          if (tag !== 98) {
+            break;
+          }
+
+          message.categories.push(reader.string());
+          continue;
+        }
+        case 13: {
+          if (tag !== 106) {
+            break;
+          }
+
+          const entry13 = Metadata_LinksEntry.decode(reader, reader.uint32());
+          if (entry13.value !== undefined) {
+            message.links[entry13.key] = entry13.value;
+          }
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -4287,9 +4986,22 @@ export const Metadata: MessageFns<Metadata> = {
       name: isSet(object.name) ? globalThis.String(object.name) : "",
       description: isSet(object.description) ? globalThis.String(object.description) : "",
       author: isSet(object.author) ? globalThis.String(object.author) : "",
-      licence: isSet(object.licence) ? globalThis.String(object.licence) : "",
+      license: isSet(object.license) ? globalThis.String(object.license) : "",
       tags: globalThis.Array.isArray(object?.tags) ? object.tags.map((e: any) => globalThis.String(e)) : [],
       algorithm: isSet(object.algorithm) ? AlgorithmMetadata.fromJSON(object.algorithm) : undefined,
+      providedBy: isSet(object.providedBy) ? globalThis.String(object.providedBy) : undefined,
+      displayTitle: isSet(object.displayTitle) ? globalThis.String(object.displayTitle) : undefined,
+      copyrightHolder: isSet(object.copyrightHolder) ? globalThis.String(object.copyrightHolder) : undefined,
+      language: isSet(object.language) ? globalThis.String(object.language) : undefined,
+      categories: globalThis.Array.isArray(object?.categories)
+        ? object.categories.map((e: any) => globalThis.String(e))
+        : [],
+      links: isObject(object.links)
+        ? Object.entries(object.links).reduce<{ [key: string]: string }>((acc, [key, value]) => {
+          acc[key] = String(value);
+          return acc;
+        }, {})
+        : {},
     };
   },
 
@@ -4307,14 +5019,38 @@ export const Metadata: MessageFns<Metadata> = {
     if (message.author !== "") {
       obj.author = message.author;
     }
-    if (message.licence !== "") {
-      obj.licence = message.licence;
+    if (message.license !== "") {
+      obj.license = message.license;
     }
     if (message.tags?.length) {
       obj.tags = message.tags;
     }
     if (message.algorithm !== undefined) {
       obj.algorithm = AlgorithmMetadata.toJSON(message.algorithm);
+    }
+    if (message.providedBy !== undefined) {
+      obj.providedBy = message.providedBy;
+    }
+    if (message.displayTitle !== undefined) {
+      obj.displayTitle = message.displayTitle;
+    }
+    if (message.copyrightHolder !== undefined) {
+      obj.copyrightHolder = message.copyrightHolder;
+    }
+    if (message.language !== undefined) {
+      obj.language = message.language;
+    }
+    if (message.categories?.length) {
+      obj.categories = message.categories;
+    }
+    if (message.links) {
+      const entries = Object.entries(message.links);
+      if (entries.length > 0) {
+        obj.links = {};
+        entries.forEach(([k, v]) => {
+          obj.links[k] = v;
+        });
+      }
     }
     return obj;
   },
@@ -4328,11 +5064,98 @@ export const Metadata: MessageFns<Metadata> = {
     message.name = object.name ?? "";
     message.description = object.description ?? "";
     message.author = object.author ?? "";
-    message.licence = object.licence ?? "";
+    message.license = object.license ?? "";
     message.tags = object.tags?.map((e) => e) || [];
     message.algorithm = (object.algorithm !== undefined && object.algorithm !== null)
       ? AlgorithmMetadata.fromPartial(object.algorithm)
       : undefined;
+    message.providedBy = object.providedBy ?? undefined;
+    message.displayTitle = object.displayTitle ?? undefined;
+    message.copyrightHolder = object.copyrightHolder ?? undefined;
+    message.language = object.language ?? undefined;
+    message.categories = object.categories?.map((e) => e) || [];
+    message.links = Object.entries(object.links ?? {}).reduce<{ [key: string]: string }>((acc, [key, value]) => {
+      if (value !== undefined) {
+        acc[key] = globalThis.String(value);
+      }
+      return acc;
+    }, {});
+    return message;
+  },
+};
+
+function createBaseMetadata_LinksEntry(): Metadata_LinksEntry {
+  return { key: "", value: "" };
+}
+
+export const Metadata_LinksEntry: MessageFns<Metadata_LinksEntry> = {
+  encode(message: Metadata_LinksEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    if (message.value !== "") {
+      writer.uint32(18).string(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Metadata_LinksEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMetadata_LinksEntry();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.value = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Metadata_LinksEntry {
+    return {
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+      value: isSet(object.value) ? globalThis.String(object.value) : "",
+    };
+  },
+
+  toJSON(message: Metadata_LinksEntry): unknown {
+    const obj: any = {};
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    if (message.value !== "") {
+      obj.value = message.value;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<Metadata_LinksEntry>, I>>(base?: I): Metadata_LinksEntry {
+    return Metadata_LinksEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<Metadata_LinksEntry>, I>>(object: I): Metadata_LinksEntry {
+    const message = createBaseMetadata_LinksEntry();
+    message.key = object.key ?? "";
+    message.value = object.value ?? "";
     return message;
   },
 };
@@ -4585,28 +5408,28 @@ export const Service: MessageFns<Service> = {
       writer.uint32(26).string(message.type);
     }
     if (message.pricing !== undefined) {
-      Pricing.encode(message.pricing, writer.uint32(82).fork()).join();
+      Pricing.encode(message.pricing, writer.uint32(34).fork()).join();
     }
     for (const v of message.files) {
-      Files.encode(v!, writer.uint32(34).fork()).join();
+      Files.encode(v!, writer.uint32(42).fork()).join();
     }
     if (message.timeout !== undefined) {
-      writer.uint32(40).uint32(message.timeout);
+      writer.uint32(48).uint32(message.timeout);
     }
     if (message.tokenName !== undefined) {
-      writer.uint32(50).string(message.tokenName);
+      writer.uint32(58).string(message.tokenName);
     }
     if (message.tokenSymbol !== undefined) {
-      writer.uint32(58).string(message.tokenSymbol);
+      writer.uint32(66).string(message.tokenSymbol);
     }
     if (message.serviceEndpoint !== undefined) {
-      writer.uint32(90).string(message.serviceEndpoint);
+      writer.uint32(74).string(message.serviceEndpoint);
     }
     if (message.computeOptions !== undefined) {
-      ComputeOptions.encode(message.computeOptions, writer.uint32(66).fork()).join();
+      ComputeOptions.encode(message.computeOptions, writer.uint32(82).fork()).join();
     }
     for (const v of message.consumerParameters) {
-      ConsumerParameter.encode(v!, writer.uint32(74).fork()).join();
+      ConsumerParameter.encode(v!, writer.uint32(90).fork()).join();
     }
     return writer;
   },
@@ -4642,36 +5465,28 @@ export const Service: MessageFns<Service> = {
           message.type = reader.string();
           continue;
         }
-        case 10: {
-          if (tag !== 82) {
+        case 4: {
+          if (tag !== 34) {
             break;
           }
 
           message.pricing = Pricing.decode(reader, reader.uint32());
           continue;
         }
-        case 4: {
-          if (tag !== 34) {
+        case 5: {
+          if (tag !== 42) {
             break;
           }
 
           message.files.push(Files.decode(reader, reader.uint32()));
           continue;
         }
-        case 5: {
-          if (tag !== 40) {
+        case 6: {
+          if (tag !== 48) {
             break;
           }
 
           message.timeout = reader.uint32();
-          continue;
-        }
-        case 6: {
-          if (tag !== 50) {
-            break;
-          }
-
-          message.tokenName = reader.string();
           continue;
         }
         case 7: {
@@ -4679,15 +5494,7 @@ export const Service: MessageFns<Service> = {
             break;
           }
 
-          message.tokenSymbol = reader.string();
-          continue;
-        }
-        case 11: {
-          if (tag !== 90) {
-            break;
-          }
-
-          message.serviceEndpoint = reader.string();
+          message.tokenName = reader.string();
           continue;
         }
         case 8: {
@@ -4695,11 +5502,27 @@ export const Service: MessageFns<Service> = {
             break;
           }
 
-          message.computeOptions = ComputeOptions.decode(reader, reader.uint32());
+          message.tokenSymbol = reader.string();
           continue;
         }
         case 9: {
           if (tag !== 74) {
+            break;
+          }
+
+          message.serviceEndpoint = reader.string();
+          continue;
+        }
+        case 10: {
+          if (tag !== 82) {
+            break;
+          }
+
+          message.computeOptions = ComputeOptions.decode(reader, reader.uint32());
+          continue;
+        }
+        case 11: {
+          if (tag !== 90) {
             break;
           }
 
@@ -4796,7 +5619,7 @@ export const Service: MessageFns<Service> = {
 };
 
 function createBasePricing(): Pricing {
-  return { pricingType: 0, fixedRate: undefined };
+  return { pricingType: 0, price: undefined };
 }
 
 export const Pricing: MessageFns<Pricing> = {
@@ -4804,8 +5627,8 @@ export const Pricing: MessageFns<Pricing> = {
     if (message.pricingType !== 0) {
       writer.uint32(8).int32(message.pricingType);
     }
-    if (message.fixedRate !== undefined) {
-      writer.uint32(16).uint32(message.fixedRate);
+    if (message.price !== undefined) {
+      writer.uint32(18).string(message.price);
     }
     return writer;
   },
@@ -4826,11 +5649,11 @@ export const Pricing: MessageFns<Pricing> = {
           continue;
         }
         case 2: {
-          if (tag !== 16) {
+          if (tag !== 18) {
             break;
           }
 
-          message.fixedRate = reader.uint32();
+          message.price = reader.string();
           continue;
         }
       }
@@ -4845,7 +5668,7 @@ export const Pricing: MessageFns<Pricing> = {
   fromJSON(object: any): Pricing {
     return {
       pricingType: isSet(object.pricingType) ? pricing_PricingTypeFromJSON(object.pricingType) : 0,
-      fixedRate: isSet(object.fixedRate) ? globalThis.Number(object.fixedRate) : undefined,
+      price: isSet(object.price) ? globalThis.String(object.price) : undefined,
     };
   },
 
@@ -4854,8 +5677,8 @@ export const Pricing: MessageFns<Pricing> = {
     if (message.pricingType !== 0) {
       obj.pricingType = pricing_PricingTypeToJSON(message.pricingType);
     }
-    if (message.fixedRate !== undefined) {
-      obj.fixedRate = Math.round(message.fixedRate);
+    if (message.price !== undefined) {
+      obj.price = message.price;
     }
     return obj;
   },
@@ -4866,7 +5689,7 @@ export const Pricing: MessageFns<Pricing> = {
   fromPartial<I extends Exact<DeepPartial<Pricing>, I>>(object: I): Pricing {
     const message = createBasePricing();
     message.pricingType = object.pricingType ?? 0;
-    message.fixedRate = object.fixedRate ?? undefined;
+    message.price = object.price ?? undefined;
     return message;
   },
 };
@@ -4881,10 +5704,10 @@ export const Files: MessageFns<Files> = {
       writer.uint32(10).string(message.url);
     }
     if (message.method !== "") {
-      writer.uint32(34).string(message.method);
+      writer.uint32(18).string(message.method);
     }
     Object.entries(message.headers).forEach(([key, value]) => {
-      Files_HeadersEntry.encode({ key: key as any, value }, writer.uint32(50).fork()).join();
+      Files_HeadersEntry.encode({ key: key as any, value }, writer.uint32(26).fork()).join();
     });
     return writer;
   },
@@ -4904,22 +5727,22 @@ export const Files: MessageFns<Files> = {
           message.url = reader.string();
           continue;
         }
-        case 4: {
-          if (tag !== 34) {
+        case 2: {
+          if (tag !== 18) {
             break;
           }
 
           message.method = reader.string();
           continue;
         }
-        case 6: {
-          if (tag !== 50) {
+        case 3: {
+          if (tag !== 26) {
             break;
           }
 
-          const entry6 = Files_HeadersEntry.decode(reader, reader.uint32());
-          if (entry6.value !== undefined) {
-            message.headers[entry6.key] = entry6.value;
+          const entry3 = Files_HeadersEntry.decode(reader, reader.uint32());
+          if (entry3.value !== undefined) {
+            message.headers[entry3.key] = entry3.value;
           }
           continue;
         }
@@ -5059,7 +5882,12 @@ export const Files_HeadersEntry: MessageFns<Files_HeadersEntry> = {
 };
 
 function createBaseComputeOptions(): ComputeOptions {
-  return { allowRawAlgorithm: undefined, allowNetworkAccess: undefined, trustedAlgorithms: [], trustedPublishers: [] };
+  return {
+    allowRawAlgorithm: undefined,
+    allowNetworkAccess: undefined,
+    trustedAlgorithms: undefined,
+    trustedPublishers: undefined,
+  };
 }
 
 export const ComputeOptions: MessageFns<ComputeOptions> = {
@@ -5070,11 +5898,11 @@ export const ComputeOptions: MessageFns<ComputeOptions> = {
     if (message.allowNetworkAccess !== undefined) {
       writer.uint32(16).bool(message.allowNetworkAccess);
     }
-    for (const v of message.trustedAlgorithms) {
-      TrustedAlgorihm.encode(v!, writer.uint32(26).fork()).join();
+    if (message.trustedAlgorithms !== undefined) {
+      TrustedAlgorithms.encode(message.trustedAlgorithms, writer.uint32(26).fork()).join();
     }
-    for (const v of message.trustedPublishers) {
-      writer.uint32(34).string(v!);
+    if (message.trustedPublishers !== undefined) {
+      TrustedPublishers.encode(message.trustedPublishers, writer.uint32(34).fork()).join();
     }
     return writer;
   },
@@ -5107,7 +5935,7 @@ export const ComputeOptions: MessageFns<ComputeOptions> = {
             break;
           }
 
-          message.trustedAlgorithms.push(TrustedAlgorihm.decode(reader, reader.uint32()));
+          message.trustedAlgorithms = TrustedAlgorithms.decode(reader, reader.uint32());
           continue;
         }
         case 4: {
@@ -5115,7 +5943,7 @@ export const ComputeOptions: MessageFns<ComputeOptions> = {
             break;
           }
 
-          message.trustedPublishers.push(reader.string());
+          message.trustedPublishers = TrustedPublishers.decode(reader, reader.uint32());
           continue;
         }
       }
@@ -5131,12 +5959,12 @@ export const ComputeOptions: MessageFns<ComputeOptions> = {
     return {
       allowRawAlgorithm: isSet(object.allowRawAlgorithm) ? globalThis.Boolean(object.allowRawAlgorithm) : undefined,
       allowNetworkAccess: isSet(object.allowNetworkAccess) ? globalThis.Boolean(object.allowNetworkAccess) : undefined,
-      trustedAlgorithms: globalThis.Array.isArray(object?.trustedAlgorithms)
-        ? object.trustedAlgorithms.map((e: any) => TrustedAlgorihm.fromJSON(e))
-        : [],
-      trustedPublishers: globalThis.Array.isArray(object?.trustedPublishers)
-        ? object.trustedPublishers.map((e: any) => globalThis.String(e))
-        : [],
+      trustedAlgorithms: isSet(object.trustedAlgorithms)
+        ? TrustedAlgorithms.fromJSON(object.trustedAlgorithms)
+        : undefined,
+      trustedPublishers: isSet(object.trustedPublishers)
+        ? TrustedPublishers.fromJSON(object.trustedPublishers)
+        : undefined,
     };
   },
 
@@ -5148,11 +5976,11 @@ export const ComputeOptions: MessageFns<ComputeOptions> = {
     if (message.allowNetworkAccess !== undefined) {
       obj.allowNetworkAccess = message.allowNetworkAccess;
     }
-    if (message.trustedAlgorithms?.length) {
-      obj.trustedAlgorithms = message.trustedAlgorithms.map((e) => TrustedAlgorihm.toJSON(e));
+    if (message.trustedAlgorithms !== undefined) {
+      obj.trustedAlgorithms = TrustedAlgorithms.toJSON(message.trustedAlgorithms);
     }
-    if (message.trustedPublishers?.length) {
-      obj.trustedPublishers = message.trustedPublishers;
+    if (message.trustedPublishers !== undefined) {
+      obj.trustedPublishers = TrustedPublishers.toJSON(message.trustedPublishers);
     }
     return obj;
   },
@@ -5164,34 +5992,113 @@ export const ComputeOptions: MessageFns<ComputeOptions> = {
     const message = createBaseComputeOptions();
     message.allowRawAlgorithm = object.allowRawAlgorithm ?? undefined;
     message.allowNetworkAccess = object.allowNetworkAccess ?? undefined;
-    message.trustedAlgorithms = object.trustedAlgorithms?.map((e) => TrustedAlgorihm.fromPartial(e)) || [];
-    message.trustedPublishers = object.trustedPublishers?.map((e) => e) || [];
+    message.trustedAlgorithms = (object.trustedAlgorithms !== undefined && object.trustedAlgorithms !== null)
+      ? TrustedAlgorithms.fromPartial(object.trustedAlgorithms)
+      : undefined;
+    message.trustedPublishers = (object.trustedPublishers !== undefined && object.trustedPublishers !== null)
+      ? TrustedPublishers.fromPartial(object.trustedPublishers)
+      : undefined;
     return message;
   },
 };
 
-function createBaseTrustedAlgorihm(): TrustedAlgorihm {
-  return { did: "", filesChecksum: undefined, containerSectionChecksum: undefined };
+function createBaseTrustedAlgorithms(): TrustedAlgorithms {
+  return { all: false, algorithms: [] };
 }
 
-export const TrustedAlgorihm: MessageFns<TrustedAlgorihm> = {
-  encode(message: TrustedAlgorihm, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.did !== "") {
-      writer.uint32(10).string(message.did);
+export const TrustedAlgorithms: MessageFns<TrustedAlgorithms> = {
+  encode(message: TrustedAlgorithms, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.all !== false) {
+      writer.uint32(8).bool(message.all);
     }
-    if (message.filesChecksum !== undefined) {
-      writer.uint32(18).string(message.filesChecksum);
-    }
-    if (message.containerSectionChecksum !== undefined) {
-      writer.uint32(26).string(message.containerSectionChecksum);
+    for (const v of message.algorithms) {
+      TrustedAlgorithm.encode(v!, writer.uint32(18).fork()).join();
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): TrustedAlgorihm {
+  decode(input: BinaryReader | Uint8Array, length?: number): TrustedAlgorithms {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseTrustedAlgorihm();
+    const message = createBaseTrustedAlgorithms();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.all = reader.bool();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.algorithms.push(TrustedAlgorithm.decode(reader, reader.uint32()));
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): TrustedAlgorithms {
+    return {
+      all: isSet(object.all) ? globalThis.Boolean(object.all) : false,
+      algorithms: globalThis.Array.isArray(object?.algorithms)
+        ? object.algorithms.map((e: any) => TrustedAlgorithm.fromJSON(e))
+        : [],
+    };
+  },
+
+  toJSON(message: TrustedAlgorithms): unknown {
+    const obj: any = {};
+    if (message.all !== false) {
+      obj.all = message.all;
+    }
+    if (message.algorithms?.length) {
+      obj.algorithms = message.algorithms.map((e) => TrustedAlgorithm.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<TrustedAlgorithms>, I>>(base?: I): TrustedAlgorithms {
+    return TrustedAlgorithms.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<TrustedAlgorithms>, I>>(object: I): TrustedAlgorithms {
+    const message = createBaseTrustedAlgorithms();
+    message.all = object.all ?? false;
+    message.algorithms = object.algorithms?.map((e) => TrustedAlgorithm.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseTrustedAlgorithm(): TrustedAlgorithm {
+  return { did: "", serviceIds: [] };
+}
+
+export const TrustedAlgorithm: MessageFns<TrustedAlgorithm> = {
+  encode(message: TrustedAlgorithm, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.did !== "") {
+      writer.uint32(10).string(message.did);
+    }
+    for (const v of message.serviceIds) {
+      writer.uint32(18).string(v!);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): TrustedAlgorithm {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseTrustedAlgorithm();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -5208,15 +6115,7 @@ export const TrustedAlgorihm: MessageFns<TrustedAlgorihm> = {
             break;
           }
 
-          message.filesChecksum = reader.string();
-          continue;
-        }
-        case 3: {
-          if (tag !== 26) {
-            break;
-          }
-
-          message.containerSectionChecksum = reader.string();
+          message.serviceIds.push(reader.string());
           continue;
         }
       }
@@ -5228,38 +6127,111 @@ export const TrustedAlgorihm: MessageFns<TrustedAlgorihm> = {
     return message;
   },
 
-  fromJSON(object: any): TrustedAlgorihm {
+  fromJSON(object: any): TrustedAlgorithm {
     return {
       did: isSet(object.did) ? globalThis.String(object.did) : "",
-      filesChecksum: isSet(object.filesChecksum) ? globalThis.String(object.filesChecksum) : undefined,
-      containerSectionChecksum: isSet(object.containerSectionChecksum)
-        ? globalThis.String(object.containerSectionChecksum)
-        : undefined,
+      serviceIds: globalThis.Array.isArray(object?.serviceIds)
+        ? object.serviceIds.map((e: any) => globalThis.String(e))
+        : [],
     };
   },
 
-  toJSON(message: TrustedAlgorihm): unknown {
+  toJSON(message: TrustedAlgorithm): unknown {
     const obj: any = {};
     if (message.did !== "") {
       obj.did = message.did;
     }
-    if (message.filesChecksum !== undefined) {
-      obj.filesChecksum = message.filesChecksum;
-    }
-    if (message.containerSectionChecksum !== undefined) {
-      obj.containerSectionChecksum = message.containerSectionChecksum;
+    if (message.serviceIds?.length) {
+      obj.serviceIds = message.serviceIds;
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<TrustedAlgorihm>, I>>(base?: I): TrustedAlgorihm {
-    return TrustedAlgorihm.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<TrustedAlgorithm>, I>>(base?: I): TrustedAlgorithm {
+    return TrustedAlgorithm.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<TrustedAlgorihm>, I>>(object: I): TrustedAlgorihm {
-    const message = createBaseTrustedAlgorihm();
+  fromPartial<I extends Exact<DeepPartial<TrustedAlgorithm>, I>>(object: I): TrustedAlgorithm {
+    const message = createBaseTrustedAlgorithm();
     message.did = object.did ?? "";
-    message.filesChecksum = object.filesChecksum ?? undefined;
-    message.containerSectionChecksum = object.containerSectionChecksum ?? undefined;
+    message.serviceIds = object.serviceIds?.map((e) => e) || [];
+    return message;
+  },
+};
+
+function createBaseTrustedPublishers(): TrustedPublishers {
+  return { all: false, addresses: [] };
+}
+
+export const TrustedPublishers: MessageFns<TrustedPublishers> = {
+  encode(message: TrustedPublishers, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.all !== false) {
+      writer.uint32(8).bool(message.all);
+    }
+    for (const v of message.addresses) {
+      writer.uint32(18).string(v!);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): TrustedPublishers {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseTrustedPublishers();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.all = reader.bool();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.addresses.push(reader.string());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): TrustedPublishers {
+    return {
+      all: isSet(object.all) ? globalThis.Boolean(object.all) : false,
+      addresses: globalThis.Array.isArray(object?.addresses)
+        ? object.addresses.map((e: any) => globalThis.String(e))
+        : [],
+    };
+  },
+
+  toJSON(message: TrustedPublishers): unknown {
+    const obj: any = {};
+    if (message.all !== false) {
+      obj.all = message.all;
+    }
+    if (message.addresses?.length) {
+      obj.addresses = message.addresses;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<TrustedPublishers>, I>>(base?: I): TrustedPublishers {
+    return TrustedPublishers.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<TrustedPublishers>, I>>(object: I): TrustedPublishers {
+    const message = createBaseTrustedPublishers();
+    message.all = object.all ?? false;
+    message.addresses = object.addresses?.map((e) => e) || [];
     return message;
   },
 };
@@ -5271,10 +6243,10 @@ function createBaseAdditionalInformation(): AdditionalInformation {
 export const AdditionalInformation: MessageFns<AdditionalInformation> = {
   encode(message: AdditionalInformation, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.termsAndConditions !== false) {
-      writer.uint32(32).bool(message.termsAndConditions);
+      writer.uint32(8).bool(message.termsAndConditions);
     }
     if (message.gaiaXInformation !== undefined) {
-      gaiaX.encode(message.gaiaXInformation, writer.uint32(42).fork()).join();
+      GaiaX.encode(message.gaiaXInformation, writer.uint32(18).fork()).join();
     }
     return writer;
   },
@@ -5286,20 +6258,20 @@ export const AdditionalInformation: MessageFns<AdditionalInformation> = {
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
-        case 4: {
-          if (tag !== 32) {
+        case 1: {
+          if (tag !== 8) {
             break;
           }
 
           message.termsAndConditions = reader.bool();
           continue;
         }
-        case 5: {
-          if (tag !== 42) {
+        case 2: {
+          if (tag !== 18) {
             break;
           }
 
-          message.gaiaXInformation = gaiaX.decode(reader, reader.uint32());
+          message.gaiaXInformation = GaiaX.decode(reader, reader.uint32());
           continue;
         }
       }
@@ -5314,7 +6286,7 @@ export const AdditionalInformation: MessageFns<AdditionalInformation> = {
   fromJSON(object: any): AdditionalInformation {
     return {
       termsAndConditions: isSet(object.termsAndConditions) ? globalThis.Boolean(object.termsAndConditions) : false,
-      gaiaXInformation: isSet(object.gaiaXInformation) ? gaiaX.fromJSON(object.gaiaXInformation) : undefined,
+      gaiaXInformation: isSet(object.gaiaXInformation) ? GaiaX.fromJSON(object.gaiaXInformation) : undefined,
     };
   },
 
@@ -5324,7 +6296,7 @@ export const AdditionalInformation: MessageFns<AdditionalInformation> = {
       obj.termsAndConditions = message.termsAndConditions;
     }
     if (message.gaiaXInformation !== undefined) {
-      obj.gaiaXInformation = gaiaX.toJSON(message.gaiaXInformation);
+      obj.gaiaXInformation = GaiaX.toJSON(message.gaiaXInformation);
     }
     return obj;
   },
@@ -5336,18 +6308,18 @@ export const AdditionalInformation: MessageFns<AdditionalInformation> = {
     const message = createBaseAdditionalInformation();
     message.termsAndConditions = object.termsAndConditions ?? false;
     message.gaiaXInformation = (object.gaiaXInformation !== undefined && object.gaiaXInformation !== null)
-      ? gaiaX.fromPartial(object.gaiaXInformation)
+      ? GaiaX.fromPartial(object.gaiaXInformation)
       : undefined;
     return message;
   },
 };
 
-function createBasegaiaX(): gaiaX {
+function createBaseGaiaX(): GaiaX {
   return { containsPII: false, termsAndConditions: [], serviceSD: undefined };
 }
 
-export const gaiaX: MessageFns<gaiaX> = {
-  encode(message: gaiaX, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const GaiaX: MessageFns<GaiaX> = {
+  encode(message: GaiaX, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.containsPII !== false) {
       writer.uint32(8).bool(message.containsPII);
     }
@@ -5355,15 +6327,15 @@ export const gaiaX: MessageFns<gaiaX> = {
       Terms.encode(v!, writer.uint32(18).fork()).join();
     }
     if (message.serviceSD !== undefined) {
-      gaiaX_ServiceSelfDescription.encode(message.serviceSD, writer.uint32(26).fork()).join();
+      GaiaX_ServiceSelfDescription.encode(message.serviceSD, writer.uint32(26).fork()).join();
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): gaiaX {
+  decode(input: BinaryReader | Uint8Array, length?: number): GaiaX {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBasegaiaX();
+    const message = createBaseGaiaX();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -5388,7 +6360,7 @@ export const gaiaX: MessageFns<gaiaX> = {
             break;
           }
 
-          message.serviceSD = gaiaX_ServiceSelfDescription.decode(reader, reader.uint32());
+          message.serviceSD = GaiaX_ServiceSelfDescription.decode(reader, reader.uint32());
           continue;
         }
       }
@@ -5400,17 +6372,17 @@ export const gaiaX: MessageFns<gaiaX> = {
     return message;
   },
 
-  fromJSON(object: any): gaiaX {
+  fromJSON(object: any): GaiaX {
     return {
       containsPII: isSet(object.containsPII) ? globalThis.Boolean(object.containsPII) : false,
       termsAndConditions: globalThis.Array.isArray(object?.termsAndConditions)
         ? object.termsAndConditions.map((e: any) => Terms.fromJSON(e))
         : [],
-      serviceSD: isSet(object.serviceSD) ? gaiaX_ServiceSelfDescription.fromJSON(object.serviceSD) : undefined,
+      serviceSD: isSet(object.serviceSD) ? GaiaX_ServiceSelfDescription.fromJSON(object.serviceSD) : undefined,
     };
   },
 
-  toJSON(message: gaiaX): unknown {
+  toJSON(message: GaiaX): unknown {
     const obj: any = {};
     if (message.containsPII !== false) {
       obj.containsPII = message.containsPII;
@@ -5419,31 +6391,31 @@ export const gaiaX: MessageFns<gaiaX> = {
       obj.termsAndConditions = message.termsAndConditions.map((e) => Terms.toJSON(e));
     }
     if (message.serviceSD !== undefined) {
-      obj.serviceSD = gaiaX_ServiceSelfDescription.toJSON(message.serviceSD);
+      obj.serviceSD = GaiaX_ServiceSelfDescription.toJSON(message.serviceSD);
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<gaiaX>, I>>(base?: I): gaiaX {
-    return gaiaX.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<GaiaX>, I>>(base?: I): GaiaX {
+    return GaiaX.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<gaiaX>, I>>(object: I): gaiaX {
-    const message = createBasegaiaX();
+  fromPartial<I extends Exact<DeepPartial<GaiaX>, I>>(object: I): GaiaX {
+    const message = createBaseGaiaX();
     message.containsPII = object.containsPII ?? false;
     message.termsAndConditions = object.termsAndConditions?.map((e) => Terms.fromPartial(e)) || [];
     message.serviceSD = (object.serviceSD !== undefined && object.serviceSD !== null)
-      ? gaiaX_ServiceSelfDescription.fromPartial(object.serviceSD)
+      ? GaiaX_ServiceSelfDescription.fromPartial(object.serviceSD)
       : undefined;
     return message;
   },
 };
 
-function createBasegaiaX_ServiceSelfDescription(): gaiaX_ServiceSelfDescription {
+function createBaseGaiaX_ServiceSelfDescription(): GaiaX_ServiceSelfDescription {
   return { url: "", isVerified: undefined };
 }
 
-export const gaiaX_ServiceSelfDescription: MessageFns<gaiaX_ServiceSelfDescription> = {
-  encode(message: gaiaX_ServiceSelfDescription, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const GaiaX_ServiceSelfDescription: MessageFns<GaiaX_ServiceSelfDescription> = {
+  encode(message: GaiaX_ServiceSelfDescription, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.url !== "") {
       writer.uint32(10).string(message.url);
     }
@@ -5453,10 +6425,10 @@ export const gaiaX_ServiceSelfDescription: MessageFns<gaiaX_ServiceSelfDescripti
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): gaiaX_ServiceSelfDescription {
+  decode(input: BinaryReader | Uint8Array, length?: number): GaiaX_ServiceSelfDescription {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBasegaiaX_ServiceSelfDescription();
+    const message = createBaseGaiaX_ServiceSelfDescription();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -5485,14 +6457,14 @@ export const gaiaX_ServiceSelfDescription: MessageFns<gaiaX_ServiceSelfDescripti
     return message;
   },
 
-  fromJSON(object: any): gaiaX_ServiceSelfDescription {
+  fromJSON(object: any): GaiaX_ServiceSelfDescription {
     return {
       url: isSet(object.url) ? globalThis.String(object.url) : "",
       isVerified: isSet(object.isVerified) ? globalThis.Boolean(object.isVerified) : undefined,
     };
   },
 
-  toJSON(message: gaiaX_ServiceSelfDescription): unknown {
+  toJSON(message: GaiaX_ServiceSelfDescription): unknown {
     const obj: any = {};
     if (message.url !== "") {
       obj.url = message.url;
@@ -5503,11 +6475,11 @@ export const gaiaX_ServiceSelfDescription: MessageFns<gaiaX_ServiceSelfDescripti
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<gaiaX_ServiceSelfDescription>, I>>(base?: I): gaiaX_ServiceSelfDescription {
-    return gaiaX_ServiceSelfDescription.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<GaiaX_ServiceSelfDescription>, I>>(base?: I): GaiaX_ServiceSelfDescription {
+    return GaiaX_ServiceSelfDescription.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<gaiaX_ServiceSelfDescription>, I>>(object: I): gaiaX_ServiceSelfDescription {
-    const message = createBasegaiaX_ServiceSelfDescription();
+  fromPartial<I extends Exact<DeepPartial<GaiaX_ServiceSelfDescription>, I>>(object: I): GaiaX_ServiceSelfDescription {
+    const message = createBaseGaiaX_ServiceSelfDescription();
     message.url = object.url ?? "";
     message.isVerified = object.isVerified ?? undefined;
     return message;
@@ -5597,7 +6569,7 @@ export const ConsumerParameter: MessageFns<ConsumerParameter> = {
       writer.uint32(50).string(message.default);
     }
     for (const v of message.options) {
-      Struct.encode(Struct.wrap(v!), writer.uint32(82).fork()).join();
+      Struct.encode(Struct.wrap(v!), writer.uint32(58).fork()).join();
     }
     return writer;
   },
@@ -5657,8 +6629,8 @@ export const ConsumerParameter: MessageFns<ConsumerParameter> = {
           message.default = reader.string();
           continue;
         }
-        case 10: {
-          if (tag !== 82) {
+        case 7: {
+          if (tag !== 58) {
             break;
           }
 
@@ -5809,7 +6781,7 @@ export type ecosystemsgatewayService = typeof ecosystemsgatewayService;
 export const ecosystemsgatewayService = {
   /** Publication endpoints */
   createOffering: {
-    path: "/eupg.ecosystemsgateway.ecosystemsgateway/CreateOffering",
+    path: "/eupg.ecosystemsgateway.v3.ecosystemsgateway/CreateOffering",
     requestStream: false,
     responseStream: false,
     requestSerialize: (value: CreateOfferingRequest) => Buffer.from(CreateOfferingRequest.encode(value).finish()),
@@ -5818,7 +6790,7 @@ export const ecosystemsgatewayService = {
     responseDeserialize: (value: Buffer) => CreateOfferingResponse.decode(value),
   },
   updateOffering: {
-    path: "/eupg.ecosystemsgateway.ecosystemsgateway/UpdateOffering",
+    path: "/eupg.ecosystemsgateway.v3.ecosystemsgateway/UpdateOffering",
     requestStream: false,
     responseStream: false,
     requestSerialize: (value: UpdateOfferingRequest) => Buffer.from(UpdateOfferingRequest.encode(value).finish()),
@@ -5827,7 +6799,7 @@ export const ecosystemsgatewayService = {
     responseDeserialize: (value: Buffer) => UpdateOfferingResponse.decode(value),
   },
   updateOfferingLifecycle: {
-    path: "/eupg.ecosystemsgateway.ecosystemsgateway/UpdateOfferingLifecycle",
+    path: "/eupg.ecosystemsgateway.v3.ecosystemsgateway/UpdateOfferingLifecycle",
     requestStream: false,
     responseStream: false,
     requestSerialize: (value: UpdateOfferingLifecycleRequest) =>
@@ -5839,7 +6811,7 @@ export const ecosystemsgatewayService = {
   },
   /** Consumer endpoints */
   getOffering: {
-    path: "/eupg.ecosystemsgateway.ecosystemsgateway/GetOffering",
+    path: "/eupg.ecosystemsgateway.v3.ecosystemsgateway/GetOffering",
     requestStream: false,
     responseStream: false,
     requestSerialize: (value: GetOfferingRequest) => Buffer.from(GetOfferingRequest.encode(value).finish()),
@@ -5848,7 +6820,7 @@ export const ecosystemsgatewayService = {
     responseDeserialize: (value: Buffer) => GetOfferingResponse.decode(value),
   },
   queryOfferings: {
-    path: "/eupg.ecosystemsgateway.ecosystemsgateway/QueryOfferings",
+    path: "/eupg.ecosystemsgateway.v3.ecosystemsgateway/QueryOfferings",
     requestStream: false,
     responseStream: false,
     requestSerialize: (value: QueryOfferingsRequest) => Buffer.from(QueryOfferingsRequest.encode(value).finish()),
@@ -5857,7 +6829,7 @@ export const ecosystemsgatewayService = {
     responseDeserialize: (value: Buffer) => QueryOfferingsResponse.decode(value),
   },
   accessService: {
-    path: "/eupg.ecosystemsgateway.ecosystemsgateway/AccessService",
+    path: "/eupg.ecosystemsgateway.v3.ecosystemsgateway/AccessService",
     requestStream: false,
     responseStream: false,
     requestSerialize: (value: AccessServiceRequest) => Buffer.from(AccessServiceRequest.encode(value).finish()),
@@ -5867,7 +6839,7 @@ export const ecosystemsgatewayService = {
   },
   /** Compute-to-data endpoints */
   runComputeToDataJob: {
-    path: "/eupg.ecosystemsgateway.ecosystemsgateway/RunComputeToDataJob",
+    path: "/eupg.ecosystemsgateway.v3.ecosystemsgateway/RunComputeToDataJob",
     requestStream: false,
     responseStream: false,
     requestSerialize: (value: CreateComputeToDataRequest) =>
@@ -5877,7 +6849,7 @@ export const ecosystemsgatewayService = {
     responseDeserialize: (value: Buffer) => ComputeToDataResponse.decode(value),
   },
   getComputeToDataStatus: {
-    path: "/eupg.ecosystemsgateway.ecosystemsgateway/GetComputeToDataStatus",
+    path: "/eupg.ecosystemsgateway.v3.ecosystemsgateway/GetComputeToDataStatus",
     requestStream: false,
     responseStream: false,
     requestSerialize: (value: ComputeToDataStatusRequest) =>
@@ -5888,7 +6860,7 @@ export const ecosystemsgatewayService = {
     responseDeserialize: (value: Buffer) => ComputeToDataStatusResponse.decode(value),
   },
   getComputeToDataResult: {
-    path: "/eupg.ecosystemsgateway.ecosystemsgateway/GetComputeToDataResult",
+    path: "/eupg.ecosystemsgateway.v3.ecosystemsgateway/GetComputeToDataResult",
     requestStream: false,
     responseStream: false,
     requestSerialize: (value: CreateComputeToDataResultRequest) =>
@@ -6058,7 +7030,7 @@ export interface ecosystemsgatewayClient extends Client {
 
 export const ecosystemsgatewayClient = makeGenericClientConstructor(
   ecosystemsgatewayService,
-  "eupg.ecosystemsgateway.ecosystemsgateway",
+  "eupg.ecosystemsgateway.v3.ecosystemsgateway",
 ) as unknown as {
   new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): ecosystemsgatewayClient;
   service: typeof ecosystemsgatewayService;

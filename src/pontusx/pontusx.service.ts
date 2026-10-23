@@ -1,31 +1,48 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  createRemoteStore,
+  EnvReader,
   Network,
-  NETWORK_CONFIGS,
   NetworkConfig,
   PRICING_CONFIGS,
   PricingConfig,
-} from './config';
-import { Wallet, providers } from 'ethers';
+  parseTokenAmounts,
+  resolveNetworkConfig,
+  selectNetwork,
+} from './config.js';
+import { JsonRpcProvider, Wallet } from 'ethers';
 import {
-  LogLevel,
-  Nautilus,
   AssetBuilder,
+  type AssetV5,
+  type ConsumerParameterV5,
+  CredentialListTypes,
+  DdoValidationError,
   FileTypes,
+  getAlgorithmConsumerParameters,
+  formatValidationErrors,
+  getDatatokenForService,
+  getPricingInfo,
+  getService,
+  getServiceByType,
+  getServices,
+  LifecycleStates,
+  type MetadataAlgorithmConfig,
+  Nautilus,
+  type NodeComputeJob,
+  PolicyDeniedError,
+  type PricingConfigWithoutOwner,
+  type RemoteStore,
   ServiceBuilder,
   ServiceTypes,
-  UrlFile,
-  LifecycleStates,
-  ComputeConfig,
-  MetadataConfig,
-  CredentialListTypes,
-  PricingConfigWithoutOwner,
+  type UrlFileObject,
 } from '@deltadao/nautilus';
-import { ConsumerParameter } from '@oceanprotocol/lib';
-import { type Asset } from '@oceanprotocol/lib';
 import {
+  ConsumerParameter,
+  CreateComputeToDataRequest,
+  CredentialLists,
   PontusxOffering,
+  Pricing,
   pricing_PricingTypeToJSON,
   PontusxUpdateOffering,
   Service,
@@ -34,33 +51,55 @@ import {
   GetComputeToDataResultResponse,
   ComputeToDataResponseState,
   Pricing_PricingType,
-} from '../generated/spp_v2';
-import { CredentialEventServiceService } from '../credential-event-service/credential-event-service.service';
+} from '../generated/spp_v3.js';
+import { CredentialEventServiceService } from '../credential-event-service/credential-event-service.service.js';
 import { RpcException } from '@nestjs/microservices';
 import {
   createErrorMetadata,
   formatErrorMessage,
   isRpcException,
   mapToRpcException,
-} from '../grpc-error.util';
-import { status as GrpcStatusCode } from '@grpc/grpc-js';
-import Redis from 'ioredis';
+} from '../grpc-error.util.js';
+import { Metadata, status as GrpcStatusCode } from '@grpc/grpc-js';
+import { Redis } from 'ioredis';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import axios, { AxiosResponse } from 'axios';
 import { Mutex } from 'async-mutex';
-import { capitalize } from './utility';
+import {
+  CTD_JOB_FINISHED,
+  CTD_JOB_SETTLING,
+  fromProtoStruct,
+  getCredentialAddresses,
+  toAdditionalInformation,
+  toConsumerParameterValue,
+  toUserdata,
+} from './utility.js';
+import { configureNautilusLogging } from './nautilus-logging.js';
+import type { LogFormat } from '../logging.js';
+
+// The `<environmentHash>-<jobId>` id ocean-node gives a compute job, as nautilus v2 requires it.
+const COMPUTE_JOB_ID = /^0x[0-9a-f]{64}-[0-9a-f]{64}$/;
+
+// nautilus refuses a service gated by an SSIpolicy when no credential provider is set, as
+// here: the gateway has no wallet to present credentials from.
+const PRESENTATION_REQUIRED =
+  /^Service (\S+) of (\S+) requires a verifiable presentation, and no credential provider is set/;
+
+type AlgorithmConsumerParameter = NonNullable<
+  MetadataAlgorithmConfig['consumerParameters']
+>[number];
 
 @Injectable()
 export class PontusxService implements OnModuleInit {
   private readonly logger = new Logger(PontusxService.name);
-  private readonly selectedNetwork: string;
+  private readonly selectedNetwork: Network;
   private readonly networkConfig: NetworkConfig;
-  private readonly pricingConfig: PricingConfig;
+  private readonly pricingConfig: PricingConfig[Network];
   private readonly wallet: Wallet;
-  private readonly provider: providers.JsonRpcProvider;
+  private readonly provider: JsonRpcProvider;
+  private readonly remoteStore: RemoteStore | undefined;
   private nautilus: Nautilus;
-  private nautilusLogLevel: LogLevel;
   // there should only be one action with one private key at a time on the pontus-x network
   private mutex: Mutex;
 
@@ -69,47 +108,60 @@ export class PontusxService implements OnModuleInit {
     private readonly credentialEventService: CredentialEventServiceService,
     @InjectRedis() private readonly redis: Redis,
   ) {
-    this.selectedNetwork = this.configService
-      .getOrThrow('NETWORK')
-      .toUpperCase();
+    // as early as possible, so nautilus' own events of the setup are logged too
+    const loggingProblems = configureNautilusLogging({
+      level: this.configService.get<string>('NAUTILUS_LOG_LEVEL'),
+      format: this.configService.get<LogFormat>('LOG_FORMAT', 'text'),
+      debug: this.configService.get<string>('NAUTILUS_DEBUG'),
+      debugTopics: this.configService.get<string>('NAUTILUS_DEBUG_TOPICS'),
+    });
+    loggingProblems.forEach((problem) => this.logger.warn(problem));
 
-    if (!(this.selectedNetwork in Network)) {
-      this.logger.error(
-        `Invalid network selection: ${
-          this.selectedNetwork
-        }. Supported networks are ${Object.values(Network).join(', ')}.`,
-      );
-      throw `Invalid network selection: ${
-        this.selectedNetwork
-      }. Supported networks are ${Object.values(Network).join(', ')}.`;
-    }
-    this.networkConfig = NETWORK_CONFIGS[this.getSelectedNetwork()];
-    this.pricingConfig = PRICING_CONFIGS[this.getSelectedNetwork()];
-    this.provider = new providers.JsonRpcProvider(this.networkConfig.nodeUri);
+    this.selectedNetwork = selectNetwork(
+      this.configService.get<string>('NETWORK'),
+    );
+    const env: EnvReader = (name) => this.configService.get<string>(name);
+    this.networkConfig = resolveNetworkConfig(this.selectedNetwork, env);
+    this.pricingConfig = PRICING_CONFIGS[this.selectedNetwork];
+    this.provider = new JsonRpcProvider(this.networkConfig.nodeUri);
 
     this.wallet = new Wallet(
       this.configService.getOrThrow('PRIVATE_KEY'),
       this.provider,
     );
+    this.remoteStore = createRemoteStore(env);
 
     this.mutex = new Mutex();
   }
 
   async onModuleInit(): Promise<void> {
-    this.nautilus = await Nautilus.create(
-      this.wallet,
-      this.getSelectedNetworkConfig(),
-    );
-    // some ugly conversion so there is no need to capitalize the env variable
-    const logLevel = this.configService.get('NAUTILUS_LOG_LEVEL', 'Log');
-    const logLevelEnum: LogLevel =
-      LogLevel[capitalize(logLevel) as keyof typeof LogLevel];
-    if (!logLevelEnum) {
+    if (!this.remoteStore) {
       this.logger.warn(
-        'Log level for Nautilus not recognised. Needs to be __one__ out of none, error, warn, log, verbose.',
+        'No DDO store configured (DDO_STORE): creating and updating Pontus-X offerings is disabled.',
       );
     }
-    Nautilus.setLogLevel(logLevelEnum);
+
+    const verificationRpcUrl = this.configService
+      .get<string>('VERIFICATION_RPC_URL')
+      ?.trim();
+    this.nautilus = await Nautilus.create(this.wallet, {
+      config: this.networkConfig,
+      remoteStore: this.remoteStore,
+      maxProviderFee: parseTokenAmounts(
+        'MAX_PROVIDER_FEE',
+        this.configService.get<string>('MAX_PROVIDER_FEE'),
+      ),
+      maxEscrowPayment: parseTokenAmounts(
+        'MAX_ESCROW_PAYMENT',
+        this.configService.get<string>('MAX_ESCROW_PAYMENT'),
+      ),
+      verificationProvider: verificationRpcUrl
+        ? new JsonRpcProvider(verificationRpcUrl)
+        : undefined,
+    });
+    this.logger.log(
+      `Using ocean-node ${this.networkConfig.oceanNodeUri} on ${this.networkConfig.network} (chain ${this.networkConfig.chainId}) as ${this.wallet.address}`,
+    );
   }
 
   getSelectedNetwork() {
@@ -120,45 +172,42 @@ export class PontusxService implements OnModuleInit {
     return this.networkConfig;
   }
 
-  setLogLevel(level: LogLevel) {
-    this.nautilusLogLevel = level;
-  }
-
   async publishAsset(offering: PontusxOffering) {
+    this.assertRemoteStore('publishAsset');
+
     const release = await this.mutex.acquire();
     try {
       const owner = await this.wallet.getAddress();
-      this.logger.debug(`Your address is ${owner}`);
 
-      const assetBuilder = new AssetBuilder();
+      const asset = this.buildRequest('publishAsset', () => {
+        const assetBuilder = new AssetBuilder();
 
-      const filled_assetBuilder = this.fillAsset(assetBuilder, offering, owner);
+        const filled_assetBuilder = this.fillAsset(assetBuilder, offering);
+        filled_assetBuilder.setOwner(owner);
+        this.setCredentialAddresses(filled_assetBuilder, offering.credentials);
 
-      for (const service of offering.services) {
-        const serviceBuilder = new ServiceBuilder({
-          serviceType: service.type as ServiceTypes,
-          fileType: FileTypes.URL,
-        }); // only URL data source supported
+        for (const service of offering.services) {
+          const serviceBuilder = new ServiceBuilder({
+            serviceType: service.type as ServiceTypes,
+            fileType: FileTypes.URL,
+          }); // only URL data source supported
 
-        const NautilusService = this.buildService(
-          serviceBuilder,
-          offering,
-          service,
-        );
+          const NautilusService = this.buildService(
+            serviceBuilder,
+            offering,
+            service,
+          );
 
-        assetBuilder.addService(NautilusService);
-      }
+          filled_assetBuilder.addService(NautilusService);
+        }
 
-      const asset = filled_assetBuilder.build();
+        return filled_assetBuilder.build();
+      });
 
       const result = await this.nautilus.publish(asset);
       return result;
     } catch (err: any) {
-      if (isRpcException(err)) throw err;
-      throw mapToRpcException(err, {
-        service: 'pontusx',
-        where: 'publishAsset',
-      });
+      throw this.toRpcException(err, 'publishAsset');
     } finally {
       release();
     }
@@ -166,28 +215,41 @@ export class PontusxService implements OnModuleInit {
 
   async updateOffering(UpdateOffering: UpdateOfferingRequest_UpdateOffering) {
     const metadata = createErrorMetadata('pontusx', 'updateOffering');
+    this.assertRemoteStore('updateOffering');
 
     const release = await this.mutex.acquire();
     try {
       const offering = UpdateOffering.pontusxUpdateOffering;
-      const aquariusAsset = await this.nautilus.getAquariusAsset(offering.did);
+      const asset = await this.nautilus.getAsset(offering.did);
+      const services = getServices(asset);
 
-      let filled_assetBuilder: AssetBuilder;
+      const filled_assetBuilder = new AssetBuilder(asset);
       if (offering.metadata !== undefined) {
-        const assetBuilder = new AssetBuilder(aquariusAsset);
         this.logger.debug('Updating metadata of Pontus-X asset');
-        const owner = await this.wallet.getAddress();
-        filled_assetBuilder = this.fillAsset(assetBuilder, offering, owner);
-      } else {
-        filled_assetBuilder = new AssetBuilder(aquariusAsset);
+        this.buildRequest('updateOffering', () =>
+          this.fillAsset(filled_assetBuilder, offering),
+        );
+      }
+      // proto-loader decodes an unset message field as null
+      if (offering.credentials != null) {
+        this.logger.debug('Replacing the address lists of Pontus-X asset');
+        this.buildRequest('updateOffering', () =>
+          this.setCredentialAddresses(
+            filled_assetBuilder,
+            offering.credentials,
+            asset,
+          ),
+        );
       }
 
       const updatedInd: Array<number> = [];
+      // Prices are set on the exchange after the metadata edit went through.
+      const priceUpdates: { serviceId: string; price: string }[] = [];
 
-      offering.updateServices?.forEach(async (updateService) => {
+      for (const updateService of offering.updateServices ?? []) {
         let serviceInd: number = 0;
         if (updateService.index !== undefined) {
-          if (updateService.index in aquariusAsset.services) {
+          if (updateService.index in services) {
             serviceInd = updateService.index;
           } else {
             throw new RpcException({
@@ -197,79 +259,54 @@ export class PontusxService implements OnModuleInit {
             });
           }
         }
-        if (!updatedInd.includes(serviceInd)) {
-          if (serviceInd === 0) {
-            this.logger.debug(
-              `Updating only first service of asset ${offering.did} ...`,
-            );
-          } else {
-            this.logger.debug(
-              `Updating service with index ${serviceInd} of asset ${offering.did} ...`,
-            );
-          }
-
-          const serviceId = aquariusAsset.services[serviceInd].id;
-          const serviceBuilder = new ServiceBuilder({
-            aquariusAsset: aquariusAsset,
-            serviceId: serviceId,
-          });
-          const NautilusService = this.buildService(
-            serviceBuilder,
-            offering,
-            updateService.service,
-          );
-          filled_assetBuilder.addService(NautilusService);
-
-          //TODO: deduplicate these checks with the ones in buildService
-          if (updateService.service.pricing !== undefined) {
-            const pricing: PricingConfigWithoutOwner =
-              this.pricingConfig[
-                pricing_PricingTypeToJSON(
-                  updateService.service.pricing.pricingType,
-                )
-              ];
-            if (pricing.type !== 'free') {
-              if (
-                pricing.freCreationParams.baseTokenAddress !==
-                aquariusAsset.stats.price.tokenAddress
-              ) {
-                throw new RpcException({
-                  code: GrpcStatusCode.UNIMPLEMENTED,
-                  message: `Service ${serviceInd}: Payment token ${pricing_PricingTypeToJSON(updateService.service.pricing.pricingType)} differs from existing ${aquariusAsset.stats.price.tokenSymbol ?? 'free'} payment. Currently only a price value update is supported.`,
-                  metadata,
-                });
-              } else {
-                const newPrice = updateService.service.pricing.fixedRate;
-                if (newPrice === 0) {
-                  this.logger.warn(
-                    'Price value was not set or 0 when trying to update non-free service. Skipping...',
-                  );
-                } else {
-                  await this.nautilus.setServicePrice(
-                    aquariusAsset,
-                    serviceId,
-                    newPrice.toString(),
-                  );
-                }
-              }
-            } else {
-              await this.nautilus.setServicePrice(
-                aquariusAsset,
-                serviceId,
-                '0.0',
-              );
-            }
-          }
-          updatedInd.push(serviceInd);
-        } else {
+        if (updatedInd.includes(serviceInd)) {
           this.logger.warn(
             `Skipping repeated update of service with index ${serviceInd}`,
           );
+          continue;
         }
-      });
+        if (serviceInd === 0) {
+          this.logger.debug(
+            `Updating only first service of asset ${offering.did} ...`,
+          );
+        } else {
+          this.logger.debug(
+            `Updating service with index ${serviceInd} of asset ${offering.did} ...`,
+          );
+        }
 
-      const asset = filled_assetBuilder.build();
-      const result = await this.nautilus.edit(asset);
+        const serviceId = services[serviceInd].id;
+        const NautilusService = this.buildRequest('updateOffering', () =>
+          this.buildService(
+            new ServiceBuilder({ asset, serviceId }),
+            offering,
+            updateService.service,
+            services[serviceInd],
+          ),
+        );
+        filled_assetBuilder.addService(NautilusService);
+
+        // an unset message field is decoded as null
+        if (updateService.service.pricing != null) {
+          const price = await this.getPriceUpdate(
+            asset,
+            serviceId,
+            serviceInd,
+            updateService.service.pricing,
+            metadata,
+          );
+          if (price !== undefined) priceUpdates.push({ serviceId, price });
+        }
+        updatedInd.push(serviceInd);
+      }
+
+      const result = await this.nautilus.edit(
+        this.buildRequest('updateOffering', () => filled_assetBuilder.build()),
+      );
+
+      for (const { serviceId, price } of priceUpdates) {
+        await this.nautilus.setServicePrice(asset, serviceId, price);
+      }
 
       let cesResult;
       if (UpdateOffering.publishInfo !== undefined) {
@@ -284,67 +321,158 @@ export class PontusxService implements OnModuleInit {
         ces: cesResult,
       };
     } catch (err: any) {
-      if (isRpcException(err)) throw err;
-      throw mapToRpcException(err, {
-        service: 'pontusx',
-        where: 'updateOffering',
-      });
+      throw this.toRpcException(err, 'updateOffering');
     } finally {
       release();
     }
   }
 
+  // The new price of an existing service, or `undefined` if there is nothing to change.
+  // Changing the payment token is not supported: it needs a new datatoken.
+  private async getPriceUpdate(
+    asset: AssetV5,
+    serviceId: string,
+    serviceInd: number,
+    pricing: Pricing,
+    metadata: Metadata,
+  ): Promise<string | undefined> {
+    const pricingType = pricing_PricingTypeToJSON(pricing.pricingType);
+    const requested = this.getPricing(pricingType, metadata);
+
+    const datatoken = getDatatokenForService(asset, serviceId);
+    if (!datatoken) {
+      throw new RpcException({
+        code: GrpcStatusCode.FAILED_PRECONDITION,
+        message: `Service ${serviceInd}: could not determine its datatoken`,
+        metadata,
+      });
+    }
+    const current = await getPricingInfo(
+      this.wallet,
+      datatoken,
+      this.nautilus.getOceanConfig(),
+    );
+
+    if (requested.type === 'free') {
+      // A fixed-rate service cannot become free; it is set to a price of 0 instead.
+      return current.schema === 'fixed' ? '0' : undefined;
+    }
+    if (
+      current.schema !== 'fixed' ||
+      current.baseTokenAddress?.toLowerCase() !==
+        requested.freCreationParams.baseTokenAddress.toLowerCase()
+    ) {
+      throw new RpcException({
+        code: GrpcStatusCode.UNIMPLEMENTED,
+        message: `Service ${serviceInd}: Payment token ${pricingType} differs from existing ${current.schema === 'fixed' ? current.baseTokenAddress : current.schema} payment. Currently only a price value update is supported.`,
+        metadata,
+      });
+    }
+    const price = this.toPrice(
+      pricing.price,
+      requested.freCreationParams.baseTokenDecimals,
+      metadata,
+    );
+    if (!price) {
+      this.logger.warn(
+        `Service ${serviceInd}: no price given for its ${pricingType} pricing, keeping the current one`,
+      );
+    }
+    return price;
+  }
+
+  /**
+   * A fixed-rate price as the decimal string nautilus takes, or `undefined` if none is given.
+   * Refuses more decimals than the payment token has, which the chain would round away.
+   */
+  private toPrice(
+    price: string | undefined,
+    decimals: number,
+    metadata: Metadata,
+  ): string | undefined {
+    const value = price?.trim();
+    if (!value) return undefined;
+    if (!/^\d+(\.\d+)?$/.test(value) || !(Number(value) > 0)) {
+      throw new RpcException({
+        code: GrpcStatusCode.INVALID_ARGUMENT,
+        message: `Price '${price}' is not a positive decimal number, e.g. "0.5"`,
+        metadata,
+      });
+    }
+    if ((value.split('.')[1] ?? '').length > decimals) {
+      throw new RpcException({
+        code: GrpcStatusCode.INVALID_ARGUMENT,
+        message: `Price '${price}' has more than the ${decimals} decimals of its payment token`,
+        metadata,
+      });
+    }
+    return value;
+  }
+
   async setState(did: string, state: LifecycleStates) {
     try {
-      const aquariusAsset = await this.nautilus.getAquariusAsset(did);
+      const asset = await this.nautilus.getAsset(did);
 
-      const result = await this.nautilus.setAssetLifecycleState(
-        aquariusAsset,
+      const receipt = await this.nautilus.setAssetLifecycleState(asset, state);
+
+      // `undefined` when the asset already is in that state
+      return {
+        did,
         state,
-      );
-
-      return result;
+        changed: receipt !== undefined,
+        txHash: receipt?.hash,
+      };
     } catch (err: any) {
-      if (isRpcException(err)) throw err;
-      throw mapToRpcException(err, { service: 'pontusx', where: 'setState' });
+      throw this.toRpcException(err, 'setState');
     }
   }
 
   fillAsset(
     assetBuilder: AssetBuilder,
     offering: PontusxOffering | PontusxUpdateOffering,
-    owner: string,
   ) {
     const assetType = <'dataset' | 'algorithm'>offering.metadata.type;
+    const { language, displayTitle, copyrightHolder, categories, links } =
+      offering.metadata;
+    // first, as DDO v5 tags the description with the content language
+    if (language?.trim()) {
+      assetBuilder.setContentLanguage(language.trim());
+    }
     assetBuilder
       .setType(assetType)
       .setName(offering.metadata.name)
       .setDescription(offering.metadata.description)
       .setAuthor(offering.metadata.author)
-      .setLicense(offering.metadata.licence)
-      .addTags(offering.metadata.tags)
-      .setOwner(owner)
-      .addAdditionalInformation(offering.additionalInformation);
+      // required by DDO v5
+      .setProvidedBy(
+        offering.metadata.providedBy?.trim() ||
+          this.configService.get<string>('PROVIDED_BY') ||
+          offering.metadata.author,
+      )
+      .setLicense(offering.metadata.license)
+      .addTags(offering.metadata.tags ?? []);
+    if (displayTitle?.trim()) {
+      assetBuilder.setDisplayTitle(displayTitle.trim());
+    }
+    if (copyrightHolder?.trim()) {
+      assetBuilder.setCopyrightHolder(copyrightHolder.trim());
+    }
+    if (categories?.length) {
+      assetBuilder.addCategories(categories);
+    }
+    if (links && Object.keys(links).length) {
+      assetBuilder.addLinks(links);
+    }
 
-    if (offering.credentials) {
-      // nautilus does not allow empty arrays or undefined to be given here. Only call the function if there is something to add.
-      if (offering.credentials.allow) {
-        assetBuilder.addCredentialAddresses(
-          CredentialListTypes.ALLOW,
-          offering.credentials.allow,
-        );
-      }
-      if (offering.credentials.deny) {
-        assetBuilder.addCredentialAddresses(
-          CredentialListTypes.DENY,
-          offering.credentials.deny,
-        );
-      }
+    if (offering.additionalInformation) {
+      assetBuilder.addAdditionalInformation(
+        toAdditionalInformation(offering.additionalInformation),
+      );
     }
 
     if (assetType === 'algorithm') {
       if (offering.metadata.algorithm !== undefined) {
-        const algo: MetadataConfig['algorithm'] = {
+        const algo: MetadataAlgorithmConfig = {
           container: offering.metadata.algorithm.container,
         };
         if (offering.metadata.algorithm.language !== undefined) {
@@ -353,20 +481,12 @@ export class PontusxService implements OnModuleInit {
         if (offering.metadata.algorithm.version !== undefined) {
           algo.version = offering.metadata.algorithm.version;
         }
-        offering.metadata.algorithm.consumerParameters?.forEach((par) => {
-          const param: ConsumerParameter = {
-            type: par.type as ConsumerParameter['type'],
-            name: par.name, // link to your file or api
-            label: par.label,
-            required: par.required,
-            default: par.default,
-            description: par.description,
-          };
-          if (par.options !== undefined) {
-            param.options = par.options.toString();
-          }
-          algo.consumerParameters.push(param);
-        });
+        const consumerParameters = (
+          offering.metadata.algorithm.consumerParameters ?? []
+        ).map((par) => this.toAlgorithmConsumerParameter(par));
+        if (consumerParameters.length) {
+          algo.consumerParameters = consumerParameters;
+        }
         assetBuilder.setAlgorithm(algo);
       } else {
         if (
@@ -393,38 +513,51 @@ export class PontusxService implements OnModuleInit {
     return assetBuilder;
   }
 
+  // @grpc/proto-loader leaves unset `optional` fields out, so only the fields each request
+  // always has tell them apart: an update without metadata is still an update.
   isPontusxOffering(message: any): message is PontusxOffering {
-    return (
-      'metadata' in message &&
-      'additionalInformation' in message &&
-      'services' in message
-    );
+    return 'services' in message && !('updateServices' in message);
   }
   isPontusxUpdateOffering(message: any): message is PontusxUpdateOffering {
-    return (
-      'did' in message &&
-      'metadata' in message &&
-      'additionalInformation' in message &&
-      'updateServices' in message
-    );
+    return 'did' in message && 'updateServices' in message;
   }
 
   buildService(
     serviceBuilder: ServiceBuilder<ServiceTypes, FileTypes>,
     offering: PontusxOffering | PontusxUpdateOffering,
     service: Service,
+    /** The published service an update changes. */
+    stored?: { serviceEndpoint: string },
   ) {
     const metadata = createErrorMetadata('pontusx', 'buildService');
 
-    serviceBuilder
-      .setServiceEndpoint(this.networkConfig.providerUri)
-      .setTimeout(service.timeout ?? 86400);
+    // A service's files are encrypted for the ocean-node in its serviceEndpoint. Setting the
+    // endpoint of a published service makes nautilus re-encrypt them, which needs them again
+    // and gives the service a new id, so an update sets it only when it changes.
+    const endpoint = service.serviceEndpoint?.trim();
+    if (!stored) {
+      serviceBuilder.setServiceEndpoint(
+        endpoint || this.networkConfig.oceanNodeUri,
+      );
+    } else if (endpoint && endpoint !== stored.serviceEndpoint) {
+      if (!service.files?.length) {
+        throw new RpcException({
+          code: GrpcStatusCode.INVALID_ARGUMENT,
+          message: `The serviceEndpoint of a published service can only change together with its files, which are encrypted for that ocean-node`,
+          metadata,
+        });
+      }
+      serviceBuilder.setServiceEndpoint(endpoint);
+    }
+    if (!stored || service.timeout !== undefined) {
+      serviceBuilder.setTimeout(service.timeout ?? 86400);
+    }
 
     if (service.name !== undefined) {
       serviceBuilder.setName(service.name);
     }
     if (service.description !== undefined) {
-      serviceBuilder.setName(service.description);
+      serviceBuilder.setDescription(service.description);
     }
     if (service.tokenName && service.tokenSymbol) {
       serviceBuilder.setDatatokenNameAndSymbol(
@@ -483,15 +616,31 @@ export class PontusxService implements OnModuleInit {
             });
           }
         }
-        if (service.computeOptions.trustedAlgorithms !== undefined) {
-          serviceBuilder.addTrustedAlgorithms(
-            service.computeOptions.trustedAlgorithms,
+        // Given lists replace the stored ones. nautilus resolves the checksums of trusted
+        // algorithms from their published DDOs.
+        const algorithms = service.computeOptions.trustedAlgorithms;
+        if (algorithms?.all) {
+          serviceBuilder.setAllAlgorithmsTrusted();
+        } else if (algorithms) {
+          serviceBuilder.setAllAlgorithmsUntrusted();
+          if (algorithms.algorithms?.length) {
+            serviceBuilder.addTrustedAlgorithms(
+              algorithms.algorithms.map(({ did, serviceIds }) => ({
+                did,
+                ...(serviceIds?.length ? { serviceIds } : {}),
+              })),
+            );
+          }
+        }
+        const publishers = service.computeOptions.trustedPublishers;
+        if (publishers?.all) {
+          serviceBuilder.setAllAlgorithmPublishersTrusted();
+        } else if (publishers) {
+          serviceBuilder.setAllAlgorithmPublishersUntrusted();
+          publishers.addresses?.forEach((address) =>
+            serviceBuilder.addTrustedAlgorithmPublisher(address),
           );
         }
-
-        service.computeOptions.trustedPublishers?.forEach((trustedPub) => {
-          serviceBuilder.addTrustedAlgorithmPublisher(trustedPub);
-        });
       } else {
         if (pxOffering && !pxUpdateOffering) {
           this.logger.error(
@@ -517,21 +666,20 @@ export class PontusxService implements OnModuleInit {
       }
     }
     if (pxOffering && !pxUpdateOffering) {
-      if (!service.pricing) {
-        service.pricing = { pricingType: Pricing_PricingType.FREE };
-      }
-      const pricing: PricingConfigWithoutOwner =
-        this.pricingConfig[
-          pricing_PricingTypeToJSON(service.pricing.pricingType)
-        ];
+      const pricingType = pricing_PricingTypeToJSON(
+        service.pricing?.pricingType ?? Pricing_PricingType.FREE,
+      );
+      // copy, so a request's price does not stick to the shared pricing configuration
+      const pricing = structuredClone(this.getPricing(pricingType, metadata));
       if (pricing.type !== 'free') {
-        pricing.freCreationParams.fixedRate =
-          service.pricing.fixedRate.toString() ??
-          pricing.freCreationParams.fixedRate;
+        const price = this.toPrice(
+          service.pricing?.price,
+          pricing.freCreationParams.baseTokenDecimals,
+          metadata,
+        );
+        if (price) pricing.freCreationParams.fixedRate = price;
         this.logger.debug(
-          `Setting ${pricing_PricingTypeToJSON(
-            service.pricing.pricingType,
-          )} pricing with fixed Rate ${pricing.freCreationParams.fixedRate}`,
+          `Setting ${pricingType} pricing with fixed Rate ${pricing.freCreationParams.fixedRate}`,
         );
       } else {
         this.logger.debug('Setting free pricing for service');
@@ -543,7 +691,7 @@ export class PontusxService implements OnModuleInit {
           `Not updating pricing as it is missing in the request`,
         );
       }
-      //pricing should be updated above with nautilus.setServicePrice
+      //pricing is updated in updateOffering with nautilus.setServicePrice
     } else {
       throw new RpcException({
         code: GrpcStatusCode.INVALID_ARGUMENT,
@@ -553,41 +701,94 @@ export class PontusxService implements OnModuleInit {
       });
     }
 
-    service.files.forEach((file) => {
-      const urlFile: UrlFile = {
+    service.files?.forEach((file) => {
+      const urlFile: UrlFileObject = {
         type: 'url',
         url: file.url,
         method: file.method,
       };
-      if (file.headers !== undefined) {
-        this.logger.debug(`Setting file headers: ${file.headers}`);
+      if (file.headers && Object.keys(file.headers).length) {
+        this.logger.debug(
+          `Setting file headers: ${Object.keys(file.headers).join(', ')}`,
+        );
         urlFile.headers = file.headers;
       }
       serviceBuilder.addFile(urlFile);
     });
 
-    service.consumerParameters?.forEach((par) => {
-      const param: ConsumerParameter = {
-        type: par.type as ConsumerParameter['type'],
-        name: par.name, // link to your file or api
-        label: par.label,
-        required: par.required,
-        default: par.default,
-        description: par.description,
-      };
-      if (par.options !== undefined) {
-        param.options = par.options.toString();
-      }
-      serviceBuilder.addConsumerParameter(param);
-    });
+    const parameters = (service.consumerParameters ?? []).map((par) =>
+      this.toServiceConsumerParameter(par),
+    );
+    if (!stored) {
+      parameters.forEach((par) => serviceBuilder.addConsumerParameter(par));
+    }
 
     const NautilusService = serviceBuilder.build();
+    // The builder adds to the parameters of the published service; given ones replace them.
+    if (stored && parameters.length) {
+      NautilusService.consumerParameters = parameters;
+    }
 
     return NautilusService;
   }
 
-  async getOffering(did: string): Promise<Asset> {
-    return this.nautilus.getAquariusAsset(did);
+  private getPricing(
+    pricingType: string,
+    metadata: Metadata,
+  ): PricingConfigWithoutOwner {
+    const pricing = this.pricingConfig[pricingType];
+    if (!pricing) {
+      throw new RpcException({
+        code: GrpcStatusCode.INVALID_ARGUMENT,
+        message: `Pricing type ${pricingType} is not available on ${this.networkConfig.network}`,
+        metadata,
+      });
+    }
+    return pricing;
+  }
+
+  // DDO v5 service consumer parameters keep the type of the default and take the options as
+  // a list of objects.
+  private toServiceConsumerParameter(
+    par: ConsumerParameter,
+  ): ConsumerParameterV5 {
+    const param: ConsumerParameterV5 = {
+      type: par.type,
+      name: par.name, // link to your file or api
+      label: par.label,
+      required: par.required,
+      default: toConsumerParameterValue(par.type, par.default ?? ''),
+      description: par.description,
+    };
+    if (par.options?.length) {
+      param.options = par.options.map(
+        fromProtoStruct,
+      ) as ConsumerParameterV5['options'];
+    }
+    return param;
+  }
+
+  // Algorithm metadata keeps the DDO v4 consumer parameter shape: string default, options as
+  // a JSON string.
+  private toAlgorithmConsumerParameter(
+    par: ConsumerParameter,
+  ): AlgorithmConsumerParameter {
+    const param: AlgorithmConsumerParameter = {
+      type: par.type as AlgorithmConsumerParameter['type'],
+      name: par.name,
+      label: par.label,
+      required: par.required,
+      default: par.default,
+      description: par.description,
+    };
+    if (par.options?.length) {
+      param.options = JSON.stringify(par.options.map(fromProtoStruct));
+    }
+    return param;
+  }
+
+  async getOffering(did: string): Promise<AssetV5> {
+    return this.nautilus.getAsset(did);
   }
 
   async queryOfferings(
@@ -599,20 +800,7 @@ export class PontusxService implements OnModuleInit {
     serviceType: string,
     page: number,
     pageSize: number,
-  ): Promise<[Asset[], number]> {
-    const metadata = createErrorMetadata('pontusx', 'queryOfferings');
-    const apiPath = '/api/aquarius/assets/query';
-
-    const metadataCacheUri = this.getSelectedNetworkConfig().metadataCacheUri;
-
-    if (!metadataCacheUri) {
-      throw new RpcException({
-        code: GrpcStatusCode.FAILED_PRECONDITION,
-        message: 'No metadata cache URI (aquarius) provided',
-        metadata,
-      });
-    }
-
+  ): Promise<[AssetV5[], number]> {
     const queryPayload = this.buildQueryPayload(
       did,
       name,
@@ -624,24 +812,35 @@ export class PontusxService implements OnModuleInit {
       pageSize,
     );
 
-    const assets: Asset[] = [];
-    let total = 0;
-    const fullAquariusUrl = new URL(apiPath, metadataCacheUri).href;
-    const response: AxiosResponse<any> = await axios.post(
-      fullAquariusUrl,
-      queryPayload,
-    );
+    return this.parseQueryResponse(await this.nautilus.query(queryPayload));
+  }
 
-    if (response?.status === 200 && response?.data?.hits) {
-      for (const hit of response.data.hits.hits) {
-        const asset: Asset = hit._source;
-        if (asset?.id) {
-          assets.push(asset);
+  // ocean-node answers with one entry per index it searched: `{ results, totalResults }`
+  // (OceanProtocolEnterprise ocean-node) or the bare list of documents. The Aquarius shape is
+  // kept for nodes that still answer with the raw Elasticsearch response.
+  parseQueryResponse(response: unknown): [AssetV5[], number] {
+    const assets: AssetV5[] = [];
+    let total = 0;
+
+    if (Array.isArray(response)) {
+      for (const entry of response) {
+        if (Array.isArray(entry)) {
+          assets.push(...entry);
+          total += entry.length;
+        } else if (Array.isArray(entry?.results)) {
+          assets.push(...entry.results);
+          total += entry.totalResults ?? entry.results.length;
         }
       }
-      total = response.data.hits.total.value;
+    } else {
+      const hits = (response as any)?.hits;
+      for (const hit of hits?.hits ?? []) {
+        assets.push(hit._source);
+      }
+      total = hits?.total?.value ?? hits?.total ?? assets.length;
     }
-    return [assets, total];
+
+    return [assets.filter((asset) => asset?.id), total];
   }
 
   buildQueryPayload(
@@ -654,16 +853,20 @@ export class PontusxService implements OnModuleInit {
     page: number,
     pageSize: number,
   ) {
+    // DDO v5 index: the document, datatokens included, lives under credentialSubject, the
+    // indexer's data under indexedMetadata. DIDs are did:ope: now. The field names are
+    // checked against an OceanProtocolEnterprise ocean-node 4.2.2.
     const attribute_queries = [];
     if (did)
       attribute_queries.push({
         query_string: {
-          query: did.replace('did:op:', '*'),
+          query: did.replace(/^did:ope?:/, '*'),
           fields: [
             'id',
-            'datatokens.address',
-            'datatokens.name',
-            'datatokens.symbol',
+            'credentialSubject.nftAddress',
+            'credentialSubject.datatokens.address',
+            'credentialSubject.datatokens.name',
+            'credentialSubject.datatokens.symbol',
           ],
         },
       });
@@ -671,21 +874,31 @@ export class PontusxService implements OnModuleInit {
       attribute_queries.push({
         query_string: {
           query: name,
-          fields: ['datatokens.name', 'metadata.name^10'],
+          fields: [
+            'credentialSubject.datatokens.name',
+            'credentialSubject.metadata.name^10',
+          ],
         },
       });
     if (description)
       attribute_queries.push({
         query_string: {
           query: description,
-          fields: ['metadata.description', 'metadata.tags'],
+          fields: [
+            // a language-tagged value in DDO v5
+            'credentialSubject.metadata.description.@value',
+            'credentialSubject.metadata.tags',
+          ],
         },
       });
     if (author)
       attribute_queries.push({
         query_string: {
           query: author,
-          fields: ['nft.owner', 'metadata.author'],
+          fields: [
+            'indexedMetadata.nft.owner',
+            'credentialSubject.metadata.author',
+          ],
         },
       });
 
@@ -694,34 +907,42 @@ export class PontusxService implements OnModuleInit {
 
     if (!pageSize) pageSize = 50;
     if (!metadataType) metadataType = 'dataset';
-    if (!serviceType) metadataType = 'access';
+    if (!serviceType) serviceType = 'access';
 
     const payload = {
-      from: pageSize * page,
+      // ocean-node reads `from` as the 1-based page number, not as an offset
+      from: (page ?? 0) + 1,
       size: pageSize,
       query: {
         bool: {
           must: [{ bool: { should: attribute_queries } }],
           filter: [
-            { terms: { chainId: [32456, 32457] } },
-            { terms: { _index: ['v510'] } },
-            { term: { 'purgatory.state': false } },
             {
-              bool: {
-                must_not: [
-                  { term: { 'nft.state': 5 } },
-                  { term: { 'price.type': 'pool' } },
-                ],
+              terms: {
+                // the chain the gateway publishes and consumes on
+                'credentialSubject.chainId': [this.networkConfig.chainId],
               },
             },
             {
-              term: { 'metadata.type': metadataType },
+              term: { 'credentialSubject.metadata.type': metadataType },
             },
-            { term: { 'services.type': serviceType } },
+            // Not a nested query: ocean-node does not map the services as nested, and
+            // answers one with no results at all.
+            {
+              term: { 'credentialSubject.services.type': serviceType },
+            },
+          ],
+          must_not: [
+            { term: { 'indexedMetadata.purgatory.state': true } },
+            {
+              term: {
+                'indexedMetadata.nft.state': LifecycleStates.ASSET_UNLISTED,
+              },
+            },
           ],
         },
       },
-      sort: { 'nft.created': 'desc' },
+      sort: { 'credentialSubject.metadata.created': 'desc' },
     };
     return payload;
   }
@@ -734,7 +955,7 @@ export class PontusxService implements OnModuleInit {
   ): Promise<string> {
     //TODO: integrate data storage in redis as option?
     const metadata = createErrorMetadata('pontusx', 'accessService');
-    let dataset: Asset;
+    let dataset: AssetV5;
 
     try {
       dataset = await this.getOffering(did);
@@ -745,22 +966,11 @@ export class PontusxService implements OnModuleInit {
         metadata,
       });
     }
-    if (serviceId !== '') {
-      const serviceCandidate = dataset.services?.find(
-        (s) => s.type === 'access',
-      );
-      if (serviceCandidate) {
-        serviceId = serviceCandidate.id;
-      }
-    } else {
-      const serviceCandidate = dataset.services?.find(
-        (s) => s.id === serviceId,
-      );
-      if (!serviceCandidate) {
-        serviceId = '';
-      }
-    }
-    if (serviceId === '') {
+    // the requested service, else the first access service
+    const service = serviceId
+      ? getService(dataset, serviceId)
+      : getServiceByType(dataset, 'access');
+    if (service?.type !== 'access') {
       throw new RpcException({
         code: GrpcStatusCode.NOT_FOUND,
         message: `No valid access service found`,
@@ -771,21 +981,21 @@ export class PontusxService implements OnModuleInit {
 
     const release = await this.mutex.acquire();
     try {
-      const uri = await this.nautilus
+      const { url } = await this.nautilus
         .access({
           assetDid: did,
           fileIndex: fileIndex,
-          serviceId: serviceId,
-          userdata: userdata,
+          serviceId: service.id,
+          userdata: toUserdata(userdata, service.consumerParameters),
         })
         .catch((err) => {
-          throw new RpcException({
-            code: GrpcStatusCode.FAILED_PRECONDITION,
-            message: `Couldn't get access to the asset: ${formatErrorMessage(err)}`,
-            metadata: metadata,
-          });
+          throw this.toRpcException(
+            err,
+            'accessService',
+            GrpcStatusCode.FAILED_PRECONDITION,
+          );
         });
-      return uri;
+      return url;
       // no extra catch as we only execute one function
     } finally {
       release();
@@ -793,102 +1003,142 @@ export class PontusxService implements OnModuleInit {
   }
 
   async requestComputeToData(
-    did: string,
-    algo: string,
-    userdata: { [key: string]: string },
+    request: CreateComputeToDataRequest,
   ): Promise<string[]> {
-    const release = await this.mutex.acquire();
     const metadata = createErrorMetadata('pontusx', 'requestComputeToData');
-
-    try {
-      const computeConfig: Omit<ComputeConfig, 'signer' | 'chainConfig'> = {
-        dataset: {
-          did: did,
-          userdata: userdata,
-        },
-        algorithm: { did: algo },
-      };
-
-      const dataset = await this.getOffering(computeConfig.dataset.did).catch(
-        (err) => {
-          throw new RpcException({
-            code: GrpcStatusCode.NOT_FOUND,
-            message: `Asset not found: ${formatErrorMessage(err)}`,
-            metadata,
-          });
-        },
-      );
-
-      // verify that requested asset has compute jobs available
-      const compute_objects = dataset.services.filter((obj) => {
-        return obj.type === 'compute';
+    if (request.free && request.maxJobDuration !== undefined) {
+      throw new RpcException({
+        code: GrpcStatusCode.INVALID_ARGUMENT,
+        message:
+          "A free compute job runs within the environment's free limits: maxJobDuration cannot be set",
+        metadata,
       });
-      if (compute_objects.length < 1) {
+    }
+
+    const release = await this.mutex.acquire();
+    try {
+      const dataset = await this.getOffering(request.did).catch((err) => {
         throw new RpcException({
           code: GrpcStatusCode.NOT_FOUND,
-          message: 'No algorithms are available',
+          message: `Asset not found: ${formatErrorMessage(err)}`,
+          metadata,
+        });
+      });
+      // the requested compute service, else the first one
+      const computeService = request.serviceId
+        ? getService(dataset, request.serviceId)
+        : getServiceByType(dataset, 'compute');
+      if (computeService?.type !== 'compute') {
+        throw new RpcException({
+          code: GrpcStatusCode.NOT_FOUND,
+          message: request.serviceId
+            ? `Service ${request.serviceId} of ${request.did} is not a compute service`
+            : `${request.did} has no compute service`,
           metadata,
         });
       }
 
-      const computeJob = await this.nautilus
-        .compute(computeConfig)
-        .catch((err) => {
+      // The algorithm's DDO declares the types its parameter values are converted to.
+      const algorithm = await this.getOffering(request.algorithm).catch(
+        (err) => {
           throw new RpcException({
             code: GrpcStatusCode.NOT_FOUND,
-            message: `Compute to Data job can't start: ${formatErrorMessage(err)}`,
+            message: `Algorithm not found: ${formatErrorMessage(err)}`,
             metadata,
           });
+        },
+      );
+      // as nautilus chooses it: the requested service, else the compute one, else the first
+      const algorithmService = request.algorithmServiceId
+        ? getService(algorithm, request.algorithmServiceId)
+        : (getServiceByType(algorithm, 'compute') ?? getServices(algorithm)[0]);
+      if (!algorithmService) {
+        throw new RpcException({
+          code: GrpcStatusCode.NOT_FOUND,
+          message:
+            `Algorithm ${request.algorithm} has no service ${request.algorithmServiceId ?? ''}`.trim(),
+          metadata,
         });
+      }
 
-      const jobIds = [];
-      if (computeJob instanceof Array) {
-        await Promise.all(
-          computeJob.map(async (job) => {
-            await this.redis.rpush(
-              `${this.getSelectedNetworkConfig().network}:ctd:pending`,
-              job.jobId,
-            );
-            jobIds.push(job.jobId);
-          }),
+      const config = {
+        dataset: {
+          did: request.did,
+          serviceId: computeService.id,
+          userdata: toUserdata(
+            request.userdata,
+            computeService.consumerParameters,
+          ),
+        },
+        algorithm: {
+          did: request.algorithm,
+          serviceId: algorithmService.id,
+          userdata: toUserdata(
+            request.algorithmUserdata,
+            algorithmService.consumerParameters,
+          ),
+          algocustomdata: toUserdata(
+            request.algorithmParameters,
+            getAlgorithmConsumerParameters(algorithm),
+          ),
+        },
+        // the node's first environment, unless one is requested or configured
+        computeEnv:
+          request.computeEnv?.trim() ||
+          this.configService.get<string>('COMPUTE_ENV')?.trim() ||
+          undefined,
+        // the environment's minimum of each, unless resources are requested
+        resources: request.resources?.length
+          ? request.resources.map(({ id, amount }) => ({ id, amount }))
+          : undefined,
+      };
+      const computeJob = await (
+        request.free
+          ? this.nautilus.freeCompute(config)
+          : this.nautilus.compute({
+              ...config,
+              maxJobDuration: request.maxJobDuration,
+            })
+      ).catch((err) => {
+        throw this.toRpcException(
+          err,
+          'requestComputeToData',
+          GrpcStatusCode.NOT_FOUND,
         );
-      } else {
-        await this.redis.rpush(
-          `${this.getSelectedNetworkConfig().network}:ctd:pending`,
-          computeJob.jobId,
-        );
-        jobIds.push(computeJob.jobId);
+      });
+
+      const jobIds = computeJob.jobs.map((job) => job.jobId);
+      if (jobIds.length) {
+        await this.redis.rpush(this.pendingJobsKey(), ...jobIds);
       }
 
       return jobIds;
     } catch (err: any) {
-      if (isRpcException(err)) throw err;
-      throw mapToRpcException(err, {
-        service: 'pontusx',
-        where: 'requestComputeToData',
-      });
+      throw this.toRpcException(err, 'requestComputeToData');
     } finally {
       release();
     }
   }
 
-  async getComputeToDataStatus(jobId: string): Promise<number> {
-    const status = await this.nautilus.getComputeStatus({
-      jobId: jobId,
-      providerUri: this.getSelectedNetworkConfig().providerUri,
-    });
-
-    if (status?.status !== undefined) {
-      return status.status;
-    }
-
+  private async getComputeJob(jobId: string): Promise<NodeComputeJob> {
     const metadata = createErrorMetadata('pontusx', 'getComputeToDataStatus');
+
+    this.assertComputeJobId(jobId, metadata);
+    const job = await this.nautilus.getComputeStatus({ jobId: jobId });
+
+    if (job?.status !== undefined) {
+      return job;
+    }
 
     throw new RpcException({
       code: GrpcStatusCode.NOT_FOUND,
       message: `Compute job '${jobId}' couldn't be found`,
       metadata,
     });
+  }
+
+  async getComputeToDataStatus(jobId: string): Promise<number> {
+    return (await this.getComputeJob(jobId)).status;
   }
 
   async getComputeToDataResult(
@@ -900,15 +1150,17 @@ export class PontusxService implements OnModuleInit {
 
     switch (return_type) {
       case ComputeToDataResultType.C2D_DATA:
-        const cached = await this.redis.get(
-          `${this.getSelectedNetworkConfig().network}:ctd:result:${jobId}`,
-        );
+        const cached = await this.redis.get(this.resultKey(jobId));
         if (cached === null) {
-          await this.getComputeToDataStatus(jobId);
-          const queued = await this.redis.lpos(
-            `${this.getSelectedNetworkConfig().network}:ctd:pending`,
-            jobId,
-          );
+          const job = await this.getComputeJob(jobId);
+          if (this.isFailedJob(job)) {
+            throw new RpcException({
+              code: GrpcStatusCode.FAILED_PRECONDITION,
+              message: `Compute job '${jobId}' ended without a result: ${job.status} (${job.statusText})`,
+              metadata,
+            });
+          }
+          const queued = await this.redis.lpos(this.pendingJobsKey(), jobId);
           if (queued != null) {
             return {
               state: ComputeToDataResponseState.IN_PROGRESS,
@@ -916,10 +1168,7 @@ export class PontusxService implements OnModuleInit {
             };
           }
 
-          await this.redis.rpush(
-            `${this.getSelectedNetworkConfig().network}:ctd:pending`,
-            jobId,
-          );
+          await this.redis.rpush(this.pendingJobsKey(), jobId);
           return {
             state: ComputeToDataResponseState.QUEUED,
             data: 'Data has been queued, waiting to be processed',
@@ -927,19 +1176,12 @@ export class PontusxService implements OnModuleInit {
         }
         return { state: ComputeToDataResponseState.FINISHED, data: cached };
       case ComputeToDataResultType.C2D_URI:
-        let resp: string;
-        if (jobIndex == 0) {
-          resp = await this.nautilus.getComputeResult({
-            jobId: jobId,
-            providerUri: this.getSelectedNetworkConfig().providerUri,
-          });
-        } else {
-          resp = await this.nautilus.getComputeResult({
-            jobId: jobId,
-            providerUri: this.getSelectedNetworkConfig().providerUri,
-            resultIndex: jobIndex,
-          });
-        }
+        this.assertComputeJobId(jobId, metadata);
+        // by default the job's output (outputs.tar)
+        const resp = await this.nautilus.getComputeResult({
+          jobId: jobId,
+          ...(jobIndex ? { resultIndex: jobIndex } : {}),
+        });
         if (resp) {
           return { state: ComputeToDataResponseState.FINISHED, data: resp };
         }
@@ -959,29 +1201,48 @@ export class PontusxService implements OnModuleInit {
 
   @Cron(CronExpression.EVERY_30_SECONDS)
   async __periodicallyFetchComputeJobs() {
-    const pendingJobs = await this.redis.lrange(
-      `${this.getSelectedNetworkConfig().network}:ctd:pending`,
-      0,
-      -1,
-    );
+    const pendingJobs = await this.redis.lrange(this.pendingJobsKey(), 0, -1);
     await Promise.all(
       pendingJobs.map(async (jobId) => {
         try {
-          // Check if compute to data is finished
-          if ((await this.getComputeToDataStatus(jobId)) != 70) {
+          // e.g. job ids of nautilus v1, which the ocean-node does not know
+          if (!COMPUTE_JOB_ID.test(jobId)) {
+            this.logger.warn(
+              `Dropping compute-to-data job '${jobId}': not an ocean-node job id`,
+            );
+            await this.redis.lrem(this.pendingJobsKey(), 1, jobId);
             return;
           }
 
-          // get compute to data result
+          // A job is done once it has a finish date, whether it succeeded or not
+          const job = await this.getComputeJob(jobId);
+          if (!job.dateFinished) {
+            return;
+          }
+          if (this.isFailedJob(job)) {
+            this.logger.warn(
+              `Compute-to-data job '${jobId}' ended without a result: ${job.status} (${job.statusText})`,
+            );
+            await this.redis.lrem(this.pendingJobsKey(), 1, jobId);
+            return;
+          }
+
+          // get compute to data result, the job's outputs.tar
           const ResultUrl = await this.nautilus.getComputeResult({
             jobId: jobId,
-            providerUri: this.getSelectedNetworkConfig().providerUri,
           });
-          let FetchedData: AxiosResponse | undefined;
+          // the output is not listed yet, maybe next iteration
+          if (!ResultUrl) {
+            return;
+          }
+          let FetchedData: AxiosResponse<ArrayBuffer> | undefined;
           const maxAttempts = 3;
           for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-              FetchedData = await axios.get(ResultUrl, { timeout: 5000 });
+              FetchedData = await axios.get(ResultUrl, {
+                timeout: 5000,
+                responseType: 'arraybuffer',
+              });
               break;
             } catch (err) {
               const status = axios.isAxiosError(err)
@@ -1011,40 +1272,16 @@ export class PontusxService implements OnModuleInit {
             return;
           }
 
-          let b64data = '';
-          switch (FetchedData.data.constructor) {
-            case Object:
-              b64data = Buffer.from(JSON.stringify(FetchedData.data)).toString(
-                'base64',
-              );
-              break;
-            case String:
-            case Buffer:
-            case ArrayBuffer:
-            case Array:
-            default:
-              b64data = Buffer.from(FetchedData.data).toString('base64');
-              break;
-          }
+          const b64data = Buffer.from(FetchedData.data).toString('base64');
 
           const redisTransaction = this.redis.multi();
-          redisTransaction.set(
-            `${this.getSelectedNetworkConfig().network}:ctd:result:${jobId}`,
-            b64data,
-          );
-          redisTransaction.expire(
-            `${this.getSelectedNetworkConfig().network}:ctd:result:${jobId}`,
-            60 * 60,
-          );
+          redisTransaction.set(this.resultKey(jobId), b64data);
+          redisTransaction.expire(this.resultKey(jobId), 60 * 60);
           redisTransaction.publish(
             `${this.getSelectedNetworkConfig().network}:ctd:finished`,
             jobId,
           );
-          redisTransaction.lrem(
-            `${this.getSelectedNetworkConfig().network}:ctd:pending`,
-            1,
-            jobId,
-          );
+          redisTransaction.lrem(this.pendingJobsKey(), 1, jobId);
           this.logger.debug(
             `Executing ${redisTransaction.length} redis commands after successful compute-to-data job`,
           );
@@ -1056,5 +1293,149 @@ export class PontusxService implements OnModuleInit {
         }
       }),
     );
+  }
+
+  private pendingJobsKey() {
+    return `${this.getSelectedNetworkConfig().network}:ctd:pending`;
+  }
+
+  private resultKey(jobId: string) {
+    return `${this.getSelectedNetworkConfig().network}:ctd:result:${jobId}`;
+  }
+
+  // Finished jobs that failed end below 70; 71 is set before the outputs are written.
+  private isFailedJob(job: NodeComputeJob) {
+    return (
+      Boolean(job.dateFinished) &&
+      job.status !== CTD_JOB_FINISHED &&
+      job.status !== CTD_JOB_SETTLING
+    );
+  }
+
+  private assertComputeJobId(jobId: string, metadata: Metadata) {
+    if (COMPUTE_JOB_ID.test(jobId)) return;
+    throw new RpcException({
+      code: GrpcStatusCode.INVALID_ARGUMENT,
+      message: `Compute job id '${jobId}' is not in the form <environmentHash>-<jobId> returned when the job was started`,
+      metadata,
+    });
+  }
+
+  /**
+   * Replaces the asset's address allow and deny lists with the given ones; access lists and
+   * SSI policies set elsewhere are kept. In nautilus v2 an empty or missing allow list
+   * denies everyone, so without allow addresses the asset is open to everyone, as in v1.
+   */
+  private setCredentialAddresses(
+    assetBuilder: AssetBuilder,
+    credentials: CredentialLists | undefined,
+    asset?: AssetV5,
+  ) {
+    for (const list of [CredentialListTypes.ALLOW, CredentialListTypes.DENY]) {
+      const stored = asset ? getCredentialAddresses(asset, list) : [];
+      if (stored.length) assetBuilder.removeCredentialAddresses(list, stored);
+    }
+    assetBuilder.addCredentialAddresses(
+      CredentialListTypes.ALLOW,
+      credentials?.allow?.length ? credentials.allow : ['*'],
+    );
+    if (credentials?.deny?.length) {
+      assetBuilder.addCredentialAddresses(
+        CredentialListTypes.DENY,
+        credentials.deny,
+      );
+    }
+  }
+
+  // The builders check the request before anything is sent, so their errors are the caller's.
+  private buildRequest<T>(where: string, build: () => T): T {
+    try {
+      return build();
+    } catch (err) {
+      if (isRpcException(err)) throw err;
+      throw new RpcException({
+        code: GrpcStatusCode.INVALID_ARGUMENT,
+        message: formatErrorMessage(err),
+        metadata: createErrorMetadata('pontusx', where),
+      });
+    }
+  }
+
+  private assertRemoteStore(where: string) {
+    if (this.remoteStore) return;
+    throw new RpcException({
+      code: GrpcStatusCode.FAILED_PRECONDITION,
+      message:
+        'Creating and updating Pontus-X offerings needs a DDO store: set DDO_STORE (ipfs or s3) and its settings',
+      metadata: createErrorMetadata('pontusx', where),
+    });
+  }
+
+  /** `defaultCode`: for an error that is neither a policy refusal nor an HTTP answer. */
+  private toRpcException(
+    err: any,
+    where: string,
+    defaultCode?: GrpcStatusCode,
+  ): RpcException {
+    const exception = this.toRpcExceptionWithoutOpId(err, where, defaultCode);
+    // nautilus tags its errors with the id of the operation its log lines carry
+    const metadata = exception.getError()?.['metadata'];
+    if (typeof err?.opId === 'string' && metadata instanceof Metadata) {
+      metadata.set('x-nautilus-op-id', err.opId);
+    }
+    return exception;
+  }
+
+  private toRpcExceptionWithoutOpId(
+    err: any,
+    where: string,
+    defaultCode?: GrpcStatusCode,
+  ): RpcException {
+    if (isRpcException(err)) return err;
+    // nautilus validates the DDO locally before any transaction
+    if (err instanceof DdoValidationError) {
+      return new RpcException({
+        code: GrpcStatusCode.INVALID_ARGUMENT,
+        message: `DDO validation failed: ${formatValidationErrors(err.errors)}`,
+        details: JSON.stringify(
+          Object.fromEntries(
+            Object.entries(err.errors).filter(([key]) => key !== 'fullReport'),
+          ),
+        ),
+        metadata: createErrorMetadata('pontusx', where),
+      });
+    }
+    // The policy server refused the consumer, before anything was ordered or paid.
+    if (err instanceof PolicyDeniedError) {
+      return new RpcException({
+        // 422: the asset's SSIpolicy cannot be read, which only its publisher can fix
+        code:
+          err.code === 422
+            ? GrpcStatusCode.FAILED_PRECONDITION
+            : GrpcStatusCode.PERMISSION_DENIED,
+        message: `Access to service ${err.serviceId} of ${err.did} denied for ${err.consumerAddress}: ${err.reason}`,
+        details: JSON.stringify({
+          did: err.did,
+          serviceId: err.serviceId,
+          consumerAddress: err.consumerAddress,
+          status: err.code,
+          reason: err.reason,
+          // Only the names: a policy's error can quote the presented credential.
+          failedPolicies: err.policyResults
+            ?.filter((result) => !result.success)
+            .map((result) => result.policy),
+        }),
+        metadata: createErrorMetadata('pontusx', where),
+      });
+    }
+    const presentation = PRESENTATION_REQUIRED.exec(err?.message ?? '');
+    if (presentation) {
+      return new RpcException({
+        code: GrpcStatusCode.FAILED_PRECONDITION,
+        message: `Service ${presentation[1]} of ${presentation[2]} requires verifiable credentials, which this gateway cannot present. Nothing was ordered or paid.`,
+        metadata: createErrorMetadata('pontusx', where),
+      });
+    }
+    return mapToRpcException(err, { service: 'pontusx', where, defaultCode });
   }
 }

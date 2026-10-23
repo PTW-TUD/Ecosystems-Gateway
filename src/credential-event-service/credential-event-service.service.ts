@@ -6,7 +6,9 @@ import { catchError, firstValueFrom } from 'rxjs';
 import {
   ComplianceCloudEventDTO,
   defaultComplianceCloudEventDTO,
-} from './event-dto';
+} from './event-dto.js';
+import { formatErrorMessage } from '../grpc-error.util.js';
+import { redactForLog } from '../logging.js';
 
 @Injectable()
 export class CredentialEventServiceService implements OnModuleInit {
@@ -31,20 +33,23 @@ export class CredentialEventServiceService implements OnModuleInit {
       data: vc,
     };
 
-    this.logger.debug(`posting to ${this.cesUrl}:`, payload);
+    this.logger.debug(`Posting event of ${source} to ${this.cesUrl}`);
+    this.logger.verbose(redactForLog(payload));
 
     const { headers } = await firstValueFrom(
       this.httpService.post(this.cesUrl, payload).pipe(
         catchError((err: AxiosError) => {
           // TODO: proper error handling
-          console.error(err);
-          this.logger.error(err);
+          this.logger.error(
+            `Publishing to the Credential Event Service failed: ${formatErrorMessage(err)}`,
+          );
           throw 'Failed to push data to the Credential Event Service';
         }),
       ),
     );
-    this.logger.debug('got', headers);
-    console.log('result', headers);
+    this.logger.debug(
+      `Credential Event Service created the event at ${headers['location']}`,
+    );
     return headers['location'];
   }
 }

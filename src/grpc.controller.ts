@@ -1,7 +1,7 @@
 import { Controller, Logger } from '@nestjs/common';
 import { GrpcMethod, RpcException } from '@nestjs/microservices';
-import { PontusxService } from './pontusx/pontusx.service';
-import { XfscService } from './xfsc/xfsc.service';
+import { PontusxService } from './pontusx/pontusx.service.js';
+import { XfscService } from './xfsc/xfsc.service.js';
 import {
   CreateOfferingRequest,
   CreateOfferingResponse,
@@ -21,19 +21,32 @@ import {
   ComputeToDataStatusResponse,
   QueryOfferingsRequest,
   QueryOfferingsResponse,
-} from './generated/spp_v2';
+} from './generated/spp_v3.js';
 import { status as GrpcStatusCode } from '@grpc/grpc-js';
 import {
   extractRpcError,
   isRpcException,
   mapToRpcException,
-} from './grpc-error.util';
+} from './grpc-error.util.js';
 import { LifecycleStates } from '@deltadao/nautilus';
 import {
-  CtdStatusCode,
-  CtdStatusMap,
   CtdToDcpStateMap,
-} from './pontusx/utility';
+  getCtdStatusText,
+  isCtdStatusCode,
+} from './pontusx/utility.js';
+import { redactForLog } from './logging.js';
+
+// Errors caused by the request: logged as warnings, without a stack trace.
+const CLIENT_ERROR_CODES = new Set<number>([
+  GrpcStatusCode.INVALID_ARGUMENT,
+  GrpcStatusCode.NOT_FOUND,
+  GrpcStatusCode.ALREADY_EXISTS,
+  GrpcStatusCode.PERMISSION_DENIED,
+  GrpcStatusCode.UNAUTHENTICATED,
+  GrpcStatusCode.FAILED_PRECONDITION,
+  GrpcStatusCode.OUT_OF_RANGE,
+  GrpcStatusCode.UNIMPLEMENTED,
+]);
 
 @Controller('grpc')
 export class GrpcController {
@@ -53,29 +66,39 @@ export class GrpcController {
       this.logger.log(`[${method}] ↗ ok in ${Date.now() - start}ms`);
       return res;
     } catch (err: any) {
-      const ms = Date.now() - start;
-      // Pass-through if already RpcException
-      if (isRpcException(err)) {
-        const p = extractRpcError(err);
-        const codeName = p.code != null ? GrpcStatusCode[p.code] : 'UNKNOWN';
-        this.logger.error(
-          `[${method}] ✗ RpcException ${codeName} in ${ms}ms: ${p.message}`,
-          err?.stack,
-        );
-        throw err;
-      }
-      // Map unknown errors
-      const mapped = mapToRpcException(err, {
-        service: 'grpc.controller',
-        where: method,
-        defaultCode: GrpcStatusCode.INTERNAL,
-      });
-      const p = extractRpcError(mapped);
-      this.logger.error(
-        `[${method}] ✗ mapped in ${ms}ms: ${p.message}`,
-        mapped.stack,
-      );
-      throw mapped;
+      // Pass-through if already RpcException, map unknown errors
+      const exception = isRpcException(err)
+        ? err
+        : mapToRpcException(err, {
+            service: 'grpc.controller',
+            where: method,
+            defaultCode: GrpcStatusCode.INTERNAL,
+          });
+      this.logRpcError(method, Date.now() - start, exception);
+      throw exception;
+    }
+  }
+
+  private logRpcError(method: string, ms: number, exception: RpcException) {
+    const p = extractRpcError(exception);
+    const codeName = p.code != null ? GrpcStatusCode[p.code] : 'UNKNOWN';
+    // the id of the nautilus operation, as its log lines carry it
+    const opId = p.metadata?.get?.('x-nautilus-op-id')?.[0];
+    const message = `[${method}] ✗ ${codeName} in ${ms}ms: ${p.message}${
+      opId ? ` (nautilus op ${opId})` : ''
+    }`;
+    if (p.code != null && CLIENT_ERROR_CODES.has(p.code)) {
+      this.logger.warn(message);
+    } else {
+      this.logger.error(message, exception.stack);
+    }
+  }
+
+  // The request without credentials (data source headers, userdata), at verbose level.
+  private logRequest(method: string, data: unknown) {
+    this.logger.debug(`grpc method ${method} called`);
+    if (Logger.isLevelEnabled('verbose')) {
+      this.logger.verbose(redactForLog(data));
     }
   }
 
@@ -83,8 +106,7 @@ export class GrpcController {
   async createOffering(
     data: CreateOfferingRequest,
   ): Promise<CreateOfferingResponse> {
-    this.logger.debug('grpc method CreateOffering called');
-    this.logger.verbose(data);
+    this.logRequest('CreateOffering', data);
 
     const results = [];
     for (const offering of data.offerings) {
@@ -97,12 +119,9 @@ export class GrpcController {
         }
       } else {
         try {
-          const VP = JSON.parse(offering.xfscOffering.VP);
+          const VP = JSON.parse(offering.xfscOffering.vp);
           const token = await this.xfscService.getToken();
-          const singleResult = await this.xfscService.publish(
-            token,
-            (data = VP),
-          );
+          const singleResult = await this.xfscService.publish(token, VP);
           results.push(singleResult);
         } catch (err) {
           this.logger.error(
@@ -117,7 +136,7 @@ export class GrpcController {
     if (results.length) {
       return {
         id: results,
-        DebugInformation: undefined,
+        debugInformation: undefined,
       };
     }
   }
@@ -126,8 +145,7 @@ export class GrpcController {
   async updateOffering(
     data: UpdateOfferingRequest,
   ): Promise<UpdateOfferingResponse> {
-    this.logger.debug('grpc method UpdateOffering called');
-    this.logger.verbose(data);
+    this.logRequest('UpdateOffering', data);
 
     const ces_results: Array<string> = [];
     const results = [];
@@ -146,23 +164,23 @@ export class GrpcController {
         // XFSC
         const token = await this.xfscService.getToken();
         const hash = offering.xfscUpdateOffering.hash;
-        const VP = JSON.parse(offering.xfscUpdateOffering.VP);
+        const VP = JSON.parse(offering.xfscUpdateOffering.vp);
 
         const result = await this.xfscService.update(token, hash, VP);
 
         return {
           id: [result],
           locations: undefined,
-          DebugInformation: undefined,
+          debugInformation: undefined,
         };
       }
     }
 
     if (ces_results.length || results.length) {
       return {
-        id: results,
+        id: ids,
         locations: ces_results,
-        DebugInformation: { results },
+        debugInformation: { results },
       };
     }
 
@@ -176,8 +194,7 @@ export class GrpcController {
   async updateOfferingLifecycle(
     data: UpdateOfferingLifecycleRequest,
   ): Promise<UpdateOfferingLifecycleResponse> {
-    this.logger.debug('grpc method UpdateOfferingLifecycle called');
-    this.logger.verbose(data);
+    this.logRequest('UpdateOfferingLifecycle', data);
     const results = [];
     const ids = [];
     for (const offering of data.offerings) {
@@ -206,7 +223,7 @@ export class GrpcController {
     if (results.length) {
       return {
         id: ids,
-        DebugInformation: { results },
+        debugInformation: { results },
       };
     }
 
@@ -220,8 +237,7 @@ export class GrpcController {
   async getComputeToDataResult(
     data: CreateComputeToDataResultRequest,
   ): Promise<GetComputeToDataResultResponse> {
-    this.logger.debug('grpc method GetComputeToDataResult called');
-    this.logger.verbose(data);
+    this.logRequest('GetComputeToDataResult', data);
     const result = await this.runRpc('getComputeToDataResult', () =>
       this.pontusxService.getComputeToDataResult(
         data.jobId,
@@ -242,8 +258,7 @@ export class GrpcController {
 
   @GrpcMethod('ecosystemsgateway')
   async getOffering(data: GetOfferingRequest): Promise<GetOfferingResponse> {
-    this.logger.debug('grpc method GetOffering called');
-    this.logger.verbose(data);
+    this.logRequest('GetOffering', data);
 
     const result: string[] = [];
     await Promise.all(
@@ -275,7 +290,7 @@ export class GrpcController {
     if (result.length) {
       return {
         offerings: result,
-        DebugInformation: [],
+        debugInformation: undefined,
       };
     }
     throw new RpcException({
@@ -284,12 +299,11 @@ export class GrpcController {
     });
   }
 
-  @GrpcMethod('ecosystemgateway')
+  @GrpcMethod('ecosystemsgateway')
   async queryOfferings(
     data: QueryOfferingsRequest,
   ): Promise<QueryOfferingsResponse> {
-    this.logger.debug('grpc method QueryOfferings called');
-    this.logger.verbose(data);
+    this.logRequest('QueryOfferings', data);
 
     const result: string[] = [];
     let resultTotal: number = 0;
@@ -318,24 +332,18 @@ export class GrpcController {
         message: 'xfscQuery is currently not implemented',
       });
     }
-    if (result.length) {
-      return {
-        offerings: result,
-        total: resultTotal,
-      };
-    }
-    throw new RpcException({
-      code: GrpcStatusCode.INTERNAL,
-      message: 'Internal Error - no results',
-    });
+    // a search without matches is an answer, not an error
+    return {
+      offerings: result,
+      total: resultTotal,
+    };
   }
 
   @GrpcMethod('ecosystemsgateway')
   async accessService(
     data: AccessServiceRequest,
   ): Promise<AccessServiceResponse> {
-    this.logger.debug('grpc method AccessService called');
-    this.logger.verbose(data);
+    this.logRequest('AccessService', data);
 
     let result: string;
 
@@ -370,14 +378,9 @@ export class GrpcController {
   async RunComputeToDataJob(
     data: CreateComputeToDataRequest,
   ): Promise<ComputeToDataResponse> {
-    this.logger.debug('grpc method RunComputeToDataJob called');
-    this.logger.verbose(data);
+    this.logRequest('RunComputeToDataJob', data);
     const result = await this.runRpc('requestComputeToData', () =>
-      this.pontusxService.requestComputeToData(
-        data.did,
-        data.algorithm,
-        data.userdata,
-      ),
+      this.pontusxService.requestComputeToData(data),
     );
     if (result) {
       return {
@@ -394,25 +397,18 @@ export class GrpcController {
   async GetComputeToDataStatus(
     data: ComputeToDataStatusRequest,
   ): Promise<ComputeToDataStatusResponse> {
-    this.logger.debug('grpc method RunComputeToDataJob called');
-    this.logger.verbose(data);
+    this.logRequest('GetComputeToDataStatus', data);
     const result = await this.runRpc('getComputeToDataStatus', () =>
       this.pontusxService.getComputeToDataStatus(data.jobId),
     );
-    if (result) {
-      if (result in CtdStatusMap) {
-        return {
-          status: result as CtdStatusCode,
-          description:
-            CtdStatusMap[result as CtdStatusCode] +
-            ' | ' +
-            CtdToDcpStateMap[result as CtdStatusCode],
-        };
-      }
-      throw new RpcException({
-        code: GrpcStatusCode.NOT_FOUND,
-        message: `Compute Job couldn't be found`,
-      });
+    // 0 ("Job started") is a valid status
+    if (result !== undefined && result !== null) {
+      return {
+        status: result,
+        description: isCtdStatusCode(result)
+          ? getCtdStatusText(result) + ' | ' + CtdToDcpStateMap[result]
+          : `Unknown compute job status ${result}`,
+      };
     }
     throw new RpcException({
       code: GrpcStatusCode.INTERNAL,

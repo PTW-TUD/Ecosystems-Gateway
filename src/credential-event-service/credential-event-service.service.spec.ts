@@ -1,5 +1,6 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
-import { CredentialEventServiceService } from './credential-event-service.service';
+import { CredentialEventServiceService } from './credential-event-service.service.js';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 
@@ -8,8 +9,8 @@ describe('CredentialEventServiceService', () => {
   let httpService: HttpService;
   const mockHttpService = {
     axiosRef: {
-      request: jest.fn(),
-      post: jest.fn(),
+      request: vi.fn(),
+      post: vi.fn(),
     },
   };
 

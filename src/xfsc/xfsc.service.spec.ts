@@ -1,13 +1,12 @@
+import { describe, it, expect, vi } from 'vitest';
 import axios, { AxiosResponse } from 'axios';
-import { XfscService } from './xfsc.service';
+import { XfscService } from './xfsc.service.js';
 
-jest.mock('axios');
 import {
   CreateOfferingRequest,
   CreateOfferingResponse,
-} from '../generated/spp_v2';
+} from '../generated/spp_v3.js';
 
-jest.mock('axios');
 describe('Xfsc service', () => {
   const xfscService = new XfscService();
 
@@ -18,7 +17,7 @@ describe('Xfsc service', () => {
       },
     };
 
-    axios.request = jest.fn().mockResolvedValue(mockResponse);
+    axios.request = vi.fn().mockResolvedValue(mockResponse);
 
     const token = await xfscService.getToken();
 
@@ -42,7 +41,7 @@ describe('Xfsc service', () => {
       },
     };
 
-    axios.request = jest.fn().mockResolvedValue(response);
+    axios.request = vi.fn().mockResolvedValue(response);
 
     const result = await xfscService.publish(mockToken, mockVP);
     expect(result).toBe('mockID');
@@ -57,14 +56,15 @@ describe('Xfsc service', () => {
       }),
     );
 
-    expect(xfscService.publish).rejects.toThrow();
+    axios.request = vi.fn().mockRejectedValue(new Error('unreachable'));
+    await expect(xfscService.publish(mockToken, mockVP)).rejects.toThrow();
   });
 
   it('Delete function should return the Nothing and throw an error in case of a problem', async () => {
     const mockToken = 'mockToken';
     const mockHash = 'mockHash';
 
-    axios.request = jest.fn().mockResolvedValue(undefined);
+    axios.request = vi.fn().mockResolvedValue(undefined);
 
     await xfscService.delete(mockToken, mockHash);
 
@@ -77,7 +77,8 @@ describe('Xfsc service', () => {
       }),
     );
 
-    expect(xfscService.delete).rejects.toThrow();
+    axios.request = vi.fn().mockRejectedValue(new Error('unreachable'));
+    await expect(xfscService.delete(mockToken, mockHash)).rejects.toThrow();
   });
 
   it('Update Function should return the ID as well as throwing an error in case of a problem occuring', async () => {
@@ -99,12 +100,16 @@ describe('Xfsc service', () => {
       },
     };
 
-    axios.request = jest.fn().mockResolvedValue(response);
+    axios.request = vi.fn().mockResolvedValue(response);
 
     const result = await xfscService.update(mockToken, mockHash, mockVP);
 
     expect(result).toBe('mockID');
-    expect(xfscService.update).rejects.toThrow();
+
+    axios.request = vi.fn().mockRejectedValue(new Error('unreachable'));
+    await expect(
+      xfscService.update(mockToken, mockHash, mockVP),
+    ).rejects.toThrow();
   });
 
   it('revoke Function should return ID and throw an error in case of a problem occuring', async () => {
@@ -122,10 +127,12 @@ describe('Xfsc service', () => {
       },
     };
 
-    axios.request = jest.fn().mockResolvedValue(response);
+    axios.request = vi.fn().mockResolvedValue(response);
 
     const result = await xfscService.revoke(mockToken, mockHash);
     expect(result).toBe('mockID');
-    expect(xfscService.revoke).rejects.toThrow();
+
+    axios.request = vi.fn().mockRejectedValue(new Error('unreachable'));
+    await expect(xfscService.revoke(mockToken, mockHash)).rejects.toThrow();
   });
 });

@@ -4,14 +4,10 @@ RUN apk update && apk add python3 make gcc g++ bash
 
 WORKDIR /usr/src/app
 
-COPY --chown=node:node package*.json .npmrc ./
-COPY --chown=node:node scripts ./scripts
+COPY --chown=node:node package*.json ./
 RUN npm ci
 
-COPY --chown=node:node buf.yaml buf.gen.yaml ./
-COPY --chown=node:node src/_proto ./src/_proto
-RUN npx buf dep update && npx buf generate
-
+# src/generated and src/openapi are committed (npm run proto:gen), and CI checks they are current.
 COPY --chown=node:node . .
 # Run the build command which creates the production bundle
 RUN npm run build
@@ -30,6 +26,8 @@ USER node
 FROM node:22-alpine AS production
 
 # Copy the bundled code from the build stage to the production image
+# package.json marks dist/ as ES modules ("type": "module")
+COPY --chown=node:node --from=build /usr/src/app/package.json ./package.json
 COPY --chown=node:node --from=build /usr/src/app/node_modules ./node_modules
 COPY --chown=node:node --from=build /usr/src/app/dist ./dist
 COPY --chown=node:node --from=build /usr/src/app/src/openapi ./dist/openapi

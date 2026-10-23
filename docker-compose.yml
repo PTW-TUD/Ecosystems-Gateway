@@ -6,13 +6,16 @@ services:
     restart: unless-stopped
     environment:
       - PRIVATE_KEY=0x... # Create your own via https://gchq.github.io/CyberChef/#recipe=Generate_ECDSA_Key_Pair('P-256','DER')
-      - NETWORK=PONTUSXDEV
-      - NESTJS_LOG_LEVELS=log,debug
-      - NAUTILUS_LOG_LEVEL=verbose
+      - NETWORK=OPSEPOLIA
+      - NESTJS_LOG_LEVELS=log,warn,debug
+      - NAUTILUS_LOG_LEVEL=debug
       - ENABLE_GRPC_GATEWAY=true
       - REDIS_ADDRESS=redis-pub:6379
-      - PROVIDER_URL=https://provider.dev.pontus-x.eu
-      - PROVIDER_ADDRESS=0x68C24FA5b2319C81b34f248d1f928601D2E5246B
+      - OCEAN_NODE_URI=https://node.demo.pontus-x.eu # an OceanProtocolEnterprise ocean-node 4.2.x
+      - DDO_STORE=ipfs # needed to create and update offerings, see .env.example
+      - IPFS_UPLOAD_URL=https://api.pinata.cloud/pinning/pinFileToIPFS
+      - IPFS_JWT=xxx
+      - IPFS_GATEWAY_URL=https://gateway.pinata.cloud
     ports:
       - '5002:5002'
       - '3000:3000'

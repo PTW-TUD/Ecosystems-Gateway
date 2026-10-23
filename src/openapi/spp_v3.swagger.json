@@ -1,0 +1,1523 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ecosystem Gateway API",
+    "description": "HTTP/JSON gateway for publishing, querying, and consuming ecosystem offerings.",
+    "version": "3.0"
+  },
+  "tags": [
+    {
+      "name": "ecosystemsgateway",
+      "description": "Public gateway API for publishing, querying, and consuming offerings across supported ecosystems."
+    }
+  ],
+  "basePath": "/",
+  "schemes": [
+    "http"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/grpc/AccessService": {
+      "post": {
+        "summary": "Access service",
+        "description": "Requests an access URL for a published service.",
+        "operationId": "ecosystemsgateway_AccessService",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v3AccessServiceResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "Request payload for retrieving a consumable access URL for a service.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v3AccessServiceRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ecosystemsgateway"
+        ]
+      }
+    },
+    "/grpc/CreateOffering": {
+      "post": {
+        "summary": "Create offering",
+        "description": "Publishes one or more offerings to Pontus-X and/or XFSC.",
+        "operationId": "ecosystemsgateway_CreateOffering",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v3CreateOfferingResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "Request payload for publishing one or more offerings.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v3CreateOfferingRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ecosystemsgateway"
+        ]
+      }
+    },
+    "/grpc/GetComputeToDataResult": {
+      "post": {
+        "summary": "Get compute-to-data result",
+        "description": "Returns the output of a completed compute-to-data job.",
+        "operationId": "ecosystemsgateway_GetComputeToDataResult",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v3GetComputeToDataResultResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "Request payload for retrieving compute-to-data job results.\nBy default the job's output archive (outputs.tar) is returned; for C2D_URI, jobIndex selects another result file of the job.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v3CreateComputeToDataResultRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ecosystemsgateway"
+        ]
+      }
+    },
+    "/grpc/GetComputeToDataStatus": {
+      "post": {
+        "summary": "Get compute-to-data status",
+        "description": "Returns the current execution status of a compute-to-data job.",
+        "operationId": "ecosystemsgateway_GetComputeToDataStatus",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v3ComputeToDataStatusResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "Request payload for the status of a compute-to-data job.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v3ComputeToDataStatusRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ecosystemsgateway"
+        ]
+      }
+    },
+    "/grpc/GetOffering": {
+      "post": {
+        "summary": "Get offering",
+        "description": "Fetches one or more offerings by identifier or lookup criteria.",
+        "operationId": "ecosystemsgateway_GetOffering",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v3GetOfferingResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "Request payload for retrieving offerings.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v3GetOfferingRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ecosystemsgateway"
+        ]
+      }
+    },
+    "/grpc/QueryOfferings": {
+      "post": {
+        "summary": "Query offerings",
+        "description": "Searches offerings in the selected ecosystem.",
+        "operationId": "ecosystemsgateway_QueryOfferings",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v3QueryOfferingsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "Request payload for searching offerings.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v3QueryOfferingsRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ecosystemsgateway"
+        ]
+      }
+    },
+    "/grpc/RunComputeToDataJob": {
+      "post": {
+        "summary": "Run compute-to-data job",
+        "description": "Starts a compute-to-data job for a published asset.",
+        "operationId": "ecosystemsgateway_RunComputeToDataJob",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v3ComputeToDataResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "Request payload for starting a compute-to-data job in Pontus-X.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v3CreateComputeToDataRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ecosystemsgateway"
+        ]
+      }
+    },
+    "/grpc/UpdateOffering": {
+      "post": {
+        "summary": "Update offering",
+        "description": "Updates an existing offering in the target ecosystem.",
+        "operationId": "ecosystemsgateway_UpdateOffering",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v3UpdateOfferingResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "Request payload for updating already published offerings.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v3UpdateOfferingRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ecosystemsgateway"
+        ]
+      }
+    },
+    "/grpc/UpdateOfferingLifecycle": {
+      "post": {
+        "summary": "Update offering lifecycle",
+        "description": "Changes the lifecycle state of an existing offering.",
+        "operationId": "ecosystemsgateway_UpdateOfferingLifecycle",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v3UpdateOfferingLifecycleResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "Request payload for changing the lifecycle state of an existing offering.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v3UpdateOfferingLifecycleRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ecosystemsgateway"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "GaiaXServiceSelfDescription": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "title": "Static URL of the self-description"
+        },
+        "isVerified": {
+          "type": "boolean",
+          "title": "Optional identifier if the self-description has been verified against a Gaia-X Compliance Service\nMainly used by the deltaDAO portal"
+        }
+      },
+      "title": "Endpoint to the Gaia-X compliant Self-Description (VP) of the offering"
+    },
+    "PontusxUpdateOfferingUpdateService": {
+      "type": "object",
+      "properties": {
+        "service": {
+          "$ref": "#/definitions/ecosystemsgatewayV3Service"
+        },
+        "index": {
+          "type": "integer",
+          "format": "int32",
+          "title": "Optional index of the service of the asset that is to be updated according to the information in the service field above\nIf no index is given the first service [index = 0] is updated"
+        }
+      },
+      "title": "Updated Services that are exposed by the asset to interact with it"
+    },
+    "PricingPricingType": {
+      "type": "string",
+      "enum": [
+        "FREE",
+        "FIXED_OCEAN",
+        "FIXED_EUROE",
+        "FIXED_EURAU"
+      ],
+      "default": "FREE",
+      "description": "The payment tokens a network offers: OP Sepolia FREE and FIXED_EURAU (devEURAU),\nthe Pontus-X networks all of them"
+    },
+    "QueryOfferingsRequestQuery": {
+      "type": "object",
+      "properties": {
+        "pontusxQuery": {
+          "$ref": "#/definitions/v3PontusxQueryOfferings"
+        },
+        "xfscQuery": {
+          "$ref": "#/definitions/v3XfscQueryOfferings"
+        }
+      }
+    },
+    "XfscUpdateOfferingLifecycleXfscLifecycleStates": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "REVOKED_BY_PUBLISHER",
+        "DELETED"
+      ],
+      "default": "ACTIVE",
+      "description": "- ACTIVE: Fully functional asset\nDiscoverable in Portal\nDefault value meaning nothing has to be changed\n - REVOKED_BY_PUBLISHER: Publisher has explicitly revoked access or ownership rights to the asset\nAsset will stay in the catalogue but an expiration date will be added\n - DELETED: Asset will be completely deleted from the catalogue",
+      "title": "Possible lifecycle states of asset in the XFSC ecosystem"
+    },
+    "ecosystemsgatewayV3Service": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "title": "Type of service: access or compute"
+        },
+        "pricing": {
+          "$ref": "#/definitions/v3Pricing",
+          "title": "Information about the pricing model and amount for consumption"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3Files"
+          },
+          "title": "Files that contain the data related to the asset/service\nAt least one file is required for publication"
+        },
+        "timeout": {
+          "type": "integer",
+          "format": "int64",
+          "title": "Describing how long the service can be used after consumption is initiated.\nExpressed in seconds; where 0 represents no time limit\nDefaults to 86400 (one day) when publishing; an update keeps the stored timeout unless one is given"
+        },
+        "tokenName": {
+          "type": "string",
+          "title": "Name for the access token that is generated for consuming the asset/service\nImportant for following access token transactions in the explorer"
+        },
+        "tokenSymbol": {
+          "type": "string",
+          "title": "Corresponding Symbol (Abbreviation) for the access token that is generated for consuming the asset/service\nImportant for following access token transactions in the explorer"
+        },
+        "serviceEndpoint": {
+          "type": "string",
+          "title": "URL (schema + host) of the ocean-node that serves the service; its files are encrypted for this node\nIf no value is given the gateway's ocean-node (OCEAN_NODE_URI) is used\nAn update keeps the stored endpoint unless one is given, and can only change it together with the files"
+        },
+        "computeOptions": {
+          "$ref": "#/definitions/v3ComputeOptions",
+          "title": "Compute options for a compute asset/service\nOnly optional if the offering is of type 'access' and not 'compute'"
+        },
+        "consumerParameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3ConsumerParameter"
+          },
+          "title": "Optional message that defines required consumer input before consuming the asset/service\nOn an update, the given parameters replace the stored ones; none given keeps them"
+        }
+      },
+      "title": "Services define the access for an asset"
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "protobufNullValue": {
+      "type": "string",
+      "enum": [
+        "NULL_VALUE"
+      ],
+      "default": "NULL_VALUE",
+      "description": "`NullValue` is a singleton enumeration to represent the null value for the\n`Value` type union.\n\nThe JSON representation for `NullValue` is JSON `null`.\n\n - NULL_VALUE: Null value."
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "v3AccessServiceRequest": {
+      "type": "object",
+      "properties": {
+        "service": {
+          "$ref": "#/definitions/v3AccessServiceRequestService"
+        }
+      },
+      "description": "Request payload for retrieving a consumable access URL for a service."
+    },
+    "v3AccessServiceRequestService": {
+      "type": "object",
+      "properties": {
+        "pontusxService": {
+          "$ref": "#/definitions/v3PontusxAccessService"
+        },
+        "xfscService": {
+          "$ref": "#/definitions/v3XfscAccessService"
+        }
+      }
+    },
+    "v3AccessServiceResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "title": "Identifier of the requested service offering\nexample: did:ope:123 in Pontus-X ecosystem"
+        },
+        "accessUrl": {
+          "type": "string",
+          "title": "Download URL of the ocean-node"
+        }
+      },
+      "description": "Response returned with the access URL."
+    },
+    "v3AdditionalInformation": {
+      "type": "object",
+      "properties": {
+        "termsAndConditions": {
+          "type": "boolean",
+          "title": "Boolean to indicate if the publisher specifies it's own terms and conditions for consumption of the asset"
+        },
+        "gaiaXInformation": {
+          "$ref": "#/definitions/v3GaiaX",
+          "title": "Information in the context of Gaia-X compliance including the link to the Self-Description of the offering (VP)"
+        }
+      },
+      "description": "Additional Pontus-X specific metadata, primarily for Gaia-X related information."
+    },
+    "v3AlgorithmMetadata": {
+      "type": "object",
+      "properties": {
+        "language": {
+          "type": "string",
+          "title": "Language used to implement the software, e.g. \"python\""
+        },
+        "version": {
+          "type": "string",
+          "description": "Version of the software preferably in SemVer notation, e.g. 1.0.0."
+        },
+        "consumerParameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3ConsumerParameter"
+          },
+          "title": "Optional consumer parameters of the algorithm\nTheir values are given with CreateComputeToDataRequest.algorithmParameters"
+        },
+        "container": {
+          "$ref": "#/definitions/v3Container",
+          "title": "Information about the Docker image for running the algorithm"
+        }
+      },
+      "description": "Metadata of an algorithm."
+    },
+    "v3ComputeOptions": {
+      "type": "object",
+      "properties": {
+        "allowRawAlgorithm": {
+          "type": "boolean",
+          "title": "If true, any passed raw text will be allowed to run. Useful for an algorithm drag \u0026 drop use case, but increases risk of data escape through malicious user input.\nDefaults to false when publishing; an update keeps the stored value unless one is given"
+        },
+        "allowNetworkAccess": {
+          "type": "boolean",
+          "title": "If true, the algorithm job will have network access.\nDefaults to false when publishing; an update keeps the stored value unless one is given"
+        },
+        "trustedAlgorithms": {
+          "$ref": "#/definitions/v3TrustedAlgorithms",
+          "title": "Published algorithms the publisher allows to run on the service\nWhen given, replaces the stored ones"
+        },
+        "trustedPublishers": {
+          "$ref": "#/definitions/v3TrustedPublishers",
+          "title": "Publishers whose published algorithms may all run on the service\nWhen given, replaces the stored ones"
+        }
+      },
+      "description": "Which algorithms may run on a compute service.\nWhen publishing, a list that is not given trusts nobody; on an update, it keeps the stored one.\nWithout trusted algorithms, trusted publishers and raw algorithms, no algorithm can run."
+    },
+    "v3ComputeResource": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "title": "Resource id as the compute environment lists it, e.g. \"cpu\", \"ram\" or \"disk\""
+        },
+        "amount": {
+          "type": "number",
+          "format": "double",
+          "title": "Amount in the unit of the environment, e.g. cores or GB"
+        }
+      },
+      "description": "A resource requested for a compute job."
+    },
+    "v3ComputeToDataResponse": {
+      "type": "object",
+      "properties": {
+        "jobId": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "ocean-node job ids in the form \u003cenvironmentHash\u003e-\u003cjobId\u003e"
+        }
+      },
+      "description": "Response returned after starting a compute-to-data job."
+    },
+    "v3ComputeToDataResponseState": {
+      "type": "string",
+      "enum": [
+        "QUEUED",
+        "IN_PROGRESS",
+        "FINISHED"
+      ],
+      "default": "QUEUED",
+      "description": "Processing state of a compute-to-data result."
+    },
+    "v3ComputeToDataResultType": {
+      "type": "string",
+      "enum": [
+        "C2D_DATA",
+        "C2D_URI"
+      ],
+      "default": "C2D_DATA",
+      "description": "How the result of a compute-to-data job is returned.\n\n - C2D_DATA: The result, base64 encoded, fetched and cached by the gateway once the job finished\n - C2D_URI: A download URL of the ocean-node for the result"
+    },
+    "v3ComputeToDataStatusRequest": {
+      "type": "object",
+      "properties": {
+        "jobId": {
+          "type": "string",
+          "title": "ocean-node job id in the form \u003cenvironmentHash\u003e-\u003cjobId\u003e"
+        }
+      },
+      "description": "Request payload for the status of a compute-to-data job."
+    },
+    "v3ComputeToDataStatusResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "integer",
+          "format": "int32",
+          "title": "Compute-to-Data v2 status code of the ocean-node, e.g. 1 queued, 40 running algorithm,\n70 finished; a job that ends below 70 failed"
+        },
+        "description": {
+          "type": "string",
+          "title": "Description of the status code"
+        }
+      },
+      "description": "Status of a compute-to-data job."
+    },
+    "v3ConsumerParameter": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "title": "The parameter name (this is sent as HTTP param or key towards algo)"
+        },
+        "type": {
+          "type": "string",
+          "title": "The field type (text, number, boolean, select)"
+        },
+        "label": {
+          "type": "string",
+          "title": "The field label which is displayed"
+        },
+        "required": {
+          "type": "boolean",
+          "title": "Boolean which indicates if customer input for this field is mandatory"
+        },
+        "description": {
+          "type": "string"
+        },
+        "default": {
+          "type": "string",
+          "title": "The field default value. Has to match the transmitted type transmitted as string"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "title": "For select types, a list of options as JSON objects containing a single key-value-pair\nThe key represents the option name, and the value is the option value\ne.g. {\"nodejs\": \"I love NodeJS\"}"
+        }
+      },
+      "title": "Additional input parameter that the asset needs before downloading or running a Compute-to-Data job at algorithm runtime"
+    },
+    "v3Container": {
+      "type": "object",
+      "properties": {
+        "entrypoint": {
+          "type": "string",
+          "title": "The command to execute, or script to run inside the Docker image, e.g. \"node $ALGO\"\n$ALGO is a macro that gets replaced inside the compute job, depending where your algorithm code is downloaded"
+        },
+        "image": {
+          "type": "string",
+          "title": "The Docker image name the algorithm will run with\ne.g. \"node\""
+        },
+        "tag": {
+          "type": "string",
+          "title": "The Docker image tag that you are going to use\ne.g. \"latest\""
+        },
+        "checksum": {
+          "type": "string",
+          "title": "Digest of the Docker image (e.g: sha256:xxxx)"
+        }
+      },
+      "description": "Docker image of an algorithm."
+    },
+    "v3CreateComputeToDataRequest": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string",
+          "title": "DID of the dataset"
+        },
+        "serviceId": {
+          "type": "string",
+          "title": "Compute service of the dataset; defaults to its first compute service"
+        },
+        "userdata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Values for the consumer parameters of the dataset's compute service"
+        },
+        "algorithm": {
+          "type": "string",
+          "title": "DID of the algorithm to run on the dataset"
+        },
+        "algorithmServiceId": {
+          "type": "string",
+          "title": "Service of the algorithm; defaults to its compute service, else its first service"
+        },
+        "algorithmUserdata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Values for the consumer parameters of the algorithm's service"
+        },
+        "algorithmParameters": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Values for the consumer parameters of the algorithm itself (Metadata.algorithm.consumerParameters)"
+        },
+        "computeEnv": {
+          "type": "string",
+          "title": "Compute environment of the ocean-node; defaults to the gateway's COMPUTE_ENV, else the node's first"
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3ComputeResource"
+          },
+          "title": "Resources to request, e.g. cpu, ram (GB) and disk (GB), with ids as the environment lists them\nDefaults to the environment's minimum of each, at least 1 cpu, ram and disk"
+        },
+        "maxJobDuration": {
+          "type": "integer",
+          "format": "int64",
+          "title": "Maximum job duration in seconds; capped to the environment's limit"
+        },
+        "free": {
+          "type": "boolean",
+          "title": "Runs the job in the environment's free tier: nothing is ordered or paid, but the\nenvironment has to offer one and its limits apply"
+        }
+      },
+      "description": "Request payload for starting a compute-to-data job in Pontus-X."
+    },
+    "v3CreateComputeToDataResultRequest": {
+      "type": "object",
+      "properties": {
+        "jobId": {
+          "type": "string",
+          "title": "ocean-node job id in the form \u003cenvironmentHash\u003e-\u003cjobId\u003e"
+        },
+        "computeToDataReturnType": {
+          "$ref": "#/definitions/v3ComputeToDataResultType"
+        },
+        "jobIndex": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "description": "Request payload for retrieving compute-to-data job results.\nBy default the job's output archive (outputs.tar) is returned; for C2D_URI, jobIndex selects another result file of the job."
+    },
+    "v3CreateOfferingRequest": {
+      "type": "object",
+      "example": {
+        "offerings": [
+          {
+            "pontusxOffering": {
+              "metadata": {
+                "type": "dataset",
+                "name": "Machine data",
+                "description": "Sensor data of a milling machine",
+                "author": "PTW TU Darmstadt",
+                "providedBy": "PTW TU Darmstadt",
+                "license": "CC-BY-4.0",
+                "tags": [
+                  "manufacturing"
+                ],
+                "language": "en",
+                "links": {
+                  "website": "https://www.ptw.tu-darmstadt.de"
+                }
+              },
+              "additionalInformation": {
+                "termsAndConditions": true,
+                "gaiaXInformation": {
+                  "containsPII": false,
+                  "termsAndConditions": [
+                    {
+                      "url": "https://example.org/terms"
+                    }
+                  ],
+                  "serviceSD": {
+                    "url": "https://example.org/service-offering.json"
+                  }
+                }
+              },
+              "services": [
+                {
+                  "name": "Download",
+                  "type": "access",
+                  "pricing": {
+                    "pricingType": "FIXED_EURAU",
+                    "price": "0.5"
+                  },
+                  "files": [
+                    {
+                      "url": "https://example.org/data.csv",
+                      "method": "GET"
+                    }
+                  ],
+                  "timeout": 86400
+                }
+              ],
+              "credentials": {
+                "allow": [],
+                "deny": []
+              }
+            }
+          }
+        ]
+      },
+      "properties": {
+        "offerings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3CreateOfferingRequestOffering"
+          }
+        }
+      },
+      "description": "Request payload for publishing one or more offerings."
+    },
+    "v3CreateOfferingRequestOffering": {
+      "type": "object",
+      "properties": {
+        "pontusxOffering": {
+          "$ref": "#/definitions/v3PontusxOffering"
+        },
+        "xfscOffering": {
+          "$ref": "#/definitions/v3XfscOffering"
+        }
+      }
+    },
+    "v3CreateOfferingResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "List of identifier of the successfully published offering(s)\nexample: did:ope:123 in Pontus-X ecosystem"
+        },
+        "debugInformation": {
+          "type": "object",
+          "title": "Debug information"
+        }
+      },
+      "description": "Response returned after creating offerings."
+    },
+    "v3CredentialLists": {
+      "type": "object",
+      "properties": {
+        "allow": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Addresses allowed to access the offering; empty or \"*\" allows everyone"
+        },
+        "deny": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Addresses denied access to the offering"
+        }
+      },
+      "description": "Wallet address allowlist and denylist for Pontus-X, checked by the ocean-node or its\npolicy server before anything is ordered or paid."
+    },
+    "v3Files": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "title": "File URL"
+        },
+        "method": {
+          "type": "string",
+          "title": "HTTP Method used to access the file\nexample: 'GET'"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Optional headers field e.g. for basic access control"
+        }
+      },
+      "title": "Information about a file related to a offering used in Main\nAt the moment only files that are accessible over a Static URL (HTTP) are accepted\n(possible alternatives: Arweave, GraphQL, IPFS, Smart Contract)"
+    },
+    "v3GaiaX": {
+      "type": "object",
+      "properties": {
+        "containsPII": {
+          "type": "boolean",
+          "title": "Identifier if the asset contains personally identifiable information"
+        },
+        "termsAndConditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3Terms"
+          },
+          "title": "Terms and conditions additionally set by the publisher of the asset\nShould only be passed if boolean in AdditionalInformation is true"
+        },
+        "serviceSD": {
+          "$ref": "#/definitions/GaiaXServiceSelfDescription"
+        }
+      },
+      "description": "Gaia-X related compliance information referenced by AdditionalInformation."
+    },
+    "v3GetComputeToDataResultResponse": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "$ref": "#/definitions/v3ComputeToDataResponseState"
+        },
+        "data": {
+          "type": "string",
+          "title": "The result, or for a result not yet fetched a status message"
+        }
+      },
+      "title": "The result can either be a URL or a full data, see CreateComputeToDataResultRequest"
+    },
+    "v3GetOfferingRequest": {
+      "type": "object",
+      "properties": {
+        "offerings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3GetOfferingRequestOffering"
+          }
+        }
+      },
+      "description": "Request payload for retrieving offerings."
+    },
+    "v3GetOfferingRequestOffering": {
+      "type": "object",
+      "properties": {
+        "pontusxOffering": {
+          "$ref": "#/definitions/v3PontusxGetOffering"
+        },
+        "xfscOffering": {
+          "$ref": "#/definitions/v3XfscGetOffering"
+        }
+      }
+    },
+    "v3GetOfferingResponse": {
+      "type": "object",
+      "properties": {
+        "offerings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "debugInformation": {
+          "type": "object",
+          "title": "Debug information"
+        }
+      },
+      "description": "Offerings found, each as a JSON document (a DDO v5 for Pontus-X)."
+    },
+    "v3Metadata": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "title": "type of the asset\nCan be either 'dataset' or 'algorithm'"
+        },
+        "name": {
+          "type": "string",
+          "title": "Descriptive name or title of the asset\nThis information is displayed in the portal"
+        },
+        "description": {
+          "type": "string",
+          "title": "Details of what the resource is. For a dataset, this attribute explains what the data represents and what it can be used for.\nThis information is displayed in the portal\nSupports markdown"
+        },
+        "author": {
+          "type": "string",
+          "title": "Name of the entity generating this data"
+        },
+        "license": {
+          "type": "string",
+          "title": "Short name referencing the license of the asset\nexample: CC-BY-4.0, Public Domain"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Optional keywords or tags used to describe the content of the offering"
+        },
+        "algorithm": {
+          "$ref": "#/definitions/v3AlgorithmMetadata",
+          "title": "Information about asset of type algorithm\nOnly optional for dataset -\u003e Non-optional for algorithm"
+        },
+        "providedBy": {
+          "type": "string",
+          "title": "Organisation that provides the asset (DDO v5 providedBy)\nDefaults to the gateway's PROVIDED_BY, else the author"
+        },
+        "displayTitle": {
+          "type": "string",
+          "title": "Title to display instead of the name"
+        },
+        "copyrightHolder": {
+          "type": "string",
+          "title": "Holder of the copyright of the asset"
+        },
+        "language": {
+          "type": "string",
+          "title": "Language of the content, as a BCP 47 tag, e.g. \"en\" or \"de\""
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Optional categories of the offering"
+        },
+        "links": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Links to further information, as label and URL\nexample: {\"website\": \"https://example.org\"}"
+        }
+      },
+      "description": "Core asset metadata used for Pontus-X create and update operations.\nOn an update, given values replace the stored ones; tags and categories are added to the stored ones."
+    },
+    "v3PontusxAccessService": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string",
+          "title": "example: did:ope:1234"
+        },
+        "serviceId": {
+          "type": "string",
+          "description": "Defaults to the first access service of the asset."
+        },
+        "fileIndex": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Defaults to the first file in the selected service."
+        },
+        "userdata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Values for the consumer parameters of the service."
+        }
+      },
+      "description": "Access to a service of a Pontus-X offering."
+    },
+    "v3PontusxGetOffering": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string",
+          "title": "example: did:ope:1234"
+        }
+      },
+      "description": "Lookup of a Pontus-X offering."
+    },
+    "v3PontusxLifecycleStates": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "END_OF_LIFE",
+        "DEPRECATED",
+        "REVOKED_BY_PUBLISHER",
+        "ORDERING_DISABLED_TEMPORARILY",
+        "ASSET_UNLISTED"
+      ],
+      "default": "ACTIVE",
+      "description": "Possible lifecycle states for an asset in the Pontus-X ecosystem.\n\n - ACTIVE: Fully functional asset\nDiscoverable in Portal and Ordering allowed\nListed under the owner's profile\n - END_OF_LIFE: This state indicates that the asset is usually deprecated or outdated\nDiscoverable, but not orderable\nNot listed under the owner's profile\n - DEPRECATED: This state indicates that another asset has deprecated the current asset\nNot discoverable and not orderable\nNot listed under the owner's profile\n - REVOKED_BY_PUBLISHER: Publisher has explicitly revoked access or ownership rights to the asset\nNot discoverable and not orderable\n - ORDERING_DISABLED_TEMPORARILY: Users can view the asset and gather information, but they cannot place orders at that moment\nDiscoverable, but not orderable\nListed under the owner's profile.\n - ASSET_UNLISTED: Not discoverable, but orderable\nListed under the owner's profile"
+    },
+    "v3PontusxOffering": {
+      "type": "object",
+      "properties": {
+        "metadata": {
+          "$ref": "#/definitions/v3Metadata",
+          "title": "The main information about the asset to publish"
+        },
+        "additionalInformation": {
+          "$ref": "#/definitions/v3AdditionalInformation",
+          "title": "Additional information regarding the offering\nExclusively used for terms \u0026 conditions and link to Gaia-X VPs"
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ecosystemsgatewayV3Service"
+          },
+          "title": "Services that are exposed by the asset to interact with it\nCardinality: 1..n -\u003e At least one service has to be passed for publishing"
+        },
+        "credentials": {
+          "$ref": "#/definitions/v3CredentialLists",
+          "description": "Allowlist \u0026 Denylist of wallet addresses for the offering.\nWithout allow addresses everyone is allowed."
+        }
+      },
+      "description": "Offering for Pontus-X, published as a DDO v5 asset."
+    },
+    "v3PontusxQueryOfferings": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string",
+          "description": "Optional identifier of the offering."
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "metadataType": {
+          "type": "string",
+          "title": "'dataset' or 'algorithm'"
+        },
+        "serviceType": {
+          "type": "string",
+          "title": "'access' or 'compute'"
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32",
+          "title": "Page to return, starting at 0 (the first page)\nDefaults to the first page; pageSize defaults to 50"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "description": "Search of Pontus-X offerings; all given criteria have to match."
+    },
+    "v3PontusxUpdateOffering": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string",
+          "title": "Decentralised identifier for the already published offering\nexample: did:ope:1234"
+        },
+        "metadata": {
+          "$ref": "#/definitions/v3Metadata",
+          "title": "The main information about the asset"
+        },
+        "additionalInformation": {
+          "$ref": "#/definitions/v3AdditionalInformation",
+          "title": "Additional information regarding the offering\nExclusively used for terms \u0026 conditions and link to Gaia-X VPs"
+        },
+        "updateServices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/PontusxUpdateOfferingUpdateService"
+          }
+        },
+        "credentials": {
+          "$ref": "#/definitions/v3CredentialLists",
+          "description": "Allowlist \u0026 Denylist of wallet addresses for the offering. When given, these lists\nreplace the stored address lists; without allow addresses everyone is allowed.\nWhen omitted, the stored lists are kept."
+        }
+      },
+      "description": "Update of a published Pontus-X offering. Fields that are not given are kept."
+    },
+    "v3PontusxUpdateOfferingLifecycle": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string",
+          "title": "Decentralised identifier for the already published offering\nexample: did:ope:1234"
+        },
+        "to": {
+          "$ref": "#/definitions/v3PontusxLifecycleStates",
+          "title": "Pontus-X lifecycle state to which the offering should be changed"
+        }
+      },
+      "description": "Lifecycle change of a Pontus-X offering."
+    },
+    "v3Pricing": {
+      "type": "object",
+      "properties": {
+        "pricingType": {
+          "$ref": "#/definitions/PricingPricingType",
+          "title": "Definition if the asset is free or has to be payed with a fixed currency"
+        },
+        "price": {
+          "type": "string",
+          "title": "The price in units of the currency (according to Pricing Type) as a decimal number, e.g. \"0.5\"\nDefaults to the network's configured price of the pricing type"
+        }
+      },
+      "title": "Information about the price for the asset for consumption in the ecosystem"
+    },
+    "v3PublishInfo": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "title": "The source where to find the published offering\nexample: https://www.pontus-x.eu/asset/did:ope:ac74139fa102d32f326ccdab3727a95299f1c2b6add9158385439e5b06810833"
+        },
+        "data": {
+          "type": "string",
+          "title": "The data that is submitted to the credential event service\nAt the moment: Has to be a (Compliance) VC issued by the Gaia-X compliance engine"
+        }
+      },
+      "description": "Supplemental data for publishing an offering update to the Credential Event Service."
+    },
+    "v3QueryOfferingsRequest": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/QueryOfferingsRequestQuery"
+        }
+      },
+      "description": "Request payload for searching offerings."
+    },
+    "v3QueryOfferingsResponse": {
+      "type": "object",
+      "properties": {
+        "offerings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "description": "Offerings found, each as a JSON document (a DDO v5 for Pontus-X), and the total number of matches."
+    },
+    "v3Terms": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        }
+      },
+      "description": "Publisher-defined terms and conditions URL referenced by Gaia-X metadata."
+    },
+    "v3TrustedAlgorithm": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string",
+          "title": "Decentralised identifier of the already published algorithm\nexample: did:ope:456"
+        },
+        "serviceIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Services of the algorithm that are trusted\nDefaults to its compute service, else its first service"
+        }
+      },
+      "description": "A published algorithm trusted to run on a compute service.\nIts file and container checksums are read from its DDO and the ocean-node."
+    },
+    "v3TrustedAlgorithms": {
+      "type": "object",
+      "properties": {
+        "all": {
+          "type": "boolean",
+          "title": "Trusts every published algorithm; algorithms is ignored then"
+        },
+        "algorithms": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3TrustedAlgorithm"
+          },
+          "title": "The trusted algorithms; empty trusts none"
+        }
+      },
+      "description": "Published algorithms trusted to run on a compute service."
+    },
+    "v3TrustedPublishers": {
+      "type": "object",
+      "properties": {
+        "all": {
+          "type": "boolean",
+          "title": "Trusts the algorithms of every publisher; addresses is ignored then"
+        },
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Wallet addresses (0x...) of the trusted publishers; empty trusts none"
+        }
+      },
+      "description": "Publishers whose published algorithms are trusted to run on a compute service."
+    },
+    "v3UpdateOfferingLifecycleRequest": {
+      "type": "object",
+      "properties": {
+        "offerings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3UpdateOfferingLifecycleRequestUpdateOfferingLifecycle"
+          }
+        }
+      },
+      "description": "Request payload for changing the lifecycle state of an existing offering."
+    },
+    "v3UpdateOfferingLifecycleRequestUpdateOfferingLifecycle": {
+      "type": "object",
+      "properties": {
+        "pontusxUpdateOfferingLifecycle": {
+          "$ref": "#/definitions/v3PontusxUpdateOfferingLifecycle"
+        },
+        "xfscUpdateOfferingLifecycle": {
+          "$ref": "#/definitions/v3XfscUpdateOfferingLifecycle"
+        }
+      }
+    },
+    "v3UpdateOfferingLifecycleResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "List of identifier of the successfully changed offering(s)\nexample: did:ope:123 in Pontus-X ecosystem"
+        },
+        "debugInformation": {
+          "type": "object",
+          "title": "Debug information"
+        }
+      },
+      "description": "Response returned after changing lifecycle states."
+    },
+    "v3UpdateOfferingRequest": {
+      "type": "object",
+      "properties": {
+        "offerings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3UpdateOfferingRequestUpdateOffering"
+          }
+        }
+      },
+      "description": "Request payload for updating already published offerings."
+    },
+    "v3UpdateOfferingRequestUpdateOffering": {
+      "type": "object",
+      "properties": {
+        "pontusxUpdateOffering": {
+          "$ref": "#/definitions/v3PontusxUpdateOffering"
+        },
+        "xfscUpdateOffering": {
+          "$ref": "#/definitions/v3XfscUpdateOffering"
+        },
+        "publishInfo": {
+          "$ref": "#/definitions/v3PublishInfo",
+          "title": "Optional information about the published asset\nIf this Information is set, it is used to publish the offering to the Credential Event Service"
+        }
+      }
+    },
+    "v3UpdateOfferingResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "List of identifier of the successfully updated offering(s)\nexample: did:ope:123 in Pontus-X ecosystem"
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Locations of the offering which where published to the Credential Event Service"
+        },
+        "debugInformation": {
+          "type": "object",
+          "title": "Debug information"
+        }
+      },
+      "description": "Response returned after updating offerings."
+    },
+    "v3XfscAccessService": {
+      "type": "object",
+      "properties": {
+        "vc": {
+          "type": "string"
+        }
+      },
+      "description": "Access to an XFSC offering."
+    },
+    "v3XfscGetOffering": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "description": "Lookup of an offering in the XFSC federated catalogue."
+    },
+    "v3XfscOffering": {
+      "type": "object",
+      "properties": {
+        "vp": {
+          "type": "string",
+          "description": "Gaia-X compliant Verifiable Presentation of the service offering as JSON-LD."
+        }
+      },
+      "description": "Offering for the XFSC federated catalogue."
+    },
+    "v3XfscQueryOfferings": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "description": "Search in the XFSC federated catalogue."
+    },
+    "v3XfscUpdateOffering": {
+      "type": "object",
+      "properties": {
+        "hash": {
+          "type": "string",
+          "description": "Hash of the original Verifiable Presentation published to the catalogue."
+        },
+        "vp": {
+          "type": "string",
+          "description": "Updated Gaia-X compliant Verifiable Presentation of the service offering as JSON-LD."
+        }
+      },
+      "description": "Update of an offering in the XFSC federated catalogue."
+    },
+    "v3XfscUpdateOfferingLifecycle": {
+      "type": "object",
+      "properties": {
+        "hash": {
+          "type": "string",
+          "title": "String containing the hash of the original Verifiable Presentation published to the catalogue"
+        },
+        "to": {
+          "$ref": "#/definitions/XfscUpdateOfferingLifecycleXfscLifecycleStates",
+          "title": "XFSC lifecycle state to which the offering should be changed"
+        }
+      },
+      "description": "Lifecycle change of an XFSC offering."
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { XfscService } from './xfsc.service';
+import { XfscService } from './xfsc.service.js';
 import { HttpModule } from '@nestjs/axios';
 
 @Module({
