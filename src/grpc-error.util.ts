@@ -50,6 +50,14 @@ export type MapToRpcExceptionArgs = {
   defaultCode?: number; // fallback, default INTERNAL
 };
 
+/** Metadata identifying where an error originated (x-service, x-where) */
+export function createErrorMetadata(service: string, where: string): Metadata {
+  const metadata = new Metadata();
+  metadata.set('x-service', service);
+  metadata.set('x-where', where);
+  return metadata;
+}
+
 /**
  * Map any error (Axios/HTTP/Nest/JS) into a RpcException with:
  * - gRPC status code
@@ -102,9 +110,7 @@ export function mapToRpcException(
     code = GrpcStatusCode.INTERNAL;
   }
 
-  const metadata = new Metadata();
-  metadata.set('x-service', ctx.service);
-  metadata.set('x-where', ctx.where);
+  const metadata = createErrorMetadata(ctx.service, ctx.where);
 
   const rpcException = new RpcException({ code, message, details, metadata });
   if (typeof err?.stack === 'string') {

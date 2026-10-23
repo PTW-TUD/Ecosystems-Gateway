@@ -38,11 +38,12 @@ import {
 import { CredentialEventServiceService } from '../credential-event-service/credential-event-service.service';
 import { RpcException } from '@nestjs/microservices';
 import {
+  createErrorMetadata,
   formatErrorMessage,
   isRpcException,
   mapToRpcException,
 } from '../grpc-error.util';
-import { status as GrpcStatusCode, Metadata } from '@grpc/grpc-js';
+import { status as GrpcStatusCode } from '@grpc/grpc-js';
 import Redis from 'ioredis';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -164,9 +165,7 @@ export class PontusxService implements OnModuleInit {
   }
 
   async updateOffering(UpdateOffering: UpdateOfferingRequest_UpdateOffering) {
-    const metadata = new Metadata();
-    metadata.set('x-service', 'pontusx');
-    metadata.set('x-where', 'updateOffering');
+    const metadata = createErrorMetadata('pontusx', 'updateOffering');
 
     const release = await this.mutex.acquire();
     try {
@@ -382,9 +381,7 @@ export class PontusxService implements OnModuleInit {
             `Not updating Algorithm Metadata as it is missing in the request`,
           );
         } else {
-          const metadata = new Metadata();
-          metadata.set('x-service', 'pontusx');
-          metadata.set('x-where', 'fillAsset');
+          const metadata = createErrorMetadata('pontusx', 'fillAsset');
           throw new RpcException({
             code: GrpcStatusCode.INVALID_ARGUMENT,
             message: 'The message type does not fit a known Pontus-X request',
@@ -417,9 +414,7 @@ export class PontusxService implements OnModuleInit {
     offering: PontusxOffering | PontusxUpdateOffering,
     service: Service,
   ) {
-    const metadata = new Metadata();
-    metadata.set('x-service', 'pontusx');
-    metadata.set('x-where', 'buildService');
+    const metadata = createErrorMetadata('pontusx', 'buildService');
 
     serviceBuilder
       .setServiceEndpoint(this.networkConfig.providerUri)
@@ -605,9 +600,7 @@ export class PontusxService implements OnModuleInit {
     page: number,
     pageSize: number,
   ): Promise<[Asset[], number]> {
-    const metadata = new Metadata();
-    metadata.set('x-service', 'pontusx');
-    metadata.set('x-where', 'queryOfferings');
+    const metadata = createErrorMetadata('pontusx', 'queryOfferings');
     const apiPath = '/api/aquarius/assets/query';
 
     const metadataCacheUri = this.getSelectedNetworkConfig().metadataCacheUri;
@@ -740,9 +733,7 @@ export class PontusxService implements OnModuleInit {
     userdata: { [key: string]: string },
   ): Promise<string> {
     //TODO: integrate data storage in redis as option?
-    const metadata = new Metadata();
-    metadata.set('x-service', 'pontusx');
-    metadata.set('x-where', 'accessService');
+    const metadata = createErrorMetadata('pontusx', 'accessService');
     let dataset: Asset;
 
     try {
@@ -807,9 +798,7 @@ export class PontusxService implements OnModuleInit {
     userdata: { [key: string]: string },
   ): Promise<string[]> {
     const release = await this.mutex.acquire();
-    const metadata = new Metadata();
-    metadata.set('x-service', 'pontusx');
-    metadata.set('x-where', 'requestComputeToData');
+    const metadata = createErrorMetadata('pontusx', 'requestComputeToData');
 
     try {
       const computeConfig: Omit<ComputeConfig, 'signer' | 'chainConfig'> = {
@@ -893,9 +882,7 @@ export class PontusxService implements OnModuleInit {
       return status.status;
     }
 
-    const metadata = new Metadata();
-    metadata.set('x-service', 'pontusx');
-    metadata.set('x-where', 'getComputeToDataStatus');
+    const metadata = createErrorMetadata('pontusx', 'getComputeToDataStatus');
 
     throw new RpcException({
       code: GrpcStatusCode.NOT_FOUND,
@@ -909,9 +896,7 @@ export class PontusxService implements OnModuleInit {
     return_type: ComputeToDataResultType,
     jobIndex: number,
   ): Promise<GetComputeToDataResultResponse> {
-    const metadata = new Metadata();
-    metadata.set('x-service', 'pontusx');
-    metadata.set('x-where', 'getComputeToDataResult');
+    const metadata = createErrorMetadata('pontusx', 'getComputeToDataResult');
 
     switch (return_type) {
       case ComputeToDataResultType.C2D_DATA:
