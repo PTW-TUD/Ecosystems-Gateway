@@ -52,6 +52,6 @@ module.exports = [
     },
   },
   {
-    ignores: ['**/.eslintrc.js'],
+    ignores: ['**/.eslintrc.js', 'src/generated/**'],
   },
 ];

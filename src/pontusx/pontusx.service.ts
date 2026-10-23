@@ -889,10 +889,19 @@ export class PontusxService implements OnModuleInit {
       providerUri: this.getSelectedNetworkConfig().providerUri,
     });
 
-    if (status) {
+    if (status?.status !== undefined) {
       return status.status;
     }
-    return 99;
+
+    const metadata = new Metadata();
+    metadata.set('x-service', 'pontusx');
+    metadata.set('x-where', 'getComputeToDataStatus');
+
+    throw new RpcException({
+      code: GrpcStatusCode.NOT_FOUND,
+      message: `Compute job '${jobId}' couldn't be found`,
+      metadata,
+    });
   }
 
   async getComputeToDataResult(
@@ -910,12 +919,7 @@ export class PontusxService implements OnModuleInit {
           `${this.getSelectedNetworkConfig().network}:ctd:result:${jobId}`,
         );
         if (cached === null) {
-          if ((await this.getComputeToDataStatus(jobId)) == 99) {
-            throw new RpcException({
-              code: GrpcStatusCode.NOT_FOUND,
-              message: 'Job does not exist or is not yet finished',
-            });
-          }
+          await this.getComputeToDataStatus(jobId);
           const queued = await this.redis.lpos(
             `${this.getSelectedNetworkConfig().network}:ctd:pending`,
             jobId,
@@ -975,67 +979,97 @@ export class PontusxService implements OnModuleInit {
       0,
       -1,
     );
-    pendingJobs.forEach(async (jobId) => {
-      // Check if compute to data is finished
-      if ((await this.getComputeToDataStatus(jobId)) != 70) {
-        return;
-      }
+    await Promise.all(
+      pendingJobs.map(async (jobId) => {
+        try {
+          // Check if compute to data is finished
+          if ((await this.getComputeToDataStatus(jobId)) != 70) {
+            return;
+          }
 
-      // get compute to data result
-      const ResultUrl = await this.nautilus.getComputeResult({
-        jobId: jobId,
-        providerUri: this.getSelectedNetworkConfig().providerUri,
-      });
-      const FetchedData: AxiosResponse = await axios
-        .get(ResultUrl)
-        .catch(() => {
-          // TODO: Add proper error handling, maybe re-try logic?
-          return undefined;
-        });
+          // get compute to data result
+          const ResultUrl = await this.nautilus.getComputeResult({
+            jobId: jobId,
+            providerUri: this.getSelectedNetworkConfig().providerUri,
+          });
+          let FetchedData: AxiosResponse | undefined;
+          const maxAttempts = 3;
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+              FetchedData = await axios.get(ResultUrl, { timeout: 5000 });
+              break;
+            } catch (err) {
+              const status = axios.isAxiosError(err)
+                ? err.response?.status
+                : undefined;
+              const retryable =
+                axios.isAxiosError(err) &&
+                !axios.isCancel(err) &&
+                (status === undefined ||
+                  status === 408 ||
+                  status === 429 ||
+                  status >= 500);
+              this.logger.warn(
+                `Could not fetch compute-to-data result for job '${jobId}' (attempt ${attempt}/${maxAttempts}): ${formatErrorMessage(err)}`,
+              );
+              if (!retryable || attempt === maxAttempts) {
+                break;
+              }
+              await new Promise((resolve) =>
+                setTimeout(resolve, 500 * 2 ** (attempt - 1)),
+              );
+            }
+          }
 
-      // Do nothing if we cant fetch the result, maybe next iteration
-      if (FetchedData === undefined) {
-        return;
-      }
+          // Do nothing if we cant fetch the result, maybe next iteration
+          if (FetchedData === undefined) {
+            return;
+          }
 
-      let b64data = '';
-      switch (FetchedData.data.constructor) {
-        case Object:
-          b64data = Buffer.from(JSON.stringify(FetchedData.data)).toString(
-            'base64',
+          let b64data = '';
+          switch (FetchedData.data.constructor) {
+            case Object:
+              b64data = Buffer.from(JSON.stringify(FetchedData.data)).toString(
+                'base64',
+              );
+              break;
+            case String:
+            case Buffer:
+            case ArrayBuffer:
+            case Array:
+            default:
+              b64data = Buffer.from(FetchedData.data).toString('base64');
+              break;
+          }
+
+          const redisTransaction = this.redis.multi();
+          redisTransaction.set(
+            `${this.getSelectedNetworkConfig().network}:ctd:result:${jobId}`,
+            b64data,
           );
-          break;
-        case String:
-        case Buffer:
-        case ArrayBuffer:
-        case Array:
-        default:
-          b64data = Buffer.from(FetchedData.data).toString('base64');
-          break;
-      }
-
-      const redisTransaction = this.redis.multi();
-      redisTransaction.set(
-        `${this.getSelectedNetworkConfig().network}:ctd:result:${jobId}`,
-        b64data,
-      );
-      redisTransaction.expire(
-        `${this.getSelectedNetworkConfig().network}:ctd:result:${jobId}`,
-        60 * 60,
-      );
-      redisTransaction.publish(
-        `${this.getSelectedNetworkConfig().network}:ctd:finished`,
-        jobId,
-      );
-      redisTransaction.lrem(
-        `${this.getSelectedNetworkConfig().network}:ctd:pending`,
-        1,
-        jobId,
-      );
-      this.logger.debug(
-        `Executing ${redisTransaction.length} redis commands after successful compute-to-data job`,
-      );
-      await redisTransaction.exec();
-    });
+          redisTransaction.expire(
+            `${this.getSelectedNetworkConfig().network}:ctd:result:${jobId}`,
+            60 * 60,
+          );
+          redisTransaction.publish(
+            `${this.getSelectedNetworkConfig().network}:ctd:finished`,
+            jobId,
+          );
+          redisTransaction.lrem(
+            `${this.getSelectedNetworkConfig().network}:ctd:pending`,
+            1,
+            jobId,
+          );
+          this.logger.debug(
+            `Executing ${redisTransaction.length} redis commands after successful compute-to-data job`,
+          );
+          await redisTransaction.exec();
+        } catch (err) {
+          this.logger.warn(
+            `Could not process compute-to-data job '${jobId}': ${formatErrorMessage(err)}`,
+          );
+        }
+      }),
+    );
   }
 }
