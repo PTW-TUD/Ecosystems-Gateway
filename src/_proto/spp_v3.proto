@@ -137,7 +137,7 @@ service ecosystemsgateway{
 // Request payload for publishing one or more offerings.
 message CreateOfferingRequest {
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
-        example: "{\"offerings\":[{\"pontusxOffering\":{\"metadata\":{\"type\":\"dataset\",\"name\":\"Machine data\",\"description\":\"Sensor data of a milling machine\",\"author\":\"PTW TU Darmstadt\",\"providedBy\":\"PTW TU Darmstadt\",\"license\":\"CC-BY-4.0\",\"tags\":[\"manufacturing\"],\"language\":\"en\",\"links\":{\"website\":\"https://www.ptw.tu-darmstadt.de\"}},\"additionalInformation\":{\"termsAndConditions\":true,\"gaiaXInformation\":{\"containsPII\":false,\"termsAndConditions\":[{\"url\":\"https://example.org/terms\"}],\"serviceSD\":{\"url\":\"https://example.org/service-offering.json\"}}},\"services\":[{\"name\":\"Download\",\"type\":\"access\",\"pricing\":{\"pricingType\":\"FIXED_EURAU\",\"price\":\"0.5\"},\"files\":[{\"url\":\"https://example.org/data.csv\",\"method\":\"GET\"}],\"timeout\":86400}],\"credentials\":{\"allow\":[],\"deny\":[]}}}]}"
+        example: "{\"offerings\":[{\"pontusxOffering\":{\"metadata\":{\"type\":\"dataset\",\"name\":\"Machine data\",\"description\":\"Sensor data of a milling machine\",\"author\":\"PTW TU Darmstadt\",\"providedBy\":\"https://example.org/.well-known/gx_legalperson.jwt\",\"license\":\"CC-BY-4.0\",\"licenseDocuments\":[{\"url\":\"https://example.org/terms.pdf\",\"fileType\":\"application/pdf\"}],\"tags\":[\"manufacturing\"],\"language\":\"en\",\"links\":{\"website\":\"https://www.ptw.tu-darmstadt.de\"}},\"additionalInformation\":{\"termsAndConditions\":true,\"gaiaX\":{\"serviceOfferingCredential\":\"https://example.org/.well-known/gx_digitalserviceoffering.jwt\"}},\"ssiPolicy\":{\"gaiaX\":true},\"services\":[{\"name\":\"Download\",\"type\":\"access\",\"pricing\":{\"pricingType\":\"FIXED_EURAU\",\"price\":\"0.5\"},\"files\":[{\"url\":\"https://example.org/data.csv\",\"method\":\"GET\"}],\"timeout\":86400}],\"credentials\":{\"allow\":[],\"deny\":[]}}}]}"
     };
 
     message Offering {
@@ -161,7 +161,7 @@ message PontusxOffering {
     Metadata metadata = 1;
 
     // Additional information regarding the offering
-    // Exclusively used for terms & conditions and link to Gaia-X VPs
+    // Used for terms & conditions and the link to the Gaia-X service offering credential
     AdditionalInformation additionalInformation = 2;
 
     // Services that are exposed by the asset to interact with it
@@ -171,6 +171,10 @@ message PontusxOffering {
     // Allowlist & Denylist of wallet addresses for the offering.
     // Without allow addresses everyone is allowed.
     optional CredentialLists credentials = 4;
+
+    // Verifiable credentials a consumer has to present for every service of the offering
+    // Without it, only the address lists apply
+    optional SsiPolicy ssiPolicy = 5;
 }
 
 // Response returned after creating offerings.
@@ -217,7 +221,8 @@ message PontusxUpdateOffering {
     optional Metadata metadata = 2;
 
     // Additional information regarding the offering
-    // Exclusively used for terms & conditions and link to Gaia-X VPs
+    // Used for terms & conditions and the link to the Gaia-X service offering credential
+    // Given values replace the stored ones; it can be given without metadata
     optional AdditionalInformation additionalInformation = 3;
 
     // Updated Services that are exposed by the asset to interact with it
@@ -234,6 +239,10 @@ message PontusxUpdateOffering {
     // replace the stored address lists; without allow addresses everyone is allowed.
     // When omitted, the stored lists are kept.
     optional CredentialLists credentials = 5;
+
+    // When given, replaces the stored SSI policy of the offering; one without request
+    // credentials removes it. When omitted, the stored policy is kept.
+    optional SsiPolicy ssiPolicy = 6;
 }
 
 // Supplemental data for publishing an offering update to the Credential Event Service.
@@ -552,8 +561,11 @@ message Metadata {
     // Name of the entity generating this data
     string author = 4;
 
-    // Short name referencing the license of the asset
+    // Name of the license of the asset (DDO v5 license.name), the identifier catalogues show
     // example: CC-BY-4.0, Public Domain
+    // A standard license needs only this name; a custom contract, which has no short name,
+    // is given as licenseDocuments instead, and its URL then serves as the name.
+    // Defaults to the URL of the first license document
     string license = 5;
 
     // Optional keywords or tags used to describe the content of the offering
@@ -563,7 +575,8 @@ message Metadata {
     // Only optional for dataset -> Non-optional for algorithm
     optional AlgorithmMetadata algorithm = 7;
 
-    // Organisation that provides the asset (DDO v5 providedBy)
+    // URL of the provider's Gaia-X participant (gx:LegalPerson) credential (DDO v5 providedBy)
+    // example: https://example.org/.well-known/gx_legalperson.jwt
     // Defaults to the gateway's PROVIDED_BY, else the author
     optional string providedBy = 8;
 
@@ -582,6 +595,31 @@ message Metadata {
     // Links to further information, as label and URL
     // example: {"website": "https://example.org"}
     map<string, string> links = 13;
+
+    // Text direction of the content, "ltr" or "rtl"
+    // Defaults to "ltr"; given without language, the language defaults to "en"
+    optional string direction = 14;
+
+    // Documents of the license, e.g. the service contract (DDO v5 license.licenseDocuments):
+    // the legal texts themselves, which consumers can download from their mirror and check
+    // against their sha256, e.g. for the Gaia-X usage terms and conditions.
+    // The license is not searchable in the ocean-node's index, so the first one is also
+    // linked as "Service Contract", as the deltaDAO portal does
+    // On an update, given documents replace the stored ones; none given keeps them
+    repeated LicenseDocument licenseDocuments = 15;
+}
+
+// A document of the license of an asset.
+message LicenseDocument {
+    // URL of the document
+    string url = 1;
+
+    // Media type of the document, e.g. "application/pdf"
+    optional string fileType = 2;
+
+    // SHA-256 of the document as hex, e.g. for the Gaia-X terms and conditions hash
+    // Not computed by the gateway: left out, the document has none
+    optional string sha256 = 3;
 }
 
 // Metadata of an algorithm.
@@ -659,6 +697,11 @@ message Service {
     // Optional message that defines required consumer input before consuming the asset/service
     // On an update, the given parameters replace the stored ones; none given keeps them
     repeated ConsumerParameter consumerParameters = 11;
+
+    // Verifiable credentials a consumer has to present for this service, on top of the
+    // offering's SSI policy. Without it, only the offering's rules apply.
+    // On an update, given replaces the stored one; one without request credentials removes it
+    optional SsiPolicy ssiPolicy = 12;
 }
 
 // Information about the price for the asset for consumption in the ecosystem
@@ -746,39 +789,79 @@ message TrustedPublishers {
     repeated string addresses = 2;
 }
 
-// Additional Pontus-X specific metadata, primarily for Gaia-X related information.
+// Additional Pontus-X specific metadata (DDO v5 metadata.additionalInformation),
+// primarily for Gaia-X related information.
 message AdditionalInformation{
     // Boolean to indicate if the publisher specifies it's own terms and conditions for consumption of the asset
     bool termsAndConditions = 1;
 
-    // Information in the context of Gaia-X compliance including the link to the Self-Description of the offering (VP)
-    GaiaX gaiaXInformation = 2;
+    // Replaced by gaiaX in spp v3
+    reserved 2;
+    reserved "gaiaXInformation";
+
+    // Gaia-X credentials of the offering (additionalInformation.gaiaX)
+    optional GaiaX gaiaX = 3;
 }
 
-// Gaia-X related compliance information referenced by AdditionalInformation.
+// Gaia-X credentials of an offering, hosted by the provider.
 message GaiaX{
-    // Identifier if the asset contains personally identifiable information
-    bool containsPII = 1;
-
-    // Terms and conditions additionally set by the publisher of the asset
-    // Should only be passed if boolean in AdditionalInformation is true
-    repeated Terms termsAndConditions = 2;
-
-    // Endpoint to the Gaia-X compliant Self-Description (VP) of the offering
-    message ServiceSelfDescription{
-        // Static URL of the self-description
-        string url = 1;
-
-        // Optional identifier if the self-description has been verified against a Gaia-X Compliance Service
-        // Mainly used by the deltaDAO portal
-        optional bool isVerified = 2;
-    }
-    ServiceSelfDescription serviceSD = 3;
+    // URL of the offering's Gaia-X service offering (gx:DigitalServiceOffering) credential
+    // It is also linked as "Digital Service Offering Credential"
+    // example: https://example.org/.well-known/gx_digitalserviceoffering.jwt
+    string serviceOfferingCredential = 1;
 }
 
-// Publisher-defined terms and conditions URL referenced by Gaia-X metadata.
-message Terms{
-    string url = 1;
+// Verifiable credentials a consumer has to present, checked by the ocean-node's policy
+// server before anything is ordered or paid (an SSIpolicy entry of the allow list).
+// The wallet address lists stay in place next to it.
+message SsiPolicy {
+    // Writes the Gaia-X participant policy: gx:LegalPerson, gx:Issuer and one of gx:VatID,
+    // gx:LeiCode or gx:EORI, checked by the Gaia-X compliance service in GAIAX_EVP_URL.
+    // The lists below are added to it.
+    bool gaiaX = 1;
+
+    // Credentials the consumer has to present
+    repeated RequestCredential requestCredentials = 2;
+
+    // Checks of each credential, e.g. "signature", "expired", "not-before"
+    repeated string vcPolicies = 3;
+
+    // Checks of the presentation, e.g. {"policy": "minimum-credentials", "args": "1"}
+    repeated VpPolicy vpPolicies = 4;
+
+    // How the allow rules combine; defaults to all of them
+    MatchRule matchAllow = 5;
+
+    // How the deny rules combine; defaults to any of them
+    MatchRule matchDeny = 6;
+
+    enum MatchRule {
+        // The policy server's default
+        DEFAULT = 0;
+        ANY = 1;
+        ALL = 2;
+    }
+}
+
+// A credential a consumer has to present.
+message RequestCredential {
+    // Credential type, e.g. "gx:LegalPerson"
+    string type = 1;
+
+    // Credential format, e.g. "jwt_vc_json"
+    optional string format = 2;
+
+    // Checks of this credential only
+    repeated string policies = 3;
+}
+
+// A check of the presentation a consumer makes.
+message VpPolicy {
+    // walt.id policy name, e.g. "minimum-credentials"
+    string policy = 1;
+
+    // Argument of the policy as a string; structured arguments as JSON
+    optional string args = 2;
 }
 
 // Additional input parameter that the asset needs before downloading or running a Compute-to-Data job at algorithm runtime

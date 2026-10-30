@@ -96,12 +96,28 @@ routes and most messages are the same, so a v2 client needs these changes:
   replace the stored ones instead of adding to them; not given, the stored ones
   are kept. The checksum fields of a trusted algorithm are gone: nautilus reads
   them from the algorithm's DDO.
+- `AdditionalInformation.gaiaXInformation` (`containsPII`,
+  `termsAndConditions`, `serviceSD`) is replaced by
+  `gaiaX.serviceOfferingCredential`, the URL of the offering's Gaia-X service
+  offering credential.
 
 New in v3:
 
-- `Metadata`: `providedBy` (DDO v5; defaults to `PROVIDED_BY`, else the
-  author), `displayTitle`, `copyrightHolder`, `language`, `categories` and
+- `Metadata`: `providedBy` (DDO v5: the URL of the provider's Gaia-X
+  participant credential; defaults to `PROVIDED_BY`, else the author, with a
+  warning when it is no `https://` URL), `displayTitle`, `copyrightHolder`,
+  `language`, `direction` (optional, defaults to `ltr`), `categories` and
   `links` (label to URL).
+- `Metadata.licenseDocuments`: the documents of the license (`url`, optional
+  `fileType` and `sha256`), written as DDO v5 `license.licenseDocuments`. The
+  license name defaults to the first document's URL, which is also linked as
+  `Service Contract`. The gateway computes no hash: one that is not given is
+  left out.
+- `ssiPolicy` on `PontusxOffering`, `PontusxUpdateOffering` and `Service`:
+  verifiable credentials a consumer has to present (`requestCredentials`,
+  `vcPolicies`, `vpPolicies`, `matchAllow`, `matchDeny`). `gaiaX: true` writes
+  the Gaia-X participant policy (see [SSI Policies](#ssi-policies)). Without
+  `ssiPolicy`, only the address lists apply.
 - `CreateComputeToDataRequest`: the dataset's `serviceId`, the algorithm's
   `algorithmServiceId`, `algorithmUserdata` for the consumer parameters of the
   algorithm's service, `algorithmParameters` for those of the algorithm itself
@@ -183,7 +199,8 @@ public ocean-node serves them yet: they need `OCEAN_NODE_URI`.
 | `OCEAN_NODE_URI`       | URL                                                    | ocean-node for metadata, access and compute. Must be `https://` except on localhost. Defaults to `https://node.demo.pontus-x.eu` on `OPSEPOLIA`; required on the Pontus-X networks.                                                                                          |
 | `RPC_URL`              | URL                                                    | Optional chain RPC override. Defaults to `https://sepolia.optimism.io`, or `https://rpc.{dev,test}.pontus-x.eu`.                                                                                                                                                             |
 | `VERIFICATION_RPC_URL` | URL                                                    | Optional second RPC of the same chain. Lets nautilus safely resend an order or payment refused for its nonce; without it such a transaction is never sent again.                                                                                                             |
-| `PROVIDED_BY`          | String                                                 | Optional organisation providing the assets (DDO v5 `providedBy`). Defaults to the offering's author.                                                                                                                                                                         |
+| `PROVIDED_BY`          | URL                                                    | Optional default for DDO v5 `providedBy`: the URL of the provider's Gaia-X participant (`gx:LegalPerson`) credential. Defaults to the offering's author.                                                                                                                     |
+| `GAIAX_EVP_URL`        | URL                                                    | Gaia-X compliance service the presentation of a `gaiaX` SSI policy is forwarded to (`external-evp-forward`). Defaults to `https://www.delta-dao.com/compliance/v2/api/credential-offers/standard-compliance`.                                                                |
 | `DDO_STORE`            | `ipfs` or `s3`                                         | Where the node-encrypted DDO is stored. Required to create and update offerings; reading and consuming work without it.                                                                                                                                                      |
 | `IPFS_UPLOAD_URL`      | URL                                                    | For `ipfs`: an upload endpoint taking a multipart file, e.g. Kubo `/api/v0/add` or Pinata `pinFileToIPFS`.                                                                                                                                                                   |
 | `IPFS_JWT`             | String                                                 | Optional, sent as `Authorization: Bearer`.                                                                                                                                                                                                                                   |
@@ -195,6 +212,40 @@ public ocean-node serves them yet: they need `OCEAN_NODE_URI`.
 | `COMPUTE_ENV`          | String                                                 | Optional compute environment id. Defaults to the ocean-node's first environment.                                                                                                                                                                                             |
 | `NAUTILUS_LOG_LEVEL`   | `silent`, `error`, `warn`, `info`, `debug`, or `trace` | Nautilus log level; its events, redacted by nautilus, are logged through the NestJS logger with the context `Nautilus:<component>`. Defaults to the most verbose of `NESTJS_LOG_LEVELS`. The v1 values `none`, `log` and `verbose` still work.                               |
 | `NAUTILUS_DEBUG`       | `sensitive` or `secrets`                               | Nautilus' debug channel with the raw data it otherwise redacts, written to stderr apart from the logs. `NAUTILUS_DEBUG_TOPICS` narrows it, e.g. `policy,wallet`. Never in production.                                                                                        |
+
+### SSI Policies
+
+An offering, and each of its services, can require consumers to present
+verifiable credentials. The ocean-node's policy server checks them before
+anything is ordered or paid. `ssiPolicy` is optional: without it, only the
+wallet address lists (`credentials`) apply.
+
+`ssiPolicy` is written as the single `SSIpolicy` entry of the allow list, next
+to the address entry (`*` if there is none):
+
+- `requestCredentials`: the credentials to present (`type`, optional `format`,
+  per-credential `policies`),
+- `vcPolicies`: checks of each credential, e.g. `signature`, `expired`,
+- `vpPolicies`: checks of the presentation (`policy`, `args` as a string),
+- `matchAllow` and `matchDeny`: `ANY` or `ALL`, unset the policy server's
+  defaults (all allow rules, any deny rule).
+
+`gaiaX: true` writes the Gaia-X participant policy of a reference
+DDO, and adds the lists given next to it:
+
+- `gx:LegalPerson`, `gx:Issuer`, `gx:VatID`, `gx:LeiCode` and `gx:EORI` as
+  `jwt_vc_json`,
+- VC policy `signature`,
+- VP policies `minimum-credentials` (3), `external-evp-forward` to
+  `GAIAX_EVP_URL`, and `vp_required_credentials`: `gx:LegalPerson`,
+  `gx:Issuer` and one of `gx:EORI`, `gx:LeiCode` or `gx:VatID`,
+- `matchDeny: ANY`.
+
+A service's policy applies on top of the offering's. `UpdateOffering` with
+`ssiPolicy` replaces the stored one; one without request credentials (and
+without `gaiaX`) removes it. Without `ssiPolicy`, the stored one is kept.
+The gateway itself cannot present credentials, so it cannot consume services
+behind an SSI policy (`FAILED_PRECONDITION`).
 
 ### Credential Event Service
 
@@ -359,14 +410,15 @@ npm run format-check
   offering without allow addresses is published with `allow: ['*']`.
   `UpdateOffering` with `credentials` replaces the stored address lists (an
   empty allow list opens the offering to everyone again); without
-  `credentials` they are kept. Access lists and SSI policies set by other tools
-  are kept either way.
+  `credentials` they are kept. Access lists set by other tools are kept either
+  way; SSI policies unless `ssiPolicy` is given (see [SSI Policies](#ssi-policies)).
 - A refusal by the policy server is returned as `PERMISSION_DENIED`, with the
   failed policy names in the error details; a service whose SSI policy the
   policy server cannot read, or that requires verifiable credentials, as
   `FAILED_PRECONDITION`: the gateway has no wallet to present credentials from.
-- DDO v5 only allows primitive values in `additionalInformation`, so nested
-  values such as `gaiaXInformation` are stored as JSON strings.
+- `additionalInformation.gaiaX` is a nested object portal: the DDO v5 shape
+  allows one, though nautilus types the values as primitives. `UpdateOffering`
+  writes `additionalInformation` with or without `metadata`.
 - The gateway is an ES module package (`"type": "module"`), as nautilus v2 is:
   relative imports carry a `.js` extension, and ts-proto generates them that way
   (`importSuffix=.js` in [buf.gen.yaml](./buf.gen.yaml)). The tests run on Vitest

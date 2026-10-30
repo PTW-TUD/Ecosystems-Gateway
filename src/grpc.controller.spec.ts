@@ -69,6 +69,7 @@ describe('Grpc Controller', () => {
               name: '',
               author: '',
               license: '',
+              licenseDocuments: [],
               tags: [],
               categories: [],
               links: {},

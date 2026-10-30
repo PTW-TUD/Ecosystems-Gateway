@@ -1,0 +1,21 @@
+{
+  "offerings": [
+    {
+      "pontusxOffering": {
+        "metadata": {
+          "type": "dataset",
+          "name": "Machine data",
+          "providedBy": "https://example.org/.well-known/gx_legalperson.jwt"
+        },
+        "services": [
+          {
+            "type": "access",
+            "files": [
+              { "url": "https://example.org/data.csv", "method": "GET" }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

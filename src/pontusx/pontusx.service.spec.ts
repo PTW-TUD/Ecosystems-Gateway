@@ -11,7 +11,14 @@ import { Network, PRICING_CONFIGS, resolveNetworkConfig } from './config.js';
 
 // the default network, without environment overrides
 const NETWORK_CONFIG = resolveNetworkConfig(Network.OPSEPOLIA, () => undefined);
-import { PontusxOffering, Pricing_PricingType } from '../generated/spp_v3.js';
+import {
+  CreateOfferingRequest,
+  PontusxOffering,
+  Pricing_PricingType,
+  SsiPolicy_MatchRule,
+} from '../generated/spp_v3.js';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const OWNER = '0x0000000000000000000000000000000000000001';
 const JOB = (n: string) => `0x${'a'.repeat(64)}-${n.repeat(64)}`;
@@ -45,6 +52,7 @@ function datasetOffering(): PontusxOffering {
       description: 'A dataset',
       author: 'PTW',
       license: 'MIT',
+      licenseDocuments: [],
       tags: ['test'],
       categories: [],
       links: {},
@@ -84,14 +92,68 @@ function datasetOffering(): PontusxOffering {
       },
     ],
     credentials: { allow: [], deny: [] },
-    additionalInformation: {
-      termsAndConditions: true,
-      gaiaXInformation: {
-        containsPII: false,
-        termsAndConditions: [{ url: 'https://example.org/terms' }],
-      } as any,
-    },
+    additionalInformation: { termsAndConditions: true },
   };
+}
+
+// The Gaia-X parts of the reference DDO the C4DPP workshop is based on.
+const DSO_CREDENTIAL =
+  'https://delta-dao.com/.well-known/40_gx_digitalserviceoffering_noise_levels.jwt';
+const LEGAL_PERSON =
+  'https://delta-dao.com/.well-known/40_gx_legalperson_deltaDAO.jwt';
+const TERMS =
+  'https://delta-dao.com/assets/terms_99d96c60d45714df1e333fccc019aa7592e111013db80a30306bca9f50e8caad_deltaDAO.pdf';
+const TERMS_SHA256 =
+  '39bb3dc7787a812a008225f871f2a7368cb3794412b1b764061c2fc44f905da7';
+const GAIAX_SSI_POLICY = {
+  type: 'SSIpolicy',
+  values: [
+    {
+      request_credentials: [
+        'gx:LegalPerson',
+        'gx:Issuer',
+        'gx:VatID',
+        'gx:LeiCode',
+        'gx:EORI',
+      ].map((type) => ({ format: 'jwt_vc_json', policies: [], type })),
+      vc_policies: ['signature'],
+      vp_policies: [
+        { policy: 'minimum-credentials', args: '3' },
+        {
+          policy: 'external-evp-forward',
+          args: 'https://www.delta-dao.com/compliance/v2/api/credential-offers/standard-compliance',
+        },
+        {
+          policy: 'vp_required_credentials',
+          args: '{"required":[{"credential_type":"gx:LegalPerson"},{"credential_type":"gx:Issuer"},{"any_of":["gx:EORI","gx:LeiCode","gx:VatID"]}]}',
+        },
+      ],
+    },
+  ],
+};
+
+function gaiaXOffering(): PontusxOffering {
+  const offering = datasetOffering();
+  Object.assign(offering.metadata, {
+    providedBy: LEGAL_PERSON,
+    license: '',
+    licenseDocuments: [
+      { url: TERMS, fileType: 'application/pdf', sha256: TERMS_SHA256 },
+    ],
+  });
+  offering.additionalInformation = {
+    termsAndConditions: true,
+    gaiaX: { serviceOfferingCredential: DSO_CREDENTIAL },
+  };
+  offering.ssiPolicy = {
+    gaiaX: true,
+    requestCredentials: [],
+    vcPolicies: [],
+    vpPolicies: [],
+    matchAllow: SsiPolicy_MatchRule.DEFAULT,
+    matchDeny: SsiPolicy_MatchRule.DEFAULT,
+  };
+  return offering;
 }
 
 // The parts of a DDO v5 that nautilus' readers need.
@@ -147,9 +209,8 @@ describe('PontusxService', () => {
       ]);
       expect(asset.ddo.metadata.additionalInformation).toEqual({
         termsAndConditions: true,
-        gaiaXInformation:
-          '{"containsPII":false,"termsAndConditions":[{"url":"https://example.org/terms"}]}',
       });
+      expect(asset.ddo.metadata.license).toEqual({ name: 'MIT' });
 
       const [nautilusService] = asset.ddo.services;
       expect(nautilusService.serviceEndpoint).toBe(
@@ -190,7 +251,20 @@ describe('PontusxService', () => {
       expect(JSON.stringify(ddo.metadata.displayTitle)).toContain(
         'Machine data',
       );
-      expect(ddo.language).toMatchObject({ language: 'de' });
+      expect(ddo.language).toEqual({ language: 'de', direction: 'ltr' });
+    });
+
+    it('tags the content with a direction given without language', async () => {
+      const publish = vi.fn().mockResolvedValue({ ddo: { id: 'did:ope:1' } });
+      const offering = datasetOffering();
+      offering.metadata.direction = 'rtl';
+
+      await createService({ publish }).publishAsset(offering);
+
+      expect((publish.mock.calls[0][0] as any).ddo.language).toEqual({
+        language: 'en',
+        direction: 'rtl',
+      });
     });
 
     it.each([
@@ -314,6 +388,197 @@ describe('PontusxService', () => {
       ]);
     });
 
+    it('publishes the minimal request of examples/', async () => {
+      const publish = vi.fn().mockResolvedValue({ ddo: { id: 'did:ope:1' } });
+      const service = createService({ publish });
+      // decoded with the defaults of unset fields, as @grpc/proto-loader does
+      const request = CreateOfferingRequest.fromJSON(
+        JSON.parse(
+          readFileSync(
+            resolve(
+              import.meta.dirname,
+              '../../examples/create-offering-minimal.json',
+            ),
+            'utf8',
+          ),
+        ),
+      );
+
+      await service.publishAsset(request.offerings[0].pontusxOffering);
+
+      const { ddo } = publish.mock.calls[0][0] as any;
+      expect(ddo.metadata).toMatchObject({
+        type: 'dataset',
+        name: 'Machine data',
+        providedBy: 'https://example.org/.well-known/gx_legalperson.jwt',
+      });
+      expect(ddo.services[0]).toMatchObject({
+        type: 'access',
+        timeout: 86400,
+        serviceEndpoint: 'https://node.demo.pontus-x.eu',
+        pricing: { type: 'free' },
+      });
+      expect(ddo.credentials.allow).toEqual([
+        { type: 'address', values: [{ address: '*' }] },
+      ]);
+    });
+
+    it('rebuilds the Gaia-X parts of the reference DDO', async () => {
+      const publish = vi.fn().mockResolvedValue({ ddo: { id: 'did:ope:1' } });
+      const service = createService({ publish });
+
+      await service.publishAsset(gaiaXOffering());
+
+      const { ddo } = publish.mock.calls[0][0] as any;
+      expect(ddo.metadata).toMatchObject({
+        providedBy: LEGAL_PERSON,
+        license: {
+          name: TERMS,
+          licenseDocuments: [
+            {
+              name: TERMS,
+              fileType: 'application/pdf',
+              sha256: TERMS_SHA256,
+              mirrors: [{ type: 'url', method: 'get', url: TERMS }],
+            },
+          ],
+        },
+        additionalInformation: {
+          termsAndConditions: true,
+          gaiaX: { serviceOfferingCredential: DSO_CREDENTIAL },
+        },
+        links: {
+          'Digital Service Offering Credential': DSO_CREDENTIAL,
+          'Service Contract': TERMS,
+        },
+      });
+      expect(ddo.credentials).toEqual({
+        allow: [
+          { type: 'address', values: [{ address: '*' }] },
+          GAIAX_SSI_POLICY,
+        ],
+        match_deny: 'any',
+      });
+      // the policy is set on the asset, not on its services
+      expect(ddo.services[0].credentials).toEqual({});
+      expect((service as any).logger.warn).not.toHaveBeenCalled();
+    });
+
+    it('checks the Gaia-X presentation with the configured compliance service', async () => {
+      const publish = vi.fn().mockResolvedValue({ ddo: { id: 'did:ope:1' } });
+      const service = createService({ publish });
+      (service as any).configService.get.mockImplementation((key: string) =>
+        key === 'GAIAX_EVP_URL' ? 'https://gxdch.example.org/vc' : undefined,
+      );
+
+      await service.publishAsset(gaiaXOffering());
+
+      const [, ssiPolicy] = (publish.mock.calls[0][0] as any).ddo.credentials
+        .allow;
+      expect(ssiPolicy.values[0].vp_policies).toContainEqual({
+        policy: 'external-evp-forward',
+        args: 'https://gxdch.example.org/vc',
+      });
+    });
+
+    it('publishes without SSI policy and warns about a providedBy that is no URL', async () => {
+      const publish = vi.fn().mockResolvedValue({ ddo: { id: 'did:ope:1' } });
+      const service = createService({ publish });
+
+      await service.publishAsset(datasetOffering());
+
+      const { ddo } = publish.mock.calls[0][0] as any;
+      expect(ddo.credentials).toEqual({
+        allow: [{ type: 'address', values: [{ address: '*' }] }],
+      });
+      expect(ddo.services[0].credentials).toEqual({});
+      expect((service as any).logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("providedBy 'PTW'"),
+      );
+    });
+
+    it('sets an SSI policy of its own on a service', async () => {
+      const publish = vi.fn().mockResolvedValue({ ddo: { id: 'did:ope:1' } });
+      const offering = datasetOffering();
+      offering.services[0].ssiPolicy = {
+        gaiaX: false,
+        requestCredentials: [
+          { type: 'ProofOfResidence', format: 'jwt_vc_json', policies: [] },
+        ],
+        vcPolicies: ['signature', 'expired'],
+        vpPolicies: [{ policy: 'minimum-credentials', args: '1' }],
+        matchAllow: SsiPolicy_MatchRule.ANY,
+        matchDeny: SsiPolicy_MatchRule.DEFAULT,
+      };
+
+      await createService({ publish }).publishAsset(offering);
+
+      const { ddo } = publish.mock.calls[0][0] as any;
+      expect(ddo.services[0].credentials).toEqual({
+        allow: [
+          {
+            type: 'SSIpolicy',
+            values: [
+              {
+                request_credentials: [
+                  {
+                    type: 'ProofOfResidence',
+                    format: 'jwt_vc_json',
+                    policies: [],
+                  },
+                ],
+                vc_policies: ['signature', 'expired'],
+                vp_policies: [{ policy: 'minimum-credentials', args: '1' }],
+              },
+            ],
+          },
+          { type: 'address', values: [{ address: '*' }] },
+        ],
+        match_allow: 'any',
+      });
+      expect(ddo.credentials.allow).toEqual([
+        { type: 'address', values: [{ address: '*' }] },
+      ]);
+    });
+
+    it.each([
+      [
+        'VC policies without request credentials',
+        (offering: PontusxOffering) => {
+          offering.ssiPolicy = {
+            gaiaX: false,
+            requestCredentials: [],
+            vcPolicies: ['signature'],
+            vpPolicies: [],
+            matchAllow: SsiPolicy_MatchRule.DEFAULT,
+            matchDeny: SsiPolicy_MatchRule.DEFAULT,
+          };
+        },
+        'needs request credentials',
+      ],
+      [
+        'a license document hash that is no SHA-256',
+        (offering: PontusxOffering) => {
+          offering.metadata.licenseDocuments = [{ url: TERMS, sha256: 'abc' }];
+        },
+        'is not 64 hex characters',
+      ],
+    ])('refuses %s', async (_case, change, reason) => {
+      const publish = vi.fn();
+      const offering = datasetOffering();
+      change(offering);
+
+      await expect(
+        createService({ publish }).publishAsset(offering),
+      ).rejects.toMatchObject({
+        error: {
+          code: GrpcStatusCode.INVALID_ARGUMENT,
+          message: expect.stringContaining(reason),
+        },
+      });
+      expect(publish).not.toHaveBeenCalled();
+    });
+
     it('refuses to publish without a DDO store', async () => {
       const publish = vi.fn();
       const service = createService({ publish });
@@ -381,6 +646,92 @@ describe('PontusxService', () => {
       expect(await update()).toEqual(
         publishedAsset().credentialSubject.credentials,
       );
+    });
+
+    // The reference DDO as stored: SSI policy, license documents and Gaia-X information.
+    async function updateGaiaX(changes: object) {
+      const asset = publishedAsset();
+      asset.credentialSubject.credentials.allow.unshift(GAIAX_SSI_POLICY);
+      Object.assign(asset.credentialSubject.metadata, {
+        description: { '@value': 'A dataset', '@language': 'en' },
+        author: 'PTW',
+        providedBy: LEGAL_PERSON,
+        license: {
+          name: TERMS,
+          licenseDocuments: [{ name: TERMS, sha256: TERMS_SHA256 }],
+        },
+        additionalInformation: {
+          termsAndConditions: true,
+          gaiaX: { serviceOfferingCredential: DSO_CREDENTIAL },
+        },
+      });
+      const edit = vi.fn().mockResolvedValue({ txHash: '0xabc' });
+      await createService({
+        getAsset: vi.fn().mockResolvedValue(asset),
+        edit,
+      }).updateOffering({
+        pontusxUpdateOffering: {
+          did: 'did:ope:1234',
+          updateServices: [],
+          credentials: null,
+          ...changes,
+        },
+      } as any);
+      return (edit.mock.calls[0][0] as any).ddo;
+    }
+
+    it('keeps the stored SSI policy when none is given', async () => {
+      const ddo = await updateGaiaX({});
+
+      expect(ddo.credentials.allow).toContainEqual(GAIAX_SSI_POLICY);
+    });
+
+    it('removes the stored SSI policy with one without request credentials', async () => {
+      const ddo = await updateGaiaX({
+        ssiPolicy: {
+          gaiaX: false,
+          requestCredentials: [],
+          vcPolicies: [],
+          vpPolicies: [],
+          matchAllow: SsiPolicy_MatchRule.DEFAULT,
+          matchDeny: SsiPolicy_MatchRule.DEFAULT,
+        },
+      });
+
+      expect(ddo.credentials.allow).toEqual([
+        { type: 'address', values: [{ address: '*' }] },
+      ]);
+    });
+
+    it('links a new service offering credential without changing the metadata', async () => {
+      const credential = 'https://example.org/.well-known/dso-v2.jwt';
+      const ddo = await updateGaiaX({
+        additionalInformation: {
+          termsAndConditions: true,
+          gaiaX: { serviceOfferingCredential: credential },
+        },
+      });
+
+      expect(ddo.metadata.additionalInformation).toEqual({
+        termsAndConditions: true,
+        gaiaX: { serviceOfferingCredential: credential },
+      });
+      expect(ddo.metadata.links).toMatchObject({
+        'Digital Service Offering Credential': credential,
+      });
+      // unset in the builder, so the published license is kept
+      expect(ddo.metadata).not.toHaveProperty('license');
+    });
+
+    it('keeps the stored license documents when the metadata gives none', async () => {
+      const ddo = await updateGaiaX({
+        metadata: { ...datasetOffering().metadata, license: '' },
+      });
+
+      expect(ddo.metadata.license).toEqual({
+        name: TERMS,
+        licenseDocuments: [{ name: TERMS, sha256: TERMS_SHA256 }],
+      });
     });
 
     const STORED_NODE = 'https://node.example.org';

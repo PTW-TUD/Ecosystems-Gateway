@@ -208,7 +208,7 @@ export interface PontusxOffering {
     | undefined;
   /**
    * Additional information regarding the offering
-   * Exclusively used for terms & conditions and link to Gaia-X VPs
+   * Used for terms & conditions and the link to the Gaia-X service offering credential
    */
   additionalInformation?:
     | AdditionalInformation
@@ -222,7 +222,14 @@ export interface PontusxOffering {
    * Allowlist & Denylist of wallet addresses for the offering.
    * Without allow addresses everyone is allowed.
    */
-  credentials?: CredentialLists | undefined;
+  credentials?:
+    | CredentialLists
+    | undefined;
+  /**
+   * Verifiable credentials a consumer has to present for every service of the offering
+   * Without it, only the address lists apply
+   */
+  ssiPolicy?: SsiPolicy | undefined;
 }
 
 /** Response returned after creating offerings. */
@@ -274,7 +281,8 @@ export interface PontusxUpdateOffering {
     | undefined;
   /**
    * Additional information regarding the offering
-   * Exclusively used for terms & conditions and link to Gaia-X VPs
+   * Used for terms & conditions and the link to the Gaia-X service offering credential
+   * Given values replace the stored ones; it can be given without metadata
    */
   additionalInformation?: AdditionalInformation | undefined;
   updateServices: PontusxUpdateOffering_UpdateService[];
@@ -283,7 +291,14 @@ export interface PontusxUpdateOffering {
    * replace the stored address lists; without allow addresses everyone is allowed.
    * When omitted, the stored lists are kept.
    */
-  credentials?: CredentialLists | undefined;
+  credentials?:
+    | CredentialLists
+    | undefined;
+  /**
+   * When given, replaces the stored SSI policy of the offering; one without request
+   * credentials removes it. When omitted, the stored policy is kept.
+   */
+  ssiPolicy?: SsiPolicy | undefined;
 }
 
 /** Updated Services that are exposed by the asset to interact with it */
@@ -672,8 +687,11 @@ export interface Metadata {
   /** Name of the entity generating this data */
   author: string;
   /**
-   * Short name referencing the license of the asset
+   * Name of the license of the asset (DDO v5 license.name), the identifier catalogues show
    * example: CC-BY-4.0, Public Domain
+   * A standard license needs only this name; a custom contract, which has no short name,
+   * is given as licenseDocuments instead, and its URL then serves as the name.
+   * Defaults to the URL of the first license document
    */
   license: string;
   /** Optional keywords or tags used to describe the content of the offering */
@@ -686,7 +704,8 @@ export interface Metadata {
     | AlgorithmMetadata
     | undefined;
   /**
-   * Organisation that provides the asset (DDO v5 providedBy)
+   * URL of the provider's Gaia-X participant (gx:LegalPerson) credential (DDO v5 providedBy)
+   * example: https://example.org/.well-known/gx_legalperson.jwt
    * Defaults to the gateway's PROVIDED_BY, else the author
    */
   providedBy?:
@@ -711,11 +730,42 @@ export interface Metadata {
    * example: {"website": "https://example.org"}
    */
   links: { [key: string]: string };
+  /**
+   * Text direction of the content, "ltr" or "rtl"
+   * Defaults to "ltr"; given without language, the language defaults to "en"
+   */
+  direction?:
+    | string
+    | undefined;
+  /**
+   * Documents of the license, e.g. the service contract (DDO v5 license.licenseDocuments):
+   * the legal texts themselves, which consumers can download from their mirror and check
+   * against their sha256, e.g. for the Gaia-X usage terms and conditions.
+   * The license is not searchable in the ocean-node's index, so the first one is also
+   * linked as "Service Contract", as the deltaDAO portal does
+   * On an update, given documents replace the stored ones; none given keeps them
+   */
+  licenseDocuments: LicenseDocument[];
 }
 
 export interface Metadata_LinksEntry {
   key: string;
   value: string;
+}
+
+/** A document of the license of an asset. */
+export interface LicenseDocument {
+  /** URL of the document */
+  url: string;
+  /** Media type of the document, e.g. "application/pdf" */
+  fileType?:
+    | string
+    | undefined;
+  /**
+   * SHA-256 of the document as hex, e.g. for the Gaia-X terms and conditions hash
+   * Not computed by the gateway: left out, the document has none
+   */
+  sha256?: string | undefined;
 }
 
 /** Metadata of an algorithm. */
@@ -817,6 +867,12 @@ export interface Service {
    * On an update, the given parameters replace the stored ones; none given keeps them
    */
   consumerParameters: ConsumerParameter[];
+  /**
+   * Verifiable credentials a consumer has to present for this service, on top of the
+   * offering's SSI policy. Without it, only the offering's rules apply.
+   * On an update, given replaces the stored one; one without request credentials removes it
+   */
+  ssiPolicy?: SsiPolicy | undefined;
 }
 
 /** Information about the price for the asset for consumption in the ecosystem */
@@ -968,40 +1024,109 @@ export interface TrustedPublishers {
   addresses: string[];
 }
 
-/** Additional Pontus-X specific metadata, primarily for Gaia-X related information. */
+/**
+ * Additional Pontus-X specific metadata (DDO v5 metadata.additionalInformation),
+ * primarily for Gaia-X related information.
+ */
 export interface AdditionalInformation {
   /** Boolean to indicate if the publisher specifies it's own terms and conditions for consumption of the asset */
   termsAndConditions: boolean;
-  /** Information in the context of Gaia-X compliance including the link to the Self-Description of the offering (VP) */
-  gaiaXInformation?: GaiaX | undefined;
+  /** Gaia-X credentials of the offering (additionalInformation.gaiaX) */
+  gaiaX?: GaiaX | undefined;
 }
 
-/** Gaia-X related compliance information referenced by AdditionalInformation. */
+/** Gaia-X credentials of an offering, hosted by the provider. */
 export interface GaiaX {
-  /** Identifier if the asset contains personally identifiable information */
-  containsPII: boolean;
   /**
-   * Terms and conditions additionally set by the publisher of the asset
-   * Should only be passed if boolean in AdditionalInformation is true
+   * URL of the offering's Gaia-X service offering (gx:DigitalServiceOffering) credential
+   * It is also linked as "Digital Service Offering Credential"
+   * example: https://example.org/.well-known/gx_digitalserviceoffering.jwt
    */
-  termsAndConditions: Terms[];
-  serviceSD?: GaiaX_ServiceSelfDescription | undefined;
+  serviceOfferingCredential: string;
 }
 
-/** Endpoint to the Gaia-X compliant Self-Description (VP) of the offering */
-export interface GaiaX_ServiceSelfDescription {
-  /** Static URL of the self-description */
-  url: string;
+/**
+ * Verifiable credentials a consumer has to present, checked by the ocean-node's policy
+ * server before anything is ordered or paid (an SSIpolicy entry of the allow list).
+ * The wallet address lists stay in place next to it.
+ */
+export interface SsiPolicy {
   /**
-   * Optional identifier if the self-description has been verified against a Gaia-X Compliance Service
-   * Mainly used by the deltaDAO portal
+   * Writes the Gaia-X participant policy: gx:LegalPerson, gx:Issuer and one of gx:VatID,
+   * gx:LeiCode or gx:EORI, checked by the Gaia-X compliance service in GAIAX_EVP_URL.
+   * The lists below are added to it.
    */
-  isVerified?: boolean | undefined;
+  gaiaX: boolean;
+  /** Credentials the consumer has to present */
+  requestCredentials: RequestCredential[];
+  /** Checks of each credential, e.g. "signature", "expired", "not-before" */
+  vcPolicies: string[];
+  /** Checks of the presentation, e.g. {"policy": "minimum-credentials", "args": "1"} */
+  vpPolicies: VpPolicy[];
+  /** How the allow rules combine; defaults to all of them */
+  matchAllow: SsiPolicy_MatchRule;
+  /** How the deny rules combine; defaults to any of them */
+  matchDeny: SsiPolicy_MatchRule;
 }
 
-/** Publisher-defined terms and conditions URL referenced by Gaia-X metadata. */
-export interface Terms {
-  url: string;
+export enum SsiPolicy_MatchRule {
+  /** DEFAULT - The policy server's default */
+  DEFAULT = 0,
+  ANY = 1,
+  ALL = 2,
+  UNRECOGNIZED = -1,
+}
+
+export function ssiPolicy_MatchRuleFromJSON(object: any): SsiPolicy_MatchRule {
+  switch (object) {
+    case 0:
+    case "DEFAULT":
+      return SsiPolicy_MatchRule.DEFAULT;
+    case 1:
+    case "ANY":
+      return SsiPolicy_MatchRule.ANY;
+    case 2:
+    case "ALL":
+      return SsiPolicy_MatchRule.ALL;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return SsiPolicy_MatchRule.UNRECOGNIZED;
+  }
+}
+
+export function ssiPolicy_MatchRuleToJSON(object: SsiPolicy_MatchRule): string {
+  switch (object) {
+    case SsiPolicy_MatchRule.DEFAULT:
+      return "DEFAULT";
+    case SsiPolicy_MatchRule.ANY:
+      return "ANY";
+    case SsiPolicy_MatchRule.ALL:
+      return "ALL";
+    case SsiPolicy_MatchRule.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+/** A credential a consumer has to present. */
+export interface RequestCredential {
+  /** Credential type, e.g. "gx:LegalPerson" */
+  type: string;
+  /** Credential format, e.g. "jwt_vc_json" */
+  format?:
+    | string
+    | undefined;
+  /** Checks of this credential only */
+  policies: string[];
+}
+
+/** A check of the presentation a consumer makes. */
+export interface VpPolicy {
+  /** walt.id policy name, e.g. "minimum-credentials" */
+  policy: string;
+  /** Argument of the policy as a string; structured arguments as JSON */
+  args?: string | undefined;
 }
 
 /** Additional input parameter that the asset needs before downloading or running a Compute-to-Data job at algorithm runtime */
@@ -1239,7 +1364,13 @@ export const XfscOffering: MessageFns<XfscOffering> = {
 };
 
 function createBasePontusxOffering(): PontusxOffering {
-  return { metadata: undefined, additionalInformation: undefined, services: [], credentials: undefined };
+  return {
+    metadata: undefined,
+    additionalInformation: undefined,
+    services: [],
+    credentials: undefined,
+    ssiPolicy: undefined,
+  };
 }
 
 export const PontusxOffering: MessageFns<PontusxOffering> = {
@@ -1255,6 +1386,9 @@ export const PontusxOffering: MessageFns<PontusxOffering> = {
     }
     if (message.credentials !== undefined) {
       CredentialLists.encode(message.credentials, writer.uint32(34).fork()).join();
+    }
+    if (message.ssiPolicy !== undefined) {
+      SsiPolicy.encode(message.ssiPolicy, writer.uint32(42).fork()).join();
     }
     return writer;
   },
@@ -1298,6 +1432,14 @@ export const PontusxOffering: MessageFns<PontusxOffering> = {
           message.credentials = CredentialLists.decode(reader, reader.uint32());
           continue;
         }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.ssiPolicy = SsiPolicy.decode(reader, reader.uint32());
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1315,6 +1457,7 @@ export const PontusxOffering: MessageFns<PontusxOffering> = {
         : undefined,
       services: globalThis.Array.isArray(object?.services) ? object.services.map((e: any) => Service.fromJSON(e)) : [],
       credentials: isSet(object.credentials) ? CredentialLists.fromJSON(object.credentials) : undefined,
+      ssiPolicy: isSet(object.ssiPolicy) ? SsiPolicy.fromJSON(object.ssiPolicy) : undefined,
     };
   },
 
@@ -1331,6 +1474,9 @@ export const PontusxOffering: MessageFns<PontusxOffering> = {
     }
     if (message.credentials !== undefined) {
       obj.credentials = CredentialLists.toJSON(message.credentials);
+    }
+    if (message.ssiPolicy !== undefined) {
+      obj.ssiPolicy = SsiPolicy.toJSON(message.ssiPolicy);
     }
     return obj;
   },
@@ -1350,6 +1496,9 @@ export const PontusxOffering: MessageFns<PontusxOffering> = {
     message.services = object.services?.map((e) => Service.fromPartial(e)) || [];
     message.credentials = (object.credentials !== undefined && object.credentials !== null)
       ? CredentialLists.fromPartial(object.credentials)
+      : undefined;
+    message.ssiPolicy = (object.ssiPolicy !== undefined && object.ssiPolicy !== null)
+      ? SsiPolicy.fromPartial(object.ssiPolicy)
       : undefined;
     return message;
   },
@@ -1677,7 +1826,14 @@ export const XfscUpdateOffering: MessageFns<XfscUpdateOffering> = {
 };
 
 function createBasePontusxUpdateOffering(): PontusxUpdateOffering {
-  return { did: "", metadata: undefined, additionalInformation: undefined, updateServices: [], credentials: undefined };
+  return {
+    did: "",
+    metadata: undefined,
+    additionalInformation: undefined,
+    updateServices: [],
+    credentials: undefined,
+    ssiPolicy: undefined,
+  };
 }
 
 export const PontusxUpdateOffering: MessageFns<PontusxUpdateOffering> = {
@@ -1696,6 +1852,9 @@ export const PontusxUpdateOffering: MessageFns<PontusxUpdateOffering> = {
     }
     if (message.credentials !== undefined) {
       CredentialLists.encode(message.credentials, writer.uint32(42).fork()).join();
+    }
+    if (message.ssiPolicy !== undefined) {
+      SsiPolicy.encode(message.ssiPolicy, writer.uint32(50).fork()).join();
     }
     return writer;
   },
@@ -1747,6 +1906,14 @@ export const PontusxUpdateOffering: MessageFns<PontusxUpdateOffering> = {
           message.credentials = CredentialLists.decode(reader, reader.uint32());
           continue;
         }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.ssiPolicy = SsiPolicy.decode(reader, reader.uint32());
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1767,6 +1934,7 @@ export const PontusxUpdateOffering: MessageFns<PontusxUpdateOffering> = {
         ? object.updateServices.map((e: any) => PontusxUpdateOffering_UpdateService.fromJSON(e))
         : [],
       credentials: isSet(object.credentials) ? CredentialLists.fromJSON(object.credentials) : undefined,
+      ssiPolicy: isSet(object.ssiPolicy) ? SsiPolicy.fromJSON(object.ssiPolicy) : undefined,
     };
   },
 
@@ -1786,6 +1954,9 @@ export const PontusxUpdateOffering: MessageFns<PontusxUpdateOffering> = {
     }
     if (message.credentials !== undefined) {
       obj.credentials = CredentialLists.toJSON(message.credentials);
+    }
+    if (message.ssiPolicy !== undefined) {
+      obj.ssiPolicy = SsiPolicy.toJSON(message.ssiPolicy);
     }
     return obj;
   },
@@ -1807,6 +1978,9 @@ export const PontusxUpdateOffering: MessageFns<PontusxUpdateOffering> = {
       [];
     message.credentials = (object.credentials !== undefined && object.credentials !== null)
       ? CredentialLists.fromPartial(object.credentials)
+      : undefined;
+    message.ssiPolicy = (object.ssiPolicy !== undefined && object.ssiPolicy !== null)
+      ? SsiPolicy.fromPartial(object.ssiPolicy)
       : undefined;
     return message;
   },
@@ -4810,6 +4984,8 @@ function createBaseMetadata(): Metadata {
     language: undefined,
     categories: [],
     links: {},
+    direction: undefined,
+    licenseDocuments: [],
   };
 }
 
@@ -4854,6 +5030,12 @@ export const Metadata: MessageFns<Metadata> = {
     Object.entries(message.links).forEach(([key, value]) => {
       Metadata_LinksEntry.encode({ key: key as any, value }, writer.uint32(106).fork()).join();
     });
+    if (message.direction !== undefined) {
+      writer.uint32(114).string(message.direction);
+    }
+    for (const v of message.licenseDocuments) {
+      LicenseDocument.encode(v!, writer.uint32(122).fork()).join();
+    }
     return writer;
   },
 
@@ -4971,6 +5153,22 @@ export const Metadata: MessageFns<Metadata> = {
           }
           continue;
         }
+        case 14: {
+          if (tag !== 114) {
+            break;
+          }
+
+          message.direction = reader.string();
+          continue;
+        }
+        case 15: {
+          if (tag !== 122) {
+            break;
+          }
+
+          message.licenseDocuments.push(LicenseDocument.decode(reader, reader.uint32()));
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -5002,6 +5200,10 @@ export const Metadata: MessageFns<Metadata> = {
           return acc;
         }, {})
         : {},
+      direction: isSet(object.direction) ? globalThis.String(object.direction) : undefined,
+      licenseDocuments: globalThis.Array.isArray(object?.licenseDocuments)
+        ? object.licenseDocuments.map((e: any) => LicenseDocument.fromJSON(e))
+        : [],
     };
   },
 
@@ -5052,6 +5254,12 @@ export const Metadata: MessageFns<Metadata> = {
         });
       }
     }
+    if (message.direction !== undefined) {
+      obj.direction = message.direction;
+    }
+    if (message.licenseDocuments?.length) {
+      obj.licenseDocuments = message.licenseDocuments.map((e) => LicenseDocument.toJSON(e));
+    }
     return obj;
   },
 
@@ -5080,6 +5288,8 @@ export const Metadata: MessageFns<Metadata> = {
       }
       return acc;
     }, {});
+    message.direction = object.direction ?? undefined;
+    message.licenseDocuments = object.licenseDocuments?.map((e) => LicenseDocument.fromPartial(e)) || [];
     return message;
   },
 };
@@ -5156,6 +5366,98 @@ export const Metadata_LinksEntry: MessageFns<Metadata_LinksEntry> = {
     const message = createBaseMetadata_LinksEntry();
     message.key = object.key ?? "";
     message.value = object.value ?? "";
+    return message;
+  },
+};
+
+function createBaseLicenseDocument(): LicenseDocument {
+  return { url: "", fileType: undefined, sha256: undefined };
+}
+
+export const LicenseDocument: MessageFns<LicenseDocument> = {
+  encode(message: LicenseDocument, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.url !== "") {
+      writer.uint32(10).string(message.url);
+    }
+    if (message.fileType !== undefined) {
+      writer.uint32(18).string(message.fileType);
+    }
+    if (message.sha256 !== undefined) {
+      writer.uint32(26).string(message.sha256);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): LicenseDocument {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseLicenseDocument();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.url = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.fileType = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.sha256 = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): LicenseDocument {
+    return {
+      url: isSet(object.url) ? globalThis.String(object.url) : "",
+      fileType: isSet(object.fileType) ? globalThis.String(object.fileType) : undefined,
+      sha256: isSet(object.sha256) ? globalThis.String(object.sha256) : undefined,
+    };
+  },
+
+  toJSON(message: LicenseDocument): unknown {
+    const obj: any = {};
+    if (message.url !== "") {
+      obj.url = message.url;
+    }
+    if (message.fileType !== undefined) {
+      obj.fileType = message.fileType;
+    }
+    if (message.sha256 !== undefined) {
+      obj.sha256 = message.sha256;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<LicenseDocument>, I>>(base?: I): LicenseDocument {
+    return LicenseDocument.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<LicenseDocument>, I>>(object: I): LicenseDocument {
+    const message = createBaseLicenseDocument();
+    message.url = object.url ?? "";
+    message.fileType = object.fileType ?? undefined;
+    message.sha256 = object.sha256 ?? undefined;
     return message;
   },
 };
@@ -5393,6 +5695,7 @@ function createBaseService(): Service {
     serviceEndpoint: undefined,
     computeOptions: undefined,
     consumerParameters: [],
+    ssiPolicy: undefined,
   };
 }
 
@@ -5430,6 +5733,9 @@ export const Service: MessageFns<Service> = {
     }
     for (const v of message.consumerParameters) {
       ConsumerParameter.encode(v!, writer.uint32(90).fork()).join();
+    }
+    if (message.ssiPolicy !== undefined) {
+      SsiPolicy.encode(message.ssiPolicy, writer.uint32(98).fork()).join();
     }
     return writer;
   },
@@ -5529,6 +5835,14 @@ export const Service: MessageFns<Service> = {
           message.consumerParameters.push(ConsumerParameter.decode(reader, reader.uint32()));
           continue;
         }
+        case 12: {
+          if (tag !== 98) {
+            break;
+          }
+
+          message.ssiPolicy = SsiPolicy.decode(reader, reader.uint32());
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -5553,6 +5867,7 @@ export const Service: MessageFns<Service> = {
       consumerParameters: globalThis.Array.isArray(object?.consumerParameters)
         ? object.consumerParameters.map((e: any) => ConsumerParameter.fromJSON(e))
         : [],
+      ssiPolicy: isSet(object.ssiPolicy) ? SsiPolicy.fromJSON(object.ssiPolicy) : undefined,
     };
   },
 
@@ -5591,6 +5906,9 @@ export const Service: MessageFns<Service> = {
     if (message.consumerParameters?.length) {
       obj.consumerParameters = message.consumerParameters.map((e) => ConsumerParameter.toJSON(e));
     }
+    if (message.ssiPolicy !== undefined) {
+      obj.ssiPolicy = SsiPolicy.toJSON(message.ssiPolicy);
+    }
     return obj;
   },
 
@@ -5614,6 +5932,9 @@ export const Service: MessageFns<Service> = {
       ? ComputeOptions.fromPartial(object.computeOptions)
       : undefined;
     message.consumerParameters = object.consumerParameters?.map((e) => ConsumerParameter.fromPartial(e)) || [];
+    message.ssiPolicy = (object.ssiPolicy !== undefined && object.ssiPolicy !== null)
+      ? SsiPolicy.fromPartial(object.ssiPolicy)
+      : undefined;
     return message;
   },
 };
@@ -6237,7 +6558,7 @@ export const TrustedPublishers: MessageFns<TrustedPublishers> = {
 };
 
 function createBaseAdditionalInformation(): AdditionalInformation {
-  return { termsAndConditions: false, gaiaXInformation: undefined };
+  return { termsAndConditions: false, gaiaX: undefined };
 }
 
 export const AdditionalInformation: MessageFns<AdditionalInformation> = {
@@ -6245,8 +6566,8 @@ export const AdditionalInformation: MessageFns<AdditionalInformation> = {
     if (message.termsAndConditions !== false) {
       writer.uint32(8).bool(message.termsAndConditions);
     }
-    if (message.gaiaXInformation !== undefined) {
-      GaiaX.encode(message.gaiaXInformation, writer.uint32(18).fork()).join();
+    if (message.gaiaX !== undefined) {
+      GaiaX.encode(message.gaiaX, writer.uint32(26).fork()).join();
     }
     return writer;
   },
@@ -6266,12 +6587,12 @@ export const AdditionalInformation: MessageFns<AdditionalInformation> = {
           message.termsAndConditions = reader.bool();
           continue;
         }
-        case 2: {
-          if (tag !== 18) {
+        case 3: {
+          if (tag !== 26) {
             break;
           }
 
-          message.gaiaXInformation = GaiaX.decode(reader, reader.uint32());
+          message.gaiaX = GaiaX.decode(reader, reader.uint32());
           continue;
         }
       }
@@ -6286,7 +6607,7 @@ export const AdditionalInformation: MessageFns<AdditionalInformation> = {
   fromJSON(object: any): AdditionalInformation {
     return {
       termsAndConditions: isSet(object.termsAndConditions) ? globalThis.Boolean(object.termsAndConditions) : false,
-      gaiaXInformation: isSet(object.gaiaXInformation) ? GaiaX.fromJSON(object.gaiaXInformation) : undefined,
+      gaiaX: isSet(object.gaiaX) ? GaiaX.fromJSON(object.gaiaX) : undefined,
     };
   },
 
@@ -6295,8 +6616,8 @@ export const AdditionalInformation: MessageFns<AdditionalInformation> = {
     if (message.termsAndConditions !== false) {
       obj.termsAndConditions = message.termsAndConditions;
     }
-    if (message.gaiaXInformation !== undefined) {
-      obj.gaiaXInformation = GaiaX.toJSON(message.gaiaXInformation);
+    if (message.gaiaX !== undefined) {
+      obj.gaiaX = GaiaX.toJSON(message.gaiaX);
     }
     return obj;
   },
@@ -6307,27 +6628,19 @@ export const AdditionalInformation: MessageFns<AdditionalInformation> = {
   fromPartial<I extends Exact<DeepPartial<AdditionalInformation>, I>>(object: I): AdditionalInformation {
     const message = createBaseAdditionalInformation();
     message.termsAndConditions = object.termsAndConditions ?? false;
-    message.gaiaXInformation = (object.gaiaXInformation !== undefined && object.gaiaXInformation !== null)
-      ? GaiaX.fromPartial(object.gaiaXInformation)
-      : undefined;
+    message.gaiaX = (object.gaiaX !== undefined && object.gaiaX !== null) ? GaiaX.fromPartial(object.gaiaX) : undefined;
     return message;
   },
 };
 
 function createBaseGaiaX(): GaiaX {
-  return { containsPII: false, termsAndConditions: [], serviceSD: undefined };
+  return { serviceOfferingCredential: "" };
 }
 
 export const GaiaX: MessageFns<GaiaX> = {
   encode(message: GaiaX, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.containsPII !== false) {
-      writer.uint32(8).bool(message.containsPII);
-    }
-    for (const v of message.termsAndConditions) {
-      Terms.encode(v!, writer.uint32(18).fork()).join();
-    }
-    if (message.serviceSD !== undefined) {
-      GaiaX_ServiceSelfDescription.encode(message.serviceSD, writer.uint32(26).fork()).join();
+    if (message.serviceOfferingCredential !== "") {
+      writer.uint32(10).string(message.serviceOfferingCredential);
     }
     return writer;
   },
@@ -6340,27 +6653,11 @@ export const GaiaX: MessageFns<GaiaX> = {
       const tag = reader.uint32();
       switch (tag >>> 3) {
         case 1: {
-          if (tag !== 8) {
+          if (tag !== 10) {
             break;
           }
 
-          message.containsPII = reader.bool();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.termsAndConditions.push(Terms.decode(reader, reader.uint32()));
-          continue;
-        }
-        case 3: {
-          if (tag !== 26) {
-            break;
-          }
-
-          message.serviceSD = GaiaX_ServiceSelfDescription.decode(reader, reader.uint32());
+          message.serviceOfferingCredential = reader.string();
           continue;
         }
       }
@@ -6374,24 +6671,16 @@ export const GaiaX: MessageFns<GaiaX> = {
 
   fromJSON(object: any): GaiaX {
     return {
-      containsPII: isSet(object.containsPII) ? globalThis.Boolean(object.containsPII) : false,
-      termsAndConditions: globalThis.Array.isArray(object?.termsAndConditions)
-        ? object.termsAndConditions.map((e: any) => Terms.fromJSON(e))
-        : [],
-      serviceSD: isSet(object.serviceSD) ? GaiaX_ServiceSelfDescription.fromJSON(object.serviceSD) : undefined,
+      serviceOfferingCredential: isSet(object.serviceOfferingCredential)
+        ? globalThis.String(object.serviceOfferingCredential)
+        : "",
     };
   },
 
   toJSON(message: GaiaX): unknown {
     const obj: any = {};
-    if (message.containsPII !== false) {
-      obj.containsPII = message.containsPII;
-    }
-    if (message.termsAndConditions?.length) {
-      obj.termsAndConditions = message.termsAndConditions.map((e) => Terms.toJSON(e));
-    }
-    if (message.serviceSD !== undefined) {
-      obj.serviceSD = GaiaX_ServiceSelfDescription.toJSON(message.serviceSD);
+    if (message.serviceOfferingCredential !== "") {
+      obj.serviceOfferingCredential = message.serviceOfferingCredential;
     }
     return obj;
   },
@@ -6401,51 +6690,91 @@ export const GaiaX: MessageFns<GaiaX> = {
   },
   fromPartial<I extends Exact<DeepPartial<GaiaX>, I>>(object: I): GaiaX {
     const message = createBaseGaiaX();
-    message.containsPII = object.containsPII ?? false;
-    message.termsAndConditions = object.termsAndConditions?.map((e) => Terms.fromPartial(e)) || [];
-    message.serviceSD = (object.serviceSD !== undefined && object.serviceSD !== null)
-      ? GaiaX_ServiceSelfDescription.fromPartial(object.serviceSD)
-      : undefined;
+    message.serviceOfferingCredential = object.serviceOfferingCredential ?? "";
     return message;
   },
 };
 
-function createBaseGaiaX_ServiceSelfDescription(): GaiaX_ServiceSelfDescription {
-  return { url: "", isVerified: undefined };
+function createBaseSsiPolicy(): SsiPolicy {
+  return { gaiaX: false, requestCredentials: [], vcPolicies: [], vpPolicies: [], matchAllow: 0, matchDeny: 0 };
 }
 
-export const GaiaX_ServiceSelfDescription: MessageFns<GaiaX_ServiceSelfDescription> = {
-  encode(message: GaiaX_ServiceSelfDescription, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.url !== "") {
-      writer.uint32(10).string(message.url);
+export const SsiPolicy: MessageFns<SsiPolicy> = {
+  encode(message: SsiPolicy, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.gaiaX !== false) {
+      writer.uint32(8).bool(message.gaiaX);
     }
-    if (message.isVerified !== undefined) {
-      writer.uint32(16).bool(message.isVerified);
+    for (const v of message.requestCredentials) {
+      RequestCredential.encode(v!, writer.uint32(18).fork()).join();
+    }
+    for (const v of message.vcPolicies) {
+      writer.uint32(26).string(v!);
+    }
+    for (const v of message.vpPolicies) {
+      VpPolicy.encode(v!, writer.uint32(34).fork()).join();
+    }
+    if (message.matchAllow !== 0) {
+      writer.uint32(40).int32(message.matchAllow);
+    }
+    if (message.matchDeny !== 0) {
+      writer.uint32(48).int32(message.matchDeny);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): GaiaX_ServiceSelfDescription {
+  decode(input: BinaryReader | Uint8Array, length?: number): SsiPolicy {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseGaiaX_ServiceSelfDescription();
+    const message = createBaseSsiPolicy();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
         case 1: {
-          if (tag !== 10) {
+          if (tag !== 8) {
             break;
           }
 
-          message.url = reader.string();
+          message.gaiaX = reader.bool();
           continue;
         }
         case 2: {
-          if (tag !== 16) {
+          if (tag !== 18) {
             break;
           }
 
-          message.isVerified = reader.bool();
+          message.requestCredentials.push(RequestCredential.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.vcPolicies.push(reader.string());
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.vpPolicies.push(VpPolicy.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 5: {
+          if (tag !== 40) {
+            break;
+          }
+
+          message.matchAllow = reader.int32() as any;
+          continue;
+        }
+        case 6: {
+          if (tag !== 48) {
+            break;
+          }
+
+          message.matchDeny = reader.int32() as any;
           continue;
         }
       }
@@ -6457,51 +6786,83 @@ export const GaiaX_ServiceSelfDescription: MessageFns<GaiaX_ServiceSelfDescripti
     return message;
   },
 
-  fromJSON(object: any): GaiaX_ServiceSelfDescription {
+  fromJSON(object: any): SsiPolicy {
     return {
-      url: isSet(object.url) ? globalThis.String(object.url) : "",
-      isVerified: isSet(object.isVerified) ? globalThis.Boolean(object.isVerified) : undefined,
+      gaiaX: isSet(object.gaiaX) ? globalThis.Boolean(object.gaiaX) : false,
+      requestCredentials: globalThis.Array.isArray(object?.requestCredentials)
+        ? object.requestCredentials.map((e: any) => RequestCredential.fromJSON(e))
+        : [],
+      vcPolicies: globalThis.Array.isArray(object?.vcPolicies)
+        ? object.vcPolicies.map((e: any) => globalThis.String(e))
+        : [],
+      vpPolicies: globalThis.Array.isArray(object?.vpPolicies)
+        ? object.vpPolicies.map((e: any) => VpPolicy.fromJSON(e))
+        : [],
+      matchAllow: isSet(object.matchAllow) ? ssiPolicy_MatchRuleFromJSON(object.matchAllow) : 0,
+      matchDeny: isSet(object.matchDeny) ? ssiPolicy_MatchRuleFromJSON(object.matchDeny) : 0,
     };
   },
 
-  toJSON(message: GaiaX_ServiceSelfDescription): unknown {
+  toJSON(message: SsiPolicy): unknown {
     const obj: any = {};
-    if (message.url !== "") {
-      obj.url = message.url;
+    if (message.gaiaX !== false) {
+      obj.gaiaX = message.gaiaX;
     }
-    if (message.isVerified !== undefined) {
-      obj.isVerified = message.isVerified;
+    if (message.requestCredentials?.length) {
+      obj.requestCredentials = message.requestCredentials.map((e) => RequestCredential.toJSON(e));
+    }
+    if (message.vcPolicies?.length) {
+      obj.vcPolicies = message.vcPolicies;
+    }
+    if (message.vpPolicies?.length) {
+      obj.vpPolicies = message.vpPolicies.map((e) => VpPolicy.toJSON(e));
+    }
+    if (message.matchAllow !== 0) {
+      obj.matchAllow = ssiPolicy_MatchRuleToJSON(message.matchAllow);
+    }
+    if (message.matchDeny !== 0) {
+      obj.matchDeny = ssiPolicy_MatchRuleToJSON(message.matchDeny);
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<GaiaX_ServiceSelfDescription>, I>>(base?: I): GaiaX_ServiceSelfDescription {
-    return GaiaX_ServiceSelfDescription.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<SsiPolicy>, I>>(base?: I): SsiPolicy {
+    return SsiPolicy.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GaiaX_ServiceSelfDescription>, I>>(object: I): GaiaX_ServiceSelfDescription {
-    const message = createBaseGaiaX_ServiceSelfDescription();
-    message.url = object.url ?? "";
-    message.isVerified = object.isVerified ?? undefined;
+  fromPartial<I extends Exact<DeepPartial<SsiPolicy>, I>>(object: I): SsiPolicy {
+    const message = createBaseSsiPolicy();
+    message.gaiaX = object.gaiaX ?? false;
+    message.requestCredentials = object.requestCredentials?.map((e) => RequestCredential.fromPartial(e)) || [];
+    message.vcPolicies = object.vcPolicies?.map((e) => e) || [];
+    message.vpPolicies = object.vpPolicies?.map((e) => VpPolicy.fromPartial(e)) || [];
+    message.matchAllow = object.matchAllow ?? 0;
+    message.matchDeny = object.matchDeny ?? 0;
     return message;
   },
 };
 
-function createBaseTerms(): Terms {
-  return { url: "" };
+function createBaseRequestCredential(): RequestCredential {
+  return { type: "", format: undefined, policies: [] };
 }
 
-export const Terms: MessageFns<Terms> = {
-  encode(message: Terms, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.url !== "") {
-      writer.uint32(10).string(message.url);
+export const RequestCredential: MessageFns<RequestCredential> = {
+  encode(message: RequestCredential, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.type !== "") {
+      writer.uint32(10).string(message.type);
+    }
+    if (message.format !== undefined) {
+      writer.uint32(18).string(message.format);
+    }
+    for (const v of message.policies) {
+      writer.uint32(26).string(v!);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): Terms {
+  decode(input: BinaryReader | Uint8Array, length?: number): RequestCredential {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseTerms();
+    const message = createBaseRequestCredential();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -6510,7 +6871,23 @@ export const Terms: MessageFns<Terms> = {
             break;
           }
 
-          message.url = reader.string();
+          message.type = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.format = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.policies.push(reader.string());
           continue;
         }
       }
@@ -6522,24 +6899,112 @@ export const Terms: MessageFns<Terms> = {
     return message;
   },
 
-  fromJSON(object: any): Terms {
-    return { url: isSet(object.url) ? globalThis.String(object.url) : "" };
+  fromJSON(object: any): RequestCredential {
+    return {
+      type: isSet(object.type) ? globalThis.String(object.type) : "",
+      format: isSet(object.format) ? globalThis.String(object.format) : undefined,
+      policies: globalThis.Array.isArray(object?.policies) ? object.policies.map((e: any) => globalThis.String(e)) : [],
+    };
   },
 
-  toJSON(message: Terms): unknown {
+  toJSON(message: RequestCredential): unknown {
     const obj: any = {};
-    if (message.url !== "") {
-      obj.url = message.url;
+    if (message.type !== "") {
+      obj.type = message.type;
+    }
+    if (message.format !== undefined) {
+      obj.format = message.format;
+    }
+    if (message.policies?.length) {
+      obj.policies = message.policies;
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<Terms>, I>>(base?: I): Terms {
-    return Terms.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<RequestCredential>, I>>(base?: I): RequestCredential {
+    return RequestCredential.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<Terms>, I>>(object: I): Terms {
-    const message = createBaseTerms();
-    message.url = object.url ?? "";
+  fromPartial<I extends Exact<DeepPartial<RequestCredential>, I>>(object: I): RequestCredential {
+    const message = createBaseRequestCredential();
+    message.type = object.type ?? "";
+    message.format = object.format ?? undefined;
+    message.policies = object.policies?.map((e) => e) || [];
+    return message;
+  },
+};
+
+function createBaseVpPolicy(): VpPolicy {
+  return { policy: "", args: undefined };
+}
+
+export const VpPolicy: MessageFns<VpPolicy> = {
+  encode(message: VpPolicy, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.policy !== "") {
+      writer.uint32(10).string(message.policy);
+    }
+    if (message.args !== undefined) {
+      writer.uint32(18).string(message.args);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): VpPolicy {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseVpPolicy();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.policy = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.args = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): VpPolicy {
+    return {
+      policy: isSet(object.policy) ? globalThis.String(object.policy) : "",
+      args: isSet(object.args) ? globalThis.String(object.args) : undefined,
+    };
+  },
+
+  toJSON(message: VpPolicy): unknown {
+    const obj: any = {};
+    if (message.policy !== "") {
+      obj.policy = message.policy;
+    }
+    if (message.args !== undefined) {
+      obj.args = message.args;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<VpPolicy>, I>>(base?: I): VpPolicy {
+    return VpPolicy.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<VpPolicy>, I>>(object: I): VpPolicy {
+    const message = createBaseVpPolicy();
+    message.policy = object.policy ?? "";
+    message.args = object.args ?? undefined;
     return message;
   },
 };

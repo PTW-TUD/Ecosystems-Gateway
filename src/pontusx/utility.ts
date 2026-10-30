@@ -1,9 +1,27 @@
 import {
+  addCredentialAddresses,
+  addRequestCredentials,
   type AssetV5,
-  type CredentialListTypes,
+  CredentialListTypes,
   type DdoCredentials,
   isAddressCredential,
+  isSsiPolicyCredential,
+  type License,
+  type MatchRule,
+  type RemoteObject,
+  type RequestCredential,
+  setVcPolicies,
+  setVpPolicies,
+  type VpPolicy,
 } from '@deltadao/nautilus';
+import {
+  type AdditionalInformation,
+  type LicenseDocument,
+  type RequestCredential as ProtoRequestCredential,
+  type SsiPolicy,
+  SsiPolicy_MatchRule,
+  type VpPolicy as ProtoVpPolicy,
+} from '../generated/spp_v3.js';
 
 // Compute-to-Data v2 job statuses, as reported by ocean-node (C2DStatusNumber / C2DStatusText).
 // A job has finished once ocean-node sets its `dateFinished`; failed jobs end below 70.
@@ -86,20 +104,190 @@ export const CtdToDcpStateMap: Record<CtdStatusCode, DcpTransferState> = {
   71: DcpTransferState.STARTED,
 };
 
+// The tags of language-tagged values without a given language or direction, as nautilus'.
+export const DEFAULT_LANGUAGE = 'en';
+export const DEFAULT_DIRECTION = 'ltr';
+
+// The Gaia-X compliance service the presentation of the Gaia-X SSI policy is checked by.
+export const DEFAULT_GAIAX_EVP_URL =
+  'https://www.delta-dao.com/compliance/v2/api/credential-offers/standard-compliance';
+
+// The labels under which the reference DDO links its Gaia-X documents in `metadata.links`.
+export const SERVICE_OFFERING_CREDENTIAL_LINK =
+  'Digital Service Offering Credential';
+export const SERVICE_CONTRACT_LINK = 'Service Contract';
+
 /**
- * DDO v5 only allows primitive values in `additionalInformation`, so nested values (e.g. the
- * Gaia-X information) are stored as JSON strings.
+ * `metadata.additionalInformation` as the deltaDAO portal writes it:
+ * `{ termsAndConditions, gaiaX: { serviceOfferingCredential } }`. The DDO v5 shape allows
+ * nested objects there, though nautilus types it as primitives only.
  */
 export function toAdditionalInformation(
-  info: object | undefined,
-): Record<string, string | number | boolean> {
-  const result: Record<string, string | number | boolean> = {};
-  for (const [key, value] of Object.entries(info ?? {})) {
-    if (value === undefined || value === null) continue;
-    result[key] =
-      typeof value === 'object' ? JSON.stringify(value) : (value as any);
+  info: AdditionalInformation,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {
+    termsAndConditions: Boolean(info.termsAndConditions),
+  };
+  const credential = info.gaiaX?.serviceOfferingCredential?.trim();
+  if (credential) {
+    result.gaiaX = { serviceOfferingCredential: credential };
   }
   return result;
+}
+
+/**
+ * DDO v5 `license`: its name, by default the URL of the first document, and the documents
+ * as remote objects. A hash is only written when given: nautilus computes none, and the
+ * DDO v5 shape does not require one.
+ */
+export function toLicense(
+  name: string | undefined,
+  documents: LicenseDocument[],
+): License {
+  const licenseDocuments = documents.map((document, index) => {
+    const url = document.url?.trim();
+    if (!url) {
+      throw new Error(`License document ${index} has no url`);
+    }
+    const remote: Record<string, unknown> = {
+      name: url,
+      mirrors: [{ type: 'url', method: 'get', url }],
+    };
+    if (document.fileType?.trim()) remote.fileType = document.fileType.trim();
+    const sha256 = document.sha256?.trim();
+    if (sha256) {
+      if (!/^[0-9a-fA-F]{64}$/.test(sha256)) {
+        throw new Error(
+          `License document ${url}: sha256 '${sha256}' is not 64 hex characters`,
+        );
+      }
+      remote.sha256 = sha256.toLowerCase();
+    }
+    return remote as unknown as RemoteObject;
+  });
+  return {
+    name: name?.trim() || licenseDocuments[0]?.name || '',
+    ...(licenseDocuments.length ? { licenseDocuments } : {}),
+  };
+}
+
+/** The Gaia-X participant policy of the reference DDO; `evpUrl` checks the presentation. */
+export function gaiaXSsiPolicy(evpUrl: string) {
+  const types = [
+    'gx:LegalPerson',
+    'gx:Issuer',
+    'gx:VatID',
+    'gx:LeiCode',
+    'gx:EORI',
+  ];
+  return {
+    requestCredentials: types.map(
+      (type): RequestCredential => ({
+        type,
+        format: 'jwt_vc_json',
+        policies: [],
+      }),
+    ),
+    vcPolicies: ['signature'],
+    vpPolicies: [
+      { policy: 'minimum-credentials', args: '3' },
+      { policy: 'external-evp-forward', args: evpUrl },
+      {
+        policy: 'vp_required_credentials',
+        args: JSON.stringify({
+          required: [
+            { credential_type: 'gx:LegalPerson' },
+            { credential_type: 'gx:Issuer' },
+            { any_of: ['gx:EORI', 'gx:LeiCode', 'gx:VatID'] },
+          ],
+        }),
+      },
+    ] as VpPolicy[],
+    matchDeny: 'any' as MatchRule,
+  };
+}
+
+const MATCH_RULES: Record<number, MatchRule | undefined> = {
+  [SsiPolicy_MatchRule.ANY]: 'any',
+  [SsiPolicy_MatchRule.ALL]: 'all',
+};
+
+/**
+ * Replaces the `SSIpolicy` entry of the allow list with the given policy, keeping the
+ * address and access list entries. A policy without request credentials removes the entry:
+ * the policy server refuses an SSIpolicy that asks for none. An allow list without address
+ * entry gets `*`, as the policy server combines all allow rules.
+ */
+export function applySsiPolicy(
+  credentials: DdoCredentials | undefined,
+  policy: SsiPolicy,
+  evpUrl: string,
+): DdoCredentials {
+  const preset = policy.gaiaX ? gaiaXSsiPolicy(evpUrl) : undefined;
+  const requestCredentials = [
+    ...(preset?.requestCredentials ?? []),
+    ...(policy.requestCredentials ?? []).map(toRequestCredential),
+  ];
+  const vcPolicies = [
+    ...(preset?.vcPolicies ?? []),
+    ...(policy.vcPolicies ?? []).map((name) => name.trim()).filter(Boolean),
+  ];
+  const vpPolicies = [
+    ...(preset?.vpPolicies ?? []),
+    ...(policy.vpPolicies ?? []).map(toVpPolicy),
+  ];
+
+  let result: DdoCredentials = {
+    ...credentials,
+    allow: (credentials?.allow ?? []).filter(
+      (entry) => !isSsiPolicyCredential(entry),
+    ),
+  };
+  if (requestCredentials.length) {
+    result = addRequestCredentials(
+      result,
+      CredentialListTypes.ALLOW,
+      requestCredentials,
+    );
+    result = setVcPolicies(result, CredentialListTypes.ALLOW, vcPolicies);
+    result = setVpPolicies(result, CredentialListTypes.ALLOW, vpPolicies);
+    if (!result.allow.some(isAddressCredential)) {
+      result = addCredentialAddresses(result, CredentialListTypes.ALLOW, ['*']);
+    }
+  } else if (vcPolicies.length || vpPolicies.length) {
+    throw new Error(
+      'An SSI policy with VC or VP policies needs request credentials (or gaiaX)',
+    );
+  }
+
+  const matchAllow = MATCH_RULES[policy.matchAllow];
+  const matchDeny = MATCH_RULES[policy.matchDeny] ?? preset?.matchDeny;
+  if (matchAllow) result.match_allow = matchAllow;
+  if (matchDeny) result.match_deny = matchDeny;
+  return result;
+}
+
+function toRequestCredential(credential: ProtoRequestCredential) {
+  const type = credential.type?.trim();
+  if (!type) {
+    throw new Error('A request credential of the SSI policy has no type');
+  }
+  const result: RequestCredential = {
+    type,
+    policies: credential.policies ?? [],
+  };
+  if (credential.format?.trim()) result.format = credential.format.trim();
+  return result;
+}
+
+function toVpPolicy(vpPolicy: ProtoVpPolicy): VpPolicy {
+  const policy = vpPolicy.policy?.trim();
+  if (!policy) {
+    throw new Error('A VP policy of the SSI policy has no name');
+  }
+  return vpPolicy.args !== undefined
+    ? { policy, args: vpPolicy.args }
+    : { policy };
 }
 
 /**

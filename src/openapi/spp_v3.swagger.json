@@ -339,20 +339,6 @@
     }
   },
   "definitions": {
-    "GaiaXServiceSelfDescription": {
-      "type": "object",
-      "properties": {
-        "url": {
-          "type": "string",
-          "title": "Static URL of the self-description"
-        },
-        "isVerified": {
-          "type": "boolean",
-          "title": "Optional identifier if the self-description has been verified against a Gaia-X Compliance Service\nMainly used by the deltaDAO portal"
-        }
-      },
-      "title": "Endpoint to the Gaia-X compliant Self-Description (VP) of the offering"
-    },
     "PontusxUpdateOfferingUpdateService": {
       "type": "object",
       "properties": {
@@ -388,6 +374,16 @@
           "$ref": "#/definitions/v3XfscQueryOfferings"
         }
       }
+    },
+    "SsiPolicyMatchRule": {
+      "type": "string",
+      "enum": [
+        "DEFAULT",
+        "ANY",
+        "ALL"
+      ],
+      "default": "DEFAULT",
+      "description": "- DEFAULT: The policy server's default"
     },
     "XfscUpdateOfferingLifecycleXfscLifecycleStates": {
       "type": "string",
@@ -453,6 +449,10 @@
             "$ref": "#/definitions/v3ConsumerParameter"
           },
           "title": "Optional message that defines required consumer input before consuming the asset/service\nOn an update, the given parameters replace the stored ones; none given keeps them"
+        },
+        "ssiPolicy": {
+          "$ref": "#/definitions/v3SsiPolicy",
+          "title": "Verifiable credentials a consumer has to present for this service, on top of the\noffering's SSI policy. Without it, only the offering's rules apply.\nOn an update, given replaces the stored one; one without request credentials removes it"
         }
       },
       "title": "Services define the access for an asset"
@@ -534,12 +534,12 @@
           "type": "boolean",
           "title": "Boolean to indicate if the publisher specifies it's own terms and conditions for consumption of the asset"
         },
-        "gaiaXInformation": {
+        "gaiaX": {
           "$ref": "#/definitions/v3GaiaX",
-          "title": "Information in the context of Gaia-X compliance including the link to the Self-Description of the offering (VP)"
+          "title": "Gaia-X credentials of the offering (additionalInformation.gaiaX)"
         }
       },
-      "description": "Additional Pontus-X specific metadata, primarily for Gaia-X related information."
+      "description": "Additional Pontus-X specific metadata (DDO v5 metadata.additionalInformation),\nprimarily for Gaia-X related information."
     },
     "v3AlgorithmMetadata": {
       "type": "object",
@@ -811,8 +811,14 @@
                 "name": "Machine data",
                 "description": "Sensor data of a milling machine",
                 "author": "PTW TU Darmstadt",
-                "providedBy": "PTW TU Darmstadt",
+                "providedBy": "https://example.org/.well-known/gx_legalperson.jwt",
                 "license": "CC-BY-4.0",
+                "licenseDocuments": [
+                  {
+                    "url": "https://example.org/terms.pdf",
+                    "fileType": "application/pdf"
+                  }
+                ],
                 "tags": [
                   "manufacturing"
                 ],
@@ -823,17 +829,12 @@
               },
               "additionalInformation": {
                 "termsAndConditions": true,
-                "gaiaXInformation": {
-                  "containsPII": false,
-                  "termsAndConditions": [
-                    {
-                      "url": "https://example.org/terms"
-                    }
-                  ],
-                  "serviceSD": {
-                    "url": "https://example.org/service-offering.json"
-                  }
+                "gaiaX": {
+                  "serviceOfferingCredential": "https://example.org/.well-known/gx_digitalserviceoffering.jwt"
                 }
+              },
+              "ssiPolicy": {
+                "gaiaX": true
               },
               "services": [
                 {
@@ -943,23 +944,12 @@
     "v3GaiaX": {
       "type": "object",
       "properties": {
-        "containsPII": {
-          "type": "boolean",
-          "title": "Identifier if the asset contains personally identifiable information"
-        },
-        "termsAndConditions": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/v3Terms"
-          },
-          "title": "Terms and conditions additionally set by the publisher of the asset\nShould only be passed if boolean in AdditionalInformation is true"
-        },
-        "serviceSD": {
-          "$ref": "#/definitions/GaiaXServiceSelfDescription"
+        "serviceOfferingCredential": {
+          "type": "string",
+          "title": "URL of the offering's Gaia-X service offering (gx:DigitalServiceOffering) credential\nIt is also linked as \"Digital Service Offering Credential\"\nexample: https://example.org/.well-known/gx_digitalserviceoffering.jwt"
         }
       },
-      "description": "Gaia-X related compliance information referenced by AdditionalInformation."
+      "description": "Gaia-X credentials of an offering, hosted by the provider."
     },
     "v3GetComputeToDataResultResponse": {
       "type": "object",
@@ -1014,6 +1004,24 @@
       },
       "description": "Offerings found, each as a JSON document (a DDO v5 for Pontus-X)."
     },
+    "v3LicenseDocument": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "title": "URL of the document"
+        },
+        "fileType": {
+          "type": "string",
+          "title": "Media type of the document, e.g. \"application/pdf\""
+        },
+        "sha256": {
+          "type": "string",
+          "title": "SHA-256 of the document as hex, e.g. for the Gaia-X terms and conditions hash\nNot computed by the gateway: left out, the document has none"
+        }
+      },
+      "description": "A document of the license of an asset."
+    },
     "v3Metadata": {
       "type": "object",
       "properties": {
@@ -1035,7 +1043,7 @@
         },
         "license": {
           "type": "string",
-          "title": "Short name referencing the license of the asset\nexample: CC-BY-4.0, Public Domain"
+          "title": "Name of the license of the asset (DDO v5 license.name), the identifier catalogues show\nexample: CC-BY-4.0, Public Domain\nA standard license needs only this name; a custom contract, which has no short name,\nis given as licenseDocuments instead, and its URL then serves as the name.\nDefaults to the URL of the first license document"
         },
         "tags": {
           "type": "array",
@@ -1050,7 +1058,7 @@
         },
         "providedBy": {
           "type": "string",
-          "title": "Organisation that provides the asset (DDO v5 providedBy)\nDefaults to the gateway's PROVIDED_BY, else the author"
+          "title": "URL of the provider's Gaia-X participant (gx:LegalPerson) credential (DDO v5 providedBy)\nexample: https://example.org/.well-known/gx_legalperson.jwt\nDefaults to the gateway's PROVIDED_BY, else the author"
         },
         "displayTitle": {
           "type": "string",
@@ -1077,6 +1085,18 @@
             "type": "string"
           },
           "title": "Links to further information, as label and URL\nexample: {\"website\": \"https://example.org\"}"
+        },
+        "direction": {
+          "type": "string",
+          "title": "Text direction of the content, \"ltr\" or \"rtl\"\nDefaults to \"ltr\"; given without language, the language defaults to \"en\""
+        },
+        "licenseDocuments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3LicenseDocument"
+          },
+          "title": "Documents of the license, e.g. the service contract (DDO v5 license.licenseDocuments):\nthe legal texts themselves, which consumers can download from their mirror and check\nagainst their sha256, e.g. for the Gaia-X usage terms and conditions.\nThe license is not searchable in the ocean-node's index, so the first one is also\nlinked as \"Service Contract\", as the deltaDAO portal does\nOn an update, given documents replace the stored ones; none given keeps them"
         }
       },
       "description": "Core asset metadata used for Pontus-X create and update operations.\nOn an update, given values replace the stored ones; tags and categories are added to the stored ones."
@@ -1139,7 +1159,7 @@
         },
         "additionalInformation": {
           "$ref": "#/definitions/v3AdditionalInformation",
-          "title": "Additional information regarding the offering\nExclusively used for terms \u0026 conditions and link to Gaia-X VPs"
+          "title": "Additional information regarding the offering\nUsed for terms \u0026 conditions and the link to the Gaia-X service offering credential"
         },
         "services": {
           "type": "array",
@@ -1152,6 +1172,10 @@
         "credentials": {
           "$ref": "#/definitions/v3CredentialLists",
           "description": "Allowlist \u0026 Denylist of wallet addresses for the offering.\nWithout allow addresses everyone is allowed."
+        },
+        "ssiPolicy": {
+          "$ref": "#/definitions/v3SsiPolicy",
+          "title": "Verifiable credentials a consumer has to present for every service of the offering\nWithout it, only the address lists apply"
         }
       },
       "description": "Offering for Pontus-X, published as a DDO v5 asset."
@@ -1205,7 +1229,7 @@
         },
         "additionalInformation": {
           "$ref": "#/definitions/v3AdditionalInformation",
-          "title": "Additional information regarding the offering\nExclusively used for terms \u0026 conditions and link to Gaia-X VPs"
+          "title": "Additional information regarding the offering\nUsed for terms \u0026 conditions and the link to the Gaia-X service offering credential\nGiven values replace the stored ones; it can be given without metadata"
         },
         "updateServices": {
           "type": "array",
@@ -1217,6 +1241,10 @@
         "credentials": {
           "$ref": "#/definitions/v3CredentialLists",
           "description": "Allowlist \u0026 Denylist of wallet addresses for the offering. When given, these lists\nreplace the stored address lists; without allow addresses everyone is allowed.\nWhen omitted, the stored lists are kept."
+        },
+        "ssiPolicy": {
+          "$ref": "#/definitions/v3SsiPolicy",
+          "description": "When given, replaces the stored SSI policy of the offering; one without request\ncredentials removes it. When omitted, the stored policy is kept."
         }
       },
       "description": "Update of a published Pontus-X offering. Fields that are not given are kept."
@@ -1288,14 +1316,67 @@
       },
       "description": "Offerings found, each as a JSON document (a DDO v5 for Pontus-X), and the total number of matches."
     },
-    "v3Terms": {
+    "v3RequestCredential": {
       "type": "object",
       "properties": {
-        "url": {
-          "type": "string"
+        "type": {
+          "type": "string",
+          "title": "Credential type, e.g. \"gx:LegalPerson\""
+        },
+        "format": {
+          "type": "string",
+          "title": "Credential format, e.g. \"jwt_vc_json\""
+        },
+        "policies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Checks of this credential only"
         }
       },
-      "description": "Publisher-defined terms and conditions URL referenced by Gaia-X metadata."
+      "description": "A credential a consumer has to present."
+    },
+    "v3SsiPolicy": {
+      "type": "object",
+      "properties": {
+        "gaiaX": {
+          "type": "boolean",
+          "description": "Writes the Gaia-X participant policy: gx:LegalPerson, gx:Issuer and one of gx:VatID,\ngx:LeiCode or gx:EORI, checked by the Gaia-X compliance service in GAIAX_EVP_URL.\nThe lists below are added to it."
+        },
+        "requestCredentials": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3RequestCredential"
+          },
+          "title": "Credentials the consumer has to present"
+        },
+        "vcPolicies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Checks of each credential, e.g. \"signature\", \"expired\", \"not-before\""
+        },
+        "vpPolicies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3VpPolicy"
+          },
+          "title": "Checks of the presentation, e.g. {\"policy\": \"minimum-credentials\", \"args\": \"1\"}"
+        },
+        "matchAllow": {
+          "$ref": "#/definitions/SsiPolicyMatchRule",
+          "title": "How the allow rules combine; defaults to all of them"
+        },
+        "matchDeny": {
+          "$ref": "#/definitions/SsiPolicyMatchRule",
+          "title": "How the deny rules combine; defaults to any of them"
+        }
+      },
+      "description": "Verifiable credentials a consumer has to present, checked by the ocean-node's policy\nserver before anything is ordered or paid (an SSIpolicy entry of the allow list).\nThe wallet address lists stay in place next to it."
     },
     "v3TrustedAlgorithm": {
       "type": "object",
@@ -1441,6 +1522,20 @@
         }
       },
       "description": "Response returned after updating offerings."
+    },
+    "v3VpPolicy": {
+      "type": "object",
+      "properties": {
+        "policy": {
+          "type": "string",
+          "title": "walt.id policy name, e.g. \"minimum-credentials\""
+        },
+        "args": {
+          "type": "string",
+          "title": "Argument of the policy as a string; structured arguments as JSON"
+        }
+      },
+      "description": "A check of the presentation a consumer makes."
     },
     "v3XfscAccessService": {
       "type": "object",

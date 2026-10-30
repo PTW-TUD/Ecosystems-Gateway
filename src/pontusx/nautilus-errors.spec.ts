@@ -42,6 +42,7 @@ describe('Nautilus validation errors', () => {
       description: '',
       author: 'PTW',
       license: '',
+      licenseDocuments: [],
       tags: [],
       categories: [],
       links: {},

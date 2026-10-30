@@ -17,6 +17,7 @@ import {
   type AssetV5,
   type ConsumerParameterV5,
   CredentialListTypes,
+  type DdoCredentials,
   DdoValidationError,
   FileTypes,
   getAlgorithmConsumerParameters,
@@ -26,6 +27,7 @@ import {
   getService,
   getServiceByType,
   getServices,
+  type License,
   LifecycleStates,
   type MetadataAlgorithmConfig,
   Nautilus,
@@ -38,6 +40,7 @@ import {
   type UrlFileObject,
 } from '@deltadao/nautilus';
 import {
+  AdditionalInformation,
   ConsumerParameter,
   CreateComputeToDataRequest,
   CredentialLists,
@@ -46,6 +49,7 @@ import {
   pricing_PricingTypeToJSON,
   PontusxUpdateOffering,
   Service,
+  SsiPolicy,
   UpdateOfferingRequest_UpdateOffering,
   ComputeToDataResultType,
   GetComputeToDataResultResponse,
@@ -67,12 +71,19 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import axios, { AxiosResponse } from 'axios';
 import { Mutex } from 'async-mutex';
 import {
+  applySsiPolicy,
   CTD_JOB_FINISHED,
   CTD_JOB_SETTLING,
+  DEFAULT_DIRECTION,
+  DEFAULT_GAIAX_EVP_URL,
+  DEFAULT_LANGUAGE,
   fromProtoStruct,
   getCredentialAddresses,
+  SERVICE_CONTRACT_LINK,
+  SERVICE_OFFERING_CREDENTIAL_LINK,
   toAdditionalInformation,
   toConsumerParameterValue,
+  toLicense,
   toUserdata,
 } from './utility.js';
 import { configureNautilusLogging } from './nautilus-logging.js';
@@ -182,6 +193,10 @@ export class PontusxService implements OnModuleInit {
       const asset = this.buildRequest('publishAsset', () => {
         const assetBuilder = new AssetBuilder();
 
+        this.setAdditionalInformation(
+          assetBuilder,
+          offering.additionalInformation,
+        );
         const filled_assetBuilder = this.fillAsset(assetBuilder, offering);
         filled_assetBuilder.setOwner(owner);
         this.setCredentialAddresses(filled_assetBuilder, offering.credentials);
@@ -201,7 +216,12 @@ export class PontusxService implements OnModuleInit {
           filled_assetBuilder.addService(NautilusService);
         }
 
-        return filled_assetBuilder.build();
+        const built = filled_assetBuilder.build();
+        built.ddo.credentials = this.withSsiPolicy(
+          built.ddo.credentials,
+          offering.ssiPolicy,
+        );
+        return built;
       });
 
       const result = await this.nautilus.publish(asset);
@@ -224,10 +244,17 @@ export class PontusxService implements OnModuleInit {
       const services = getServices(asset);
 
       const filled_assetBuilder = new AssetBuilder(asset);
-      if (offering.metadata !== undefined) {
+      this.buildRequest('updateOffering', () =>
+        this.setAdditionalInformation(
+          filled_assetBuilder,
+          offering.additionalInformation,
+        ),
+      );
+      // proto-loader decodes an unset message field as null
+      if (offering.metadata != null) {
         this.logger.debug('Updating metadata of Pontus-X asset');
         this.buildRequest('updateOffering', () =>
-          this.fillAsset(filled_assetBuilder, offering),
+          this.fillAsset(filled_assetBuilder, offering, asset),
         );
       }
       // proto-loader decodes an unset message field as null
@@ -301,7 +328,14 @@ export class PontusxService implements OnModuleInit {
       }
 
       const result = await this.nautilus.edit(
-        this.buildRequest('updateOffering', () => filled_assetBuilder.build()),
+        this.buildRequest('updateOffering', () => {
+          const built = filled_assetBuilder.build();
+          built.ddo.credentials = this.withSsiPolicy(
+            built.ddo.credentials,
+            offering.ssiPolicy,
+          );
+          return built;
+        }),
       );
 
       for (const { serviceId, price } of priceUpdates) {
@@ -427,29 +461,49 @@ export class PontusxService implements OnModuleInit {
     }
   }
 
+  /**
+   * Writes the metadata of the offering. `stored` is the published asset an update changes,
+   * whose license documents are kept unless new ones are given.
+   */
   fillAsset(
     assetBuilder: AssetBuilder,
     offering: PontusxOffering | PontusxUpdateOffering,
+    stored?: AssetV5,
   ) {
     const assetType = <'dataset' | 'algorithm'>offering.metadata.type;
-    const { language, displayTitle, copyrightHolder, categories, links } =
-      offering.metadata;
+    const {
+      language,
+      direction,
+      displayTitle,
+      copyrightHolder,
+      categories,
+      links,
+    } = offering.metadata;
     // first, as DDO v5 tags the description with the content language
-    if (language?.trim()) {
-      assetBuilder.setContentLanguage(language.trim());
+    if (language?.trim() || direction?.trim()) {
+      assetBuilder.setContentLanguage(
+        language?.trim() || DEFAULT_LANGUAGE,
+        direction?.trim() || DEFAULT_DIRECTION,
+      );
     }
+    const providedBy =
+      offering.metadata.providedBy?.trim() ||
+      this.configService.get<string>('PROVIDED_BY') ||
+      offering.metadata.author;
+    if (!/^https:\/\//.test(providedBy ?? '')) {
+      this.logger.warn(
+        `providedBy '${providedBy}' of ${offering.metadata.name} is not an https URL, so it does not link to the provider's Gaia-X participant credential`,
+      );
+    }
+    const license = this.getLicense(offering.metadata, stored);
     assetBuilder
       .setType(assetType)
       .setName(offering.metadata.name)
       .setDescription(offering.metadata.description)
       .setAuthor(offering.metadata.author)
       // required by DDO v5
-      .setProvidedBy(
-        offering.metadata.providedBy?.trim() ||
-          this.configService.get<string>('PROVIDED_BY') ||
-          offering.metadata.author,
-      )
-      .setLicense(offering.metadata.license)
+      .setProvidedBy(providedBy)
+      .setLicense(license)
       .addTags(offering.metadata.tags ?? []);
     if (displayTitle?.trim()) {
       assetBuilder.setDisplayTitle(displayTitle.trim());
@@ -460,14 +514,16 @@ export class PontusxService implements OnModuleInit {
     if (categories?.length) {
       assetBuilder.addCategories(categories);
     }
-    if (links && Object.keys(links).length) {
-      assetBuilder.addLinks(links);
-    }
-
-    if (offering.additionalInformation) {
-      assetBuilder.addAdditionalInformation(
-        toAdditionalInformation(offering.additionalInformation),
-      );
+    // the given links win over the one added for the service contract
+    const contract = offering.metadata.licenseDocuments?.length
+      ? license.licenseDocuments?.[0]?.name
+      : undefined;
+    const allLinks = {
+      ...(contract ? { [SERVICE_CONTRACT_LINK]: contract } : {}),
+      ...links,
+    };
+    if (Object.keys(allLinks).length) {
+      assetBuilder.addLinks(allLinks);
     }
 
     if (assetType === 'algorithm') {
@@ -511,6 +567,66 @@ export class PontusxService implements OnModuleInit {
       }
     }
     return assetBuilder;
+  }
+
+  // The license of the metadata; an update keeps the stored documents and name unless given.
+  private getLicense(
+    metadata: PontusxOffering['metadata'],
+    stored?: AssetV5,
+  ): License {
+    const license = toLicense(
+      metadata.license,
+      metadata.licenseDocuments ?? [],
+    );
+    const storedLicense = stored?.credentialSubject?.metadata?.license as
+      | License
+      | string
+      | undefined;
+    if (typeof storedLicense === 'string') {
+      if (!license.name) license.name = storedLicense;
+    } else if (storedLicense) {
+      if (!license.licenseDocuments && storedLicense.licenseDocuments?.length) {
+        license.licenseDocuments = storedLicense.licenseDocuments;
+      }
+      if (!license.name) license.name = storedLicense.name ?? '';
+    }
+    return license;
+  }
+
+  /**
+   * Writes `metadata.additionalInformation` and links the Gaia-X service offering
+   * credential. Before `fillAsset`, so that the links given there win.
+   */
+  private setAdditionalInformation(
+    assetBuilder: AssetBuilder,
+    info: AdditionalInformation | undefined,
+  ) {
+    // an unset message field is decoded as null
+    if (info == null) return;
+    const additionalInformation = toAdditionalInformation(info);
+    // nautilus types the values as primitives; DDO v5 allows the nested gaiaX object
+    assetBuilder.addAdditionalInformation(
+      additionalInformation as Record<string, string | number | boolean>,
+    );
+    const credential = info.gaiaX?.serviceOfferingCredential?.trim();
+    if (credential) {
+      assetBuilder.addLinks({ [SERVICE_OFFERING_CREDENTIAL_LINK]: credential });
+    }
+  }
+
+  /** The asset or service credentials with the requested SSI policy, if one is given. */
+  private withSsiPolicy(
+    credentials: DdoCredentials,
+    policy: SsiPolicy | undefined,
+  ): DdoCredentials {
+    // an unset message field is decoded as null
+    if (policy == null) return credentials;
+    return applySsiPolicy(
+      credentials,
+      policy,
+      this.configService.get<string>('GAIAX_EVP_URL')?.trim() ||
+        DEFAULT_GAIAX_EVP_URL,
+    );
   }
 
   // @grpc/proto-loader leaves unset `optional` fields out, so only the fields each request
@@ -728,6 +844,11 @@ export class PontusxService implements OnModuleInit {
     if (stored && parameters.length) {
       NautilusService.consumerParameters = parameters;
     }
+    // nautilus' service builder has no VC and VP policy setters, so they are applied here
+    NautilusService.credentials = this.withSsiPolicy(
+      NautilusService.credentials,
+      service.ssiPolicy,
+    );
 
     return NautilusService;
   }
