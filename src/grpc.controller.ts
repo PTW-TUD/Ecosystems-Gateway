@@ -89,8 +89,10 @@ export class GrpcController {
     }`;
     if (p.code != null && CLIENT_ERROR_CODES.has(p.code)) {
       this.logger.warn(message);
-    } else {
+    } else if (exception.stack) {
       this.logger.error(message, exception.stack);
+    } else {
+      this.logger.error(message);
     }
   }
 

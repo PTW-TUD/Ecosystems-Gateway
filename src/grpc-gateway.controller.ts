@@ -87,8 +87,12 @@ export class GrpcGatewayController {
           ? ((GrpcStatusCode as any)[grpcCode] ?? 'UNKNOWN')
           : 'UNKNOWN';
       const message = formatErrorMessage(error);
-      // the gRPC controller has logged the failure already; 4xx are the client's
-      const log = httpStatus >= 500 ? 'error' : 'warn';
+      // A status from the gRPC server was logged there already. Only a call that did not
+      // get an answer (no code, or UNAVAILABLE from the client) is logged here.
+      const log =
+        grpcCode === undefined || grpcCode === GrpcStatusCode.UNAVAILABLE
+          ? 'error'
+          : 'debug';
       this.logger[log](
         `Error calling gRPC method ${methodName} (${grpcCodeName}): ${message}`,
       );

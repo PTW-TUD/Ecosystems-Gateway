@@ -6,7 +6,11 @@ import { CredentialEventServiceService } from '../credential-event-service/crede
 import { status as GrpcStatusCode } from '@grpc/grpc-js';
 import { RpcException } from '@nestjs/microservices';
 import { Mutex } from 'async-mutex';
-import { LifecycleStates, PolicyDeniedError } from '@deltadao/nautilus';
+import {
+  IndexingError,
+  LifecycleStates,
+  PolicyDeniedError,
+} from '@deltadao/nautilus';
 import { Network, PRICING_CONFIGS, resolveNetworkConfig } from './config.js';
 
 // the default network, without environment overrides
@@ -38,6 +42,7 @@ function createService(nautilus: Record<string, Mock> = {}) {
     pricingConfig: PRICING_CONFIGS.OPSEPOLIA,
     wallet: { getAddress: vi.fn().mockResolvedValue(OWNER) },
     remoteStore: {},
+    waitForIndexer: true,
     mutex: new Mutex(),
     nautilus,
   });
@@ -577,6 +582,77 @@ describe('PontusxService', () => {
         },
       });
       expect(publish).not.toHaveBeenCalled();
+    });
+
+    it('waits for the indexer', async () => {
+      const publish = vi.fn().mockResolvedValue({ ddo: { id: 'did:ope:1' } });
+
+      await createService({ publish }).publishAsset(datasetOffering());
+
+      expect(publish).toHaveBeenCalledWith(expect.anything(), {
+        waitForIndexer: true,
+      });
+    });
+
+    it('names the DID of an asset that is on chain but was not indexed', async () => {
+      const published = {
+        nftAddress: '0x0000000000000000000000000000000000000002',
+        ddo: { id: 'did:ope:1' },
+        setMetadataTxReceipt: { hash: '0xabc' },
+      };
+      const publish = vi
+        .fn()
+        .mockRejectedValue(
+          Object.assign(
+            new IndexingError('did:ope:1', { valid: false, error: 'bad DDO' }),
+            { published },
+          ),
+        );
+
+      const err = await createService({ publish })
+        .publishAsset(datasetOffering())
+        .catch((e) => e);
+
+      expect(err).toBeInstanceOf(RpcException);
+      expect(err.getError()).toMatchObject({
+        code: GrpcStatusCode.INTERNAL,
+        message:
+          'did:ope:1 is on chain (tx 0xabc), but the ocean-node did not index it: bad DDO. Do not publish it again.',
+      });
+      expect(err.stack).toBeUndefined();
+      expect(JSON.parse(err.getError().details)).toEqual({
+        did: 'did:ope:1',
+        nftAddress: published.nftAddress,
+        txHash: '0xabc',
+        indexingError: 'bad DDO',
+      });
+    });
+
+    it('reports a timed out wait for the indexer as DEADLINE_EXCEEDED', async () => {
+      const publish = vi.fn().mockRejectedValue(
+        Object.assign(
+          new Error(
+            'not indexed after 300000 ms. The metadata transaction 0xabc was mined, so 0x2 carries the new metadata; the full result is on error.published.',
+          ),
+          {
+            published: {
+              nftAddress: '0x2',
+              ddo: { id: 'did:ope:1' },
+              setMetadataTxReceipt: { hash: '0xabc' },
+            },
+          },
+        ),
+      );
+
+      await expect(
+        createService({ publish }).publishAsset(datasetOffering()),
+      ).rejects.toMatchObject({
+        error: {
+          code: GrpcStatusCode.DEADLINE_EXCEEDED,
+          message:
+            'did:ope:1 is on chain (tx 0xabc), but the ocean-node did not index it: not indexed after 300000 ms. Do not publish it again.',
+        },
+      });
     });
 
     it('refuses to publish without a DDO store', async () => {

@@ -155,6 +155,24 @@ describe('Grpc Controller', () => {
       );
     });
 
+    it('logs a failure without a stack as an error only', async () => {
+      const exception = new RpcException({
+        code: GrpcStatusCode.INTERNAL,
+        message: 'not indexed',
+      });
+      exception.stack = undefined;
+      mockPontusXService.getComputeToDataStatus.mockRejectedValueOnce(
+        exception,
+      );
+
+      await expect(controller.GetComputeToDataStatus({ jobId })).rejects.toBe(
+        exception,
+      );
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('not indexed'),
+      );
+    });
+
     it('reports a job that just started', async () => {
       mockPontusXService.getComputeToDataStatus.mockResolvedValueOnce(0);
 

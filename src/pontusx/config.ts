@@ -3,6 +3,7 @@ import {
   getOceanConfig,
   IpfsRemoteStore,
   type PricingConfigWithoutOwner,
+  type PublishOptions,
   type RemoteStore,
   S3RemoteStore,
   type TokenAmount,
@@ -262,6 +263,28 @@ export function parseTokenAmounts(
     }
     return { token, amount: BigInt(amount) };
   });
+}
+
+/**
+ * Whether publish and edit block until the ocean-node has indexed the asset, so the DID
+ * they return resolves right away. WAIT_FOR_INDEXER (default true) turns it on and off,
+ * WAIT_FOR_INDEXER_TIMEOUT_MS overrides nautilus' default of 5 minutes.
+ */
+export function parseWaitForIndexer(
+  env: EnvReader,
+): PublishOptions['waitForIndexer'] {
+  if (parseFlag('WAIT_FOR_INDEXER', env('WAIT_FOR_INDEXER')) === false) {
+    return false;
+  }
+
+  const timeout = env('WAIT_FOR_INDEXER_TIMEOUT_MS')?.trim();
+  if (!timeout) return true;
+  if (!/^\d+$/.test(timeout) || Number(timeout) === 0) {
+    throw new Error(
+      `WAIT_FOR_INDEXER_TIMEOUT_MS must be a positive number of milliseconds, not '${timeout}'.`,
+    );
+  }
+  return { timeoutMs: Number(timeout) };
 }
 
 /** `true` / `false` from the environment, or `undefined` when unset. */

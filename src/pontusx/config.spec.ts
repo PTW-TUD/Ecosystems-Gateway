@@ -3,6 +3,7 @@ import { getOceanConfig } from '@deltadao/nautilus';
 import {
   Network,
   PRICING_CONFIGS,
+  parseWaitForIndexer,
   resolveNetworkConfig,
   selectNetwork,
 } from './config.js';
@@ -108,5 +109,27 @@ describe('PRICING_CONFIGS', () => {
         );
       }
     }
+  });
+});
+
+describe('parseWaitForIndexer', () => {
+  it('waits with nautilus defaults when unset', () => {
+    expect(parseWaitForIndexer(env({}))).toBe(true);
+  });
+
+  it('can be turned off', () => {
+    expect(parseWaitForIndexer(env({ WAIT_FOR_INDEXER: 'false' }))).toBe(false);
+  });
+
+  it('takes a timeout', () => {
+    expect(
+      parseWaitForIndexer(env({ WAIT_FOR_INDEXER_TIMEOUT_MS: '60000' })),
+    ).toEqual({ timeoutMs: 60000 });
+  });
+
+  it.each(['0', '-1', '1.5', 'soon'])('refuses the timeout %s', (value) => {
+    expect(() =>
+      parseWaitForIndexer(env({ WAIT_FOR_INDEXER_TIMEOUT_MS: value })),
+    ).toThrow('WAIT_FOR_INDEXER_TIMEOUT_MS');
   });
 });

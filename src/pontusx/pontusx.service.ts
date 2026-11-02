@@ -8,6 +8,7 @@ import {
   PRICING_CONFIGS,
   PricingConfig,
   parseTokenAmounts,
+  parseWaitForIndexer,
   resolveNetworkConfig,
   selectNetwork,
 } from './config.js';
@@ -27,13 +28,17 @@ import {
   getService,
   getServiceByType,
   getServices,
+  IndexingError,
   type License,
   LifecycleStates,
   type MetadataAlgorithmConfig,
+  MetadataConflictError,
   Nautilus,
   type NodeComputeJob,
   PolicyDeniedError,
   type PricingConfigWithoutOwner,
+  type PublishOptions,
+  type PublishResponse,
   type RemoteStore,
   ServiceBuilder,
   ServiceTypes,
@@ -110,6 +115,7 @@ export class PontusxService implements OnModuleInit {
   private readonly wallet: Wallet;
   private readonly provider: JsonRpcProvider;
   private readonly remoteStore: RemoteStore | undefined;
+  private readonly waitForIndexer: PublishOptions['waitForIndexer'];
   private nautilus: Nautilus;
   // there should only be one action with one private key at a time on the pontus-x network
   private mutex: Mutex;
@@ -141,6 +147,7 @@ export class PontusxService implements OnModuleInit {
       this.provider,
     );
     this.remoteStore = createRemoteStore(env);
+    this.waitForIndexer = parseWaitForIndexer(env);
 
     this.mutex = new Mutex();
   }
@@ -224,7 +231,9 @@ export class PontusxService implements OnModuleInit {
         return built;
       });
 
-      const result = await this.nautilus.publish(asset);
+      const result = await this.nautilus.publish(asset, {
+        waitForIndexer: this.waitForIndexer,
+      });
       return result;
     } catch (err: any) {
       throw this.toRpcException(err, 'publishAsset');
@@ -336,6 +345,7 @@ export class PontusxService implements OnModuleInit {
           );
           return built;
         }),
+        { waitForIndexer: this.waitForIndexer },
       );
 
       for (const { serviceId, price } of priceUpdates) {
@@ -1548,6 +1558,41 @@ export class PontusxService implements OnModuleInit {
         }),
         metadata: createErrorMetadata('pontusx', where),
       });
+    }
+    // The metadata transaction was mined, but the node did not index it (in time): the
+    // asset is on chain, so the caller must not publish it again.
+    const published: PublishResponse | undefined = err?.published;
+    if (typeof published?.ddo?.id === 'string') {
+      const txHash = published.setMetadataTxReceipt?.hash;
+      const reason = (
+        err instanceof IndexingError
+          ? err.state.error
+          : // without the note nautilus appends about error.published, which the
+            // structured details below replace
+            String(err?.message).replace(/ The metadata transaction .*$/s, '')
+      )
+        ?.trim()
+        .replace(/\.$/, '');
+      const exception = new RpcException({
+        code:
+          err instanceof IndexingError
+            ? GrpcStatusCode.INTERNAL
+            : err instanceof MetadataConflictError
+              ? GrpcStatusCode.ABORTED
+              : GrpcStatusCode.DEADLINE_EXCEEDED,
+        message: `${published.ddo.id} is on chain${txHash ? ` (tx ${txHash})` : ''}, but the ocean-node did not index it: ${reason || 'no reason given'}. Do not publish it again.`,
+        details: JSON.stringify({
+          did: published.ddo.id,
+          nftAddress: published.nftAddress,
+          txHash,
+          indexingError:
+            err instanceof IndexingError ? err.state.error : undefined,
+        }),
+        metadata: createErrorMetadata('pontusx', where),
+      });
+      // The message says all there is: a stack would only point here.
+      exception.stack = undefined;
+      return exception;
     }
     const presentation = PRESENTATION_REQUIRED.exec(err?.message ?? '');
     if (presentation) {
