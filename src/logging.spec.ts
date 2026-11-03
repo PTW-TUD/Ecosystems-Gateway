@@ -50,6 +50,7 @@ describe('redactForLog', () => {
         },
       ],
       service: { pontusxService: { userdata: { apiUser: 'me' } } },
+      algorithmEnvs: { API_KEY_FILE: '/run/key', OMP_NUM_THREADS: '2' },
       clientSecret: 's3cret',
       accessToken: 'ey…',
       amount: 10n,
@@ -77,6 +78,10 @@ describe('redactForLog', () => {
         },
       ],
       service: { pontusxService: { userdata: { apiUser: '<redacted>' } } },
+      algorithmEnvs: {
+        API_KEY_FILE: '<redacted>',
+        OMP_NUM_THREADS: '<redacted>',
+      },
       clientSecret: '<redacted>',
       accessToken: '<redacted>',
       amount: '10',

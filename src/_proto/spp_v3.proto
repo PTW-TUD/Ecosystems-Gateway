@@ -545,6 +545,10 @@ message CreateComputeToDataRequest {
     // Further datasets the algorithm runs on, after `did` and in this order
     // The algorithm tells its inputs apart by DID, not by position
     repeated ComputeDataset additionalDatasets = 12;
+
+    // Environment variables set in the algorithm's container, e.g. {"OMP_NUM_THREADS": "2"}
+    // Names are letters, digits and underscores, not starting with a digit
+    map<string, string> algorithmEnvs = 13;
 }
 
 // A further dataset of a compute-to-data job.

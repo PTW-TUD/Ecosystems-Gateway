@@ -1348,6 +1348,7 @@ describe('PontusxService', () => {
       algorithmParameters: { threshold: '0.5' },
       resources: [],
       additionalDatasets: [],
+      algorithmEnvs: {},
     };
 
     it('starts a paid job with typed parameters for the dataset and the algorithm', async () => {
@@ -1621,6 +1622,50 @@ describe('PontusxService', () => {
       );
       expect(freeCompute.mock.calls[0][0]).not.toHaveProperty('maxJobDuration');
     });
+
+    it('sets environment variables in the algorithm container', async () => {
+      const compute = vi.fn().mockResolvedValue({ jobs: [{ jobId: JOB_ID }] });
+      const freeCompute = vi
+        .fn()
+        .mockResolvedValue({ jobs: [{ jobId: JOB_ID }] });
+      const service = computeService({ compute, freeCompute });
+      const algorithmEnvs = { OMP_NUM_THREADS: '2', _ROUND: '3' };
+
+      await service.requestComputeToData({ ...request, algorithmEnvs });
+      await service.requestComputeToData({
+        ...request,
+        algorithmEnvs,
+        free: true,
+      });
+
+      expect(compute.mock.calls[0][0].algorithm.envs).toEqual(algorithmEnvs);
+      expect(freeCompute.mock.calls[0][0].algorithm.envs).toEqual(
+        algorithmEnvs,
+      );
+      // none given, none set
+      await service.requestComputeToData(request);
+      expect(compute.mock.calls[1][0].algorithm).not.toHaveProperty('envs');
+    });
+
+    it.each(['1ST', 'WITH-DASH', 'A B', ''])(
+      'refuses the environment variable name %p',
+      async (name) => {
+        const compute = vi.fn();
+
+        await expect(
+          computeService({ compute }).requestComputeToData({
+            ...request,
+            algorithmEnvs: { [name]: 'x' },
+          }),
+        ).rejects.toMatchObject({
+          error: {
+            code: GrpcStatusCode.INVALID_ARGUMENT,
+            message: expect.stringContaining(`algorithmEnvs: '${name}'`),
+          },
+        });
+        expect(compute).not.toHaveBeenCalled();
+      },
+    );
 
     it('refuses a job duration for a free job', async () => {
       await expect(

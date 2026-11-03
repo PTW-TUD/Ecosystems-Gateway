@@ -676,6 +676,11 @@ export interface CreateComputeToDataRequest {
    * The algorithm tells its inputs apart by DID, not by position
    */
   additionalDatasets: ComputeDataset[];
+  /**
+   * Environment variables set in the algorithm's container, e.g. {"OMP_NUM_THREADS": "2"}
+   * Names are letters, digits and underscores, not starting with a digit
+   */
+  algorithmEnvs: { [key: string]: string };
 }
 
 export interface CreateComputeToDataRequest_UserdataEntry {
@@ -689,6 +694,11 @@ export interface CreateComputeToDataRequest_AlgorithmUserdataEntry {
 }
 
 export interface CreateComputeToDataRequest_AlgorithmParametersEntry {
+  key: string;
+  value: string;
+}
+
+export interface CreateComputeToDataRequest_AlgorithmEnvsEntry {
   key: string;
   value: string;
 }
@@ -4808,6 +4818,7 @@ function createBaseCreateComputeToDataRequest(): CreateComputeToDataRequest {
     maxJobDuration: undefined,
     free: undefined,
     additionalDatasets: [],
+    algorithmEnvs: {},
   };
 }
 
@@ -4851,6 +4862,10 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
     for (const v of message.additionalDatasets) {
       ComputeDataset.encode(v!, writer.uint32(98).fork()).join();
     }
+    Object.entries(message.algorithmEnvs).forEach(([key, value]) => {
+      CreateComputeToDataRequest_AlgorithmEnvsEntry.encode({ key: key as any, value }, writer.uint32(106).fork())
+        .join();
+    });
     return writer;
   },
 
@@ -4966,6 +4981,17 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
           message.additionalDatasets.push(ComputeDataset.decode(reader, reader.uint32()));
           continue;
         }
+        case 13: {
+          if (tag !== 106) {
+            break;
+          }
+
+          const entry13 = CreateComputeToDataRequest_AlgorithmEnvsEntry.decode(reader, reader.uint32());
+          if (entry13.value !== undefined) {
+            message.algorithmEnvs[entry13.key] = entry13.value;
+          }
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -5008,6 +5034,12 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
       additionalDatasets: globalThis.Array.isArray(object?.additionalDatasets)
         ? object.additionalDatasets.map((e: any) => ComputeDataset.fromJSON(e))
         : [],
+      algorithmEnvs: isObject(object.algorithmEnvs)
+        ? Object.entries(object.algorithmEnvs).reduce<{ [key: string]: string }>((acc, [key, value]) => {
+          acc[key] = String(value);
+          return acc;
+        }, {})
+        : {},
     };
   },
 
@@ -5067,6 +5099,15 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
     if (message.additionalDatasets?.length) {
       obj.additionalDatasets = message.additionalDatasets.map((e) => ComputeDataset.toJSON(e));
     }
+    if (message.algorithmEnvs) {
+      const entries = Object.entries(message.algorithmEnvs);
+      if (entries.length > 0) {
+        obj.algorithmEnvs = {};
+        entries.forEach(([k, v]) => {
+          obj.algorithmEnvs[k] = v;
+        });
+      }
+    }
     return obj;
   },
 
@@ -5108,6 +5149,15 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
     message.maxJobDuration = object.maxJobDuration ?? undefined;
     message.free = object.free ?? undefined;
     message.additionalDatasets = object.additionalDatasets?.map((e) => ComputeDataset.fromPartial(e)) || [];
+    message.algorithmEnvs = Object.entries(object.algorithmEnvs ?? {}).reduce<{ [key: string]: string }>(
+      (acc, [key, value]) => {
+        if (value !== undefined) {
+          acc[key] = globalThis.String(value);
+        }
+        return acc;
+      },
+      {},
+    );
     return message;
   },
 };
@@ -5361,6 +5411,90 @@ export const CreateComputeToDataRequest_AlgorithmParametersEntry: MessageFns<
     return message;
   },
 };
+
+function createBaseCreateComputeToDataRequest_AlgorithmEnvsEntry(): CreateComputeToDataRequest_AlgorithmEnvsEntry {
+  return { key: "", value: "" };
+}
+
+export const CreateComputeToDataRequest_AlgorithmEnvsEntry: MessageFns<CreateComputeToDataRequest_AlgorithmEnvsEntry> =
+  {
+    encode(
+      message: CreateComputeToDataRequest_AlgorithmEnvsEntry,
+      writer: BinaryWriter = new BinaryWriter(),
+    ): BinaryWriter {
+      if (message.key !== "") {
+        writer.uint32(10).string(message.key);
+      }
+      if (message.value !== "") {
+        writer.uint32(18).string(message.value);
+      }
+      return writer;
+    },
+
+    decode(input: BinaryReader | Uint8Array, length?: number): CreateComputeToDataRequest_AlgorithmEnvsEntry {
+      const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+      let end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCreateComputeToDataRequest_AlgorithmEnvsEntry();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.key = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.value = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    },
+
+    fromJSON(object: any): CreateComputeToDataRequest_AlgorithmEnvsEntry {
+      return {
+        key: isSet(object.key) ? globalThis.String(object.key) : "",
+        value: isSet(object.value) ? globalThis.String(object.value) : "",
+      };
+    },
+
+    toJSON(message: CreateComputeToDataRequest_AlgorithmEnvsEntry): unknown {
+      const obj: any = {};
+      if (message.key !== "") {
+        obj.key = message.key;
+      }
+      if (message.value !== "") {
+        obj.value = message.value;
+      }
+      return obj;
+    },
+
+    create<I extends Exact<DeepPartial<CreateComputeToDataRequest_AlgorithmEnvsEntry>, I>>(
+      base?: I,
+    ): CreateComputeToDataRequest_AlgorithmEnvsEntry {
+      return CreateComputeToDataRequest_AlgorithmEnvsEntry.fromPartial(base ?? ({} as any));
+    },
+    fromPartial<I extends Exact<DeepPartial<CreateComputeToDataRequest_AlgorithmEnvsEntry>, I>>(
+      object: I,
+    ): CreateComputeToDataRequest_AlgorithmEnvsEntry {
+      const message = createBaseCreateComputeToDataRequest_AlgorithmEnvsEntry();
+      message.key = object.key ?? "";
+      message.value = object.value ?? "";
+      return message;
+    },
+  };
 
 function createBaseComputeDataset(): ComputeDataset {
   return { did: "", serviceId: undefined, userdata: {} };

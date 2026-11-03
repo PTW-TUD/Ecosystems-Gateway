@@ -115,6 +115,9 @@ import type { LogFormat } from '../logging.js';
 // The `<environmentHash>-<jobId>` id ocean-node gives a compute job, as nautilus v2 requires it.
 const COMPUTE_JOB_ID = /^0x[0-9a-f]{64}-[0-9a-f]{64}$/;
 
+// A name the algorithm's container can read as an environment variable.
+const ENV_VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 // nautilus refuses a service gated by an SSIpolicy when no credential provider is set, as
 // here: the gateway has no wallet to present credentials from.
 const PRESENTATION_REQUIRED =
@@ -1245,6 +1248,17 @@ export class PontusxService implements OnModuleInit {
         metadata,
       });
     }
+    const envs = request.algorithmEnvs ?? {};
+    const invalidEnv = Object.keys(envs).find(
+      (name) => !ENV_VARIABLE_NAME.test(name),
+    );
+    if (invalidEnv !== undefined) {
+      throw new RpcException({
+        code: GrpcStatusCode.INVALID_ARGUMENT,
+        message: `algorithmEnvs: '${invalidEnv}' is not an environment variable name (letters, digits and underscores, not starting with a digit)`,
+        metadata,
+      });
+    }
 
     const release = await this.mutex.acquire();
     try {
@@ -1321,6 +1335,7 @@ export class PontusxService implements OnModuleInit {
             request.algorithmParameters,
             getAlgorithmConsumerParameters(algorithm),
           ),
+          ...(Object.keys(envs).length ? { envs } : {}),
         },
         // the node's first environment, unless one is requested or configured
         computeEnv:

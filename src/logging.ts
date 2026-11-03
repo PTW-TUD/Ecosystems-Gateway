@@ -65,8 +65,9 @@ export function createAppLogger(settings: LoggingSettings): ConsoleLogger {
 }
 
 // Keys whose values are credentials: request headers of a data source, userdata forwarded
-// to it, and anything that names a secret. `tokenName`/`tokenSymbol` are datatoken names.
-const MASKED_OBJECTS = new Set(['headers', 'userdata']);
+// to it, environment variables of an algorithm, and anything that names a secret.
+// `tokenName`/`tokenSymbol` are datatoken names.
+const MASKED_OBJECTS = new Set(['headers', 'userdata', 'algorithmEnvs']);
 const SENSITIVE_KEY =
   /authorization|cookie|secret|passw(or)?d|api[-_]?key|private[-_]?key|jwt|token$/i;
 const MAX_STRING_LENGTH = 1000;

@@ -129,6 +129,11 @@ New in v3:
   one. The node gets the primary dataset first, then these in request order;
   the algorithm tells its inputs apart by DID. A dataset service may be an
   input only once. The gateway sets no limit of its own on their number.
+- `CreateComputeToDataRequest.algorithmEnvs`: environment variables set in
+  the algorithm's container, e.g. `{"OMP_NUM_THREADS": "2"}`, for paid and
+  free jobs. Names are letters, digits and underscores, not starting with a
+  digit; others are refused with `INVALID_ARGUMENT`. Their values are masked
+  in the request log.
 - `GetComputeEnvironments` (empty request) lists the ocean-node's compute
   environments: `id` (for `computeEnv`), `resources` (`min`, `max`, `total`,
   `inUse`), job duration limits, `maxJobs`, the `free` tier (its resources,

@@ -1222,6 +1222,13 @@
             "$ref": "#/definitions/v3ComputeDataset"
           },
           "title": "Further datasets the algorithm runs on, after `did` and in this order\nThe algorithm tells its inputs apart by DID, not by position"
+        },
+        "algorithmEnvs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Environment variables set in the algorithm's container, e.g. {\"OMP_NUM_THREADS\": \"2\"}\nNames are letters, digits and underscores, not starting with a digit"
         }
       },
       "description": "Request payload for starting a compute-to-data job in Pontus-X."
