@@ -53,6 +53,8 @@ import {
   CreateComputeToDataRequest,
   ComputeToDataResponse,
   CredentialLists,
+  PublishReceipt,
+  TxReceipt,
   PontusxOffering,
   Pricing,
   pricing_PricingTypeToJSON,
@@ -96,9 +98,12 @@ import {
   toUserdata,
 } from './utility.js';
 import {
+  toDatatokens,
   toEscrowPayment,
   toInput,
   toProviderFees,
+  toPublishReceipt,
+  toTxReceipt,
 } from './extended-responses.js';
 import { configureNautilusLogging } from './nautilus-logging.js';
 import type { LogFormat } from '../logging.js';
@@ -202,7 +207,10 @@ export class PontusxService implements OnModuleInit {
     return this.networkConfig;
   }
 
-  async publishAsset(offering: PontusxOffering) {
+  async publishAsset(
+    offering: PontusxOffering,
+  ): Promise<PublishResponse & { receipt?: PublishReceipt }> {
+    const submittedAt = new Date().toISOString();
     this.assertRemoteStore('publishAsset');
 
     const release = await this.mutex.acquire();
@@ -246,7 +254,14 @@ export class PontusxService implements OnModuleInit {
       const result = await this.nautilus.publish(asset, {
         waitForIndexer: this.waitForIndexer,
       });
-      return result;
+      if (!this.extendedResponses) return result;
+      return {
+        ...result,
+        receipt: toPublishReceipt(
+          result,
+          await this.writeTimes(result, submittedAt),
+        ),
+      };
     } catch (err: any) {
       throw this.toRpcException(err, 'publishAsset');
     } finally {
@@ -255,6 +270,7 @@ export class PontusxService implements OnModuleInit {
   }
 
   async updateOffering(UpdateOffering: UpdateOfferingRequest_UpdateOffering) {
+    const submittedAt = new Date().toISOString();
     const metadata = createErrorMetadata('pontusx', 'updateOffering');
     this.assertRemoteStore('updateOffering');
 
@@ -359,9 +375,22 @@ export class PontusxService implements OnModuleInit {
         }),
         { waitForIndexer: this.waitForIndexer },
       );
+      const times = this.extendedResponses
+        ? await this.writeTimes(result, submittedAt)
+        : undefined;
 
+      const priceReceipts: TxReceipt[] = [];
       for (const { serviceId, price } of priceUpdates) {
-        await this.nautilus.setServicePrice(asset, serviceId, price);
+        const receipt = await this.nautilus.setServicePrice(
+          asset,
+          serviceId,
+          price,
+        );
+        if (receipt) {
+          priceReceipts.push(
+            toTxReceipt(`setServicePrice:${serviceId}`, receipt),
+          );
+        }
       }
 
       let cesResult;
@@ -375,6 +404,9 @@ export class PontusxService implements OnModuleInit {
       return {
         pontus: result,
         ces: cesResult,
+        ...(times && {
+          receipt: toPublishReceipt(result, times, priceReceipts),
+        }),
       };
     } catch (err: any) {
       throw this.toRpcException(err, 'updateOffering');
@@ -466,6 +498,7 @@ export class PontusxService implements OnModuleInit {
   }
 
   async setState(did: string, state: LifecycleStates) {
+    const submittedAt = new Date().toISOString();
     try {
       const asset = await this.nautilus.getAsset(did);
 
@@ -477,9 +510,59 @@ export class PontusxService implements OnModuleInit {
         state,
         changed: receipt !== undefined,
         txHash: receipt?.hash,
+        ...(this.extendedResponses && {
+          receipt: {
+            did,
+            nftAddress: asset.credentialSubject?.nftAddress,
+            datatokens: toDatatokens(asset),
+            transactions: receipt
+              ? [toTxReceipt('setMetadataState', receipt)]
+              : [],
+            submittedAt,
+            ...(receipt && {
+              metadataMinedAt: await this.blockTime(receipt.blockNumber),
+            }),
+          } satisfies PublishReceipt,
+        }),
       };
     } catch (err: any) {
       throw this.toRpcException(err, 'setState');
+    }
+  }
+
+  /**
+   * When a publish or edit was indexed, now if it waited for the indexer, and when its
+   * metadata transaction was mined.
+   */
+  private async writeTimes(
+    result: PublishResponse,
+    submittedAt: string,
+  ): Promise<
+    Pick<PublishReceipt, 'submittedAt' | 'metadataMinedAt' | 'indexedAt'>
+  > {
+    const indexedAt = result.indexed ? new Date().toISOString() : undefined;
+    return {
+      submittedAt,
+      metadataMinedAt: await this.blockTime(
+        result.setMetadataTxReceipt?.blockNumber,
+      ),
+      indexedAt,
+    };
+  }
+
+  /** The timestamp of a block (ISO 8601), or `undefined` when it cannot be read. */
+  private async blockTime(
+    blockNumber: number | null | undefined,
+  ): Promise<string | undefined> {
+    if (blockNumber == null) return undefined;
+    try {
+      const block = await this.provider.getBlock(blockNumber);
+      return block ? new Date(block.timestamp * 1000).toISOString() : undefined;
+    } catch (err) {
+      this.logger.debug(
+        `Could not read block ${blockNumber}: ${formatErrorMessage(err)}`,
+      );
+      return undefined;
     }
   }
 

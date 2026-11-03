@@ -50,6 +50,29 @@ function createService(nautilus: Record<string, Mock> = {}) {
   return service;
 }
 
+// Blocks are mined at this time (Unix seconds).
+const BLOCK_TIME = 1_800_000_000;
+
+// A service with EXTENDED_RESPONSES=true and a chain that knows every block.
+function createExtendedService(nautilus: Record<string, Mock> = {}) {
+  const service = createService(nautilus);
+  Object.assign(service as any, {
+    extendedResponses: true,
+    provider: {
+      getBlock: vi.fn().mockResolvedValue({ timestamp: BLOCK_TIME }),
+    },
+  });
+  return service;
+}
+
+// An ethers transaction receipt as nautilus returns it.
+const receipt = (hash: string, blockNumber = 10) => ({
+  hash,
+  blockNumber,
+  gasUsed: 21000n,
+  gasPrice: 1000n,
+});
+
 function datasetOffering(): PontusxOffering {
   return {
     metadata: {
@@ -595,6 +618,82 @@ describe('PontusxService', () => {
       });
     });
 
+    describe('with EXTENDED_RESPONSES', () => {
+      const published = () => ({
+        nftAddress: '0x00000000000000000000000000000000000000a1',
+        ddo: {
+          ...assetV5([
+            { id: 'access-1', type: 'access', datatokenAddress: '0xDT1' },
+            { id: 'compute-1', type: 'compute', datatokenAddress: '0xDT2' },
+          ]),
+          id: 'did:ope:1',
+        },
+        services: [
+          { datatokenAddress: '0xdt1', tx: receipt('0xt1', 8) },
+          { datatokenAddress: '0xdt2', tx: receipt('0xt2', 9) },
+        ],
+        setMetadataTxReceipt: receipt('0xmeta', 10),
+        indexed: true,
+      });
+
+      it('returns the transactions and times of the publication', async () => {
+        const publish = vi.fn().mockResolvedValue(published());
+
+        const result = await createExtendedService({ publish }).publishAsset(
+          datasetOffering(),
+        );
+
+        expect(result.receipt).toEqual({
+          did: 'did:ope:1',
+          nftAddress: '0x00000000000000000000000000000000000000a1',
+          datatokens: { 'access-1': '0xDT1', 'compute-1': '0xDT2' },
+          transactions: [
+            {
+              purpose: 'datatoken:access-1',
+              txHash: '0xt1',
+              blockNumber: 8,
+              gasUsed: '21000',
+              effectiveGasPrice: '1000',
+            },
+            expect.objectContaining({
+              purpose: 'datatoken:compute-1',
+              txHash: '0xt2',
+            }),
+            expect.objectContaining({
+              purpose: 'setMetadata',
+              txHash: '0xmeta',
+            }),
+          ],
+          submittedAt: expect.any(String),
+          metadataMinedAt: new Date(BLOCK_TIME * 1000).toISOString(),
+          indexedAt: expect.any(String),
+        });
+        expect(result.ddo.id).toBe('did:ope:1');
+      });
+
+      it('leaves indexedAt unset without waiting for the indexer', async () => {
+        const { indexed: _, ...notIndexed } = published();
+        const publish = vi.fn().mockResolvedValue(notIndexed);
+
+        const { receipt } = await createExtendedService({
+          publish,
+        }).publishAsset(datasetOffering());
+
+        expect(receipt).not.toHaveProperty('indexedAt');
+        expect(receipt).toHaveProperty('metadataMinedAt');
+      });
+
+      it('returns no receipt when it is off', async () => {
+        const publish = vi.fn().mockResolvedValue(published());
+
+        const result = await createService({ publish }).publishAsset(
+          datasetOffering(),
+        );
+
+        expect(result).not.toHaveProperty('receipt');
+      });
+    });
+
     it('names the DID of an asset that is on chain but was not indexed', async () => {
       const published = {
         nftAddress: '0x0000000000000000000000000000000000000002',
@@ -956,6 +1055,37 @@ describe('PontusxService', () => {
           code: GrpcStatusCode.INVALID_ARGUMENT,
           message: expect.stringContaining('serviceEndpoint'),
         },
+      });
+    });
+
+    it('returns the metadata transaction with EXTENDED_RESPONSES', async () => {
+      const asset = publishedAsset();
+      const edit = vi.fn().mockResolvedValue({
+        nftAddress: asset.credentialSubject.nftAddress,
+        ddo: asset,
+        services: [],
+        setMetadataTxReceipt: receipt('0xmeta'),
+        indexed: true,
+      });
+      const service = createExtendedService({
+        getAsset: vi.fn().mockResolvedValue(asset),
+        edit,
+      });
+
+      const result = await service.updateOffering({
+        pontusxUpdateOffering: {
+          did: 'did:ope:1234',
+          updateServices: [],
+          credentials: null,
+        },
+      } as any);
+
+      expect(result.receipt).toMatchObject({
+        did: 'did:ope:1234',
+        nftAddress: asset.credentialSubject.nftAddress,
+        transactions: [{ purpose: 'setMetadata', txHash: '0xmeta' }],
+        metadataMinedAt: new Date(BLOCK_TIME * 1000).toISOString(),
+        indexedAt: expect.any(String),
       });
     });
   });
@@ -1547,6 +1677,45 @@ describe('PontusxService', () => {
         asset,
         LifecycleStates.ASSET_UNLISTED,
       );
+    });
+
+    it('returns the setMetadataState transaction with EXTENDED_RESPONSES', async () => {
+      const setAssetLifecycleState = vi
+        .fn()
+        .mockResolvedValueOnce(receipt('0xstate'))
+        .mockResolvedValueOnce(undefined);
+      const service = createExtendedService({
+        getAsset: vi.fn().mockResolvedValue(assetV5([])),
+        setAssetLifecycleState,
+      });
+
+      const changed = await service.setState(
+        'did:ope:1234',
+        LifecycleStates.ASSET_UNLISTED,
+      );
+      const unchanged = await service.setState(
+        'did:ope:1234',
+        LifecycleStates.ASSET_UNLISTED,
+      );
+
+      expect(changed.receipt).toEqual({
+        did: 'did:ope:1234',
+        nftAddress: '0x0000000000000000000000000000000000000002',
+        datatokens: {},
+        transactions: [
+          {
+            purpose: 'setMetadataState',
+            txHash: '0xstate',
+            blockNumber: 10,
+            gasUsed: '21000',
+            effectiveGasPrice: '1000',
+          },
+        ],
+        submittedAt: expect.any(String),
+        metadataMinedAt: new Date(BLOCK_TIME * 1000).toISOString(),
+      });
+      expect(unchanged.receipt).toMatchObject({ transactions: [] });
+      expect(unchanged.receipt).not.toHaveProperty('metadataMinedAt');
     });
   });
 

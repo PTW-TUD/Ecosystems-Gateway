@@ -33,6 +33,7 @@ describe('HTTP and gRPC gateway (e2e)', () => {
   const getOffering = vi.fn();
   const queryOfferings = vi.fn();
   const requestComputeToData = vi.fn();
+  const publishAsset = vi.fn();
 
   beforeAll(async () => {
     const port = await new Promise<number>((resolve, reject) => {
@@ -63,7 +64,12 @@ describe('HTTP and gRPC gateway (e2e)', () => {
       .overrideProvider(getRedisConnectionToken())
       .useValue({ quit: vi.fn().mockResolvedValue('OK') })
       .overrideProvider(PontusxService)
-      .useValue({ getOffering, queryOfferings, requestComputeToData })
+      .useValue({
+        getOffering,
+        queryOfferings,
+        requestComputeToData,
+        publishAsset,
+      })
       .overrideProvider(XfscService)
       .useValue({})
       .compile();
@@ -107,6 +113,7 @@ describe('HTTP and gRPC gateway (e2e)', () => {
     getOffering.mockReset();
     queryOfferings.mockReset();
     requestComputeToData.mockReset();
+    publishAsset.mockReset();
   });
 
   afterAll(async () => {
@@ -260,6 +267,47 @@ describe('HTTP and gRPC gateway (e2e)', () => {
       ...details,
       // a 64-bit integer is a string in JSON
       escrowPayment: { ...details.escrowPayment, minLockSeconds: '3600' },
+    });
+  });
+
+  it('returns the receipts of published offerings', async () => {
+    const receipt = {
+      did: 'did:ope:1',
+      nftAddress: '0xnft',
+      datatokens: { 'access-1': '0xdt' },
+      transactions: [
+        {
+          purpose: 'datatoken:access-1',
+          txHash: '0x1',
+          blockNumber: 8,
+          gasUsed: '21000',
+          effectiveGasPrice: '1000',
+        },
+        { purpose: 'setMetadata', txHash: '0x2' },
+      ],
+      submittedAt: '2026-11-03T10:00:00.000Z',
+      metadataMinedAt: '2026-11-03T10:00:20.000Z',
+    };
+    publishAsset.mockResolvedValue({ ddo: { id: 'did:ope:1' }, receipt });
+
+    const response = await request(app.getHttpServer())
+      .post('/grpc/CreateOffering')
+      .send({ offerings: [{ pontusxOffering: { metadata: {} } }] })
+      .expect(201);
+
+    expect(response.body).toEqual({
+      id: ['did:ope:1'],
+      debugInformation: null,
+      receipts: [
+        {
+          ...receipt,
+          transactions: [
+            // a 64-bit integer is a string in JSON
+            { ...receipt.transactions[0], blockNumber: '8' },
+            receipt.transactions[1],
+          ],
+        },
+      ],
     });
   });
 

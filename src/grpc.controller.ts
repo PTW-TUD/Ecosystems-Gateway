@@ -19,6 +19,7 @@ import {
   AccessServiceResponse,
   ComputeToDataStatusRequest,
   ComputeToDataStatusResponse,
+  PublishReceipt,
   QueryOfferingsRequest,
   QueryOfferingsResponse,
 } from './generated/spp_v3.js';
@@ -111,6 +112,7 @@ export class GrpcController {
     this.logRequest('CreateOffering', data);
 
     const results = [];
+    const receipts: PublishReceipt[] = [];
     for (const offering of data.offerings) {
       if (offering.pontusxOffering !== undefined) {
         const result = await this.runRpc('createOffering', () =>
@@ -118,6 +120,7 @@ export class GrpcController {
         );
         if (result) {
           results.push(result.ddo.id);
+          if (result.receipt) receipts.push(result.receipt);
         }
       } else {
         try {
@@ -139,6 +142,7 @@ export class GrpcController {
       return {
         id: results,
         debugInformation: undefined,
+        receipts,
       };
     }
   }
@@ -152,6 +156,7 @@ export class GrpcController {
     const ces_results: Array<string> = [];
     const results = [];
     const ids = [];
+    const receipts: PublishReceipt[] = [];
     for (const offering of data.offerings) {
       if (offering.pontusxUpdateOffering !== undefined) {
         const result = await this.runRpc('updateOffering', () =>
@@ -161,6 +166,7 @@ export class GrpcController {
           ces_results.push(result.ces);
           ids.push(result.pontus.ddo.id);
           results.push(result.pontus);
+          if (result.receipt) receipts.push(result.receipt);
         }
       } else {
         // XFSC
@@ -174,6 +180,7 @@ export class GrpcController {
           id: [result],
           locations: undefined,
           debugInformation: undefined,
+          receipts: [],
         };
       }
     }
@@ -183,6 +190,7 @@ export class GrpcController {
         id: ids,
         locations: ces_results,
         debugInformation: { results },
+        receipts,
       };
     }
 
@@ -199,6 +207,7 @@ export class GrpcController {
     this.logRequest('UpdateOfferingLifecycle', data);
     const results = [];
     const ids = [];
+    const receipts: PublishReceipt[] = [];
     for (const offering of data.offerings) {
       if (offering.pontusxUpdateOfferingLifecycle !== undefined) {
         const result = await this.runRpc('updateOfferingLifecycle', () =>
@@ -209,8 +218,10 @@ export class GrpcController {
           ),
         );
         if (result) {
-          results.push(result);
+          const { receipt, ...state } = result;
+          results.push(state);
           ids.push(offering.pontusxUpdateOfferingLifecycle.did);
+          if (receipt) receipts.push(receipt);
         }
       } else {
         throw new RpcException({
@@ -226,6 +237,7 @@ export class GrpcController {
       return {
         id: ids,
         debugInformation: { results },
+        receipts,
       };
     }
 

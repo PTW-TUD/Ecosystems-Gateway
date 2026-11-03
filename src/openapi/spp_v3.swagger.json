@@ -979,6 +979,14 @@
         "debugInformation": {
           "type": "object",
           "title": "Debug information"
+        },
+        "receipts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3PublishReceipt"
+          },
+          "title": "Transactions and timing of each published Pontus-X offering, in request order\nOnly set when the gateway runs with EXTENDED_RESPONSES=true"
         }
       },
       "description": "Response returned after creating offerings."
@@ -1427,6 +1435,47 @@
       },
       "description": "Supplemental data for publishing an offering update to the Credential Event Service."
     },
+    "v3PublishReceipt": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string",
+          "title": "DID of the offering"
+        },
+        "nftAddress": {
+          "type": "string",
+          "title": "Address of the offering's NFT"
+        },
+        "datatokens": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Datatoken address per service id"
+        },
+        "transactions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3TxReceipt"
+          },
+          "title": "The transactions sent, in the order they were sent"
+        },
+        "submittedAt": {
+          "type": "string",
+          "title": "When the gateway received the request (ISO 8601)"
+        },
+        "metadataMinedAt": {
+          "type": "string",
+          "title": "Timestamp of the block the metadata transaction was mined in (ISO 8601)"
+        },
+        "indexedAt": {
+          "type": "string",
+          "title": "When the ocean-node had indexed the offering (ISO 8601); unset with WAIT_FOR_INDEXER=false"
+        }
+      },
+      "description": "What publishing or changing a Pontus-X offering sent to the chain."
+    },
     "v3QueryOfferingsRequest": {
       "type": "object",
       "properties": {
@@ -1566,6 +1615,31 @@
       },
       "description": "Publishers whose published algorithms are trusted to run on a compute service."
     },
+    "v3TxReceipt": {
+      "type": "object",
+      "properties": {
+        "purpose": {
+          "type": "string",
+          "title": "What the transaction did: \"datatoken:\u003cserviceId\u003e\" (for the first service of a new\noffering, together with its NFT), \"setMetadata\", \"setServicePrice:\u003cserviceId\u003e\" or\n\"setMetadataState\""
+        },
+        "txHash": {
+          "type": "string"
+        },
+        "blockNumber": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "gasUsed": {
+          "type": "string",
+          "title": "Gas used, as a decimal string"
+        },
+        "effectiveGasPrice": {
+          "type": "string",
+          "title": "Price paid per gas in wei, as a decimal string; the L1 data fee of OP Stack chains\nis not included"
+        }
+      },
+      "description": "A transaction the gateway sent."
+    },
     "v3UpdateOfferingLifecycleRequest": {
       "type": "object",
       "properties": {
@@ -1603,6 +1677,14 @@
         "debugInformation": {
           "type": "object",
           "title": "Debug information"
+        },
+        "receipts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3PublishReceipt"
+          },
+          "title": "The setMetadataState transaction of each Pontus-X offering, in request order; none\nfor an offering that already was in the state\nOnly set when the gateway runs with EXTENDED_RESPONSES=true"
         }
       },
       "description": "Response returned after changing lifecycle states."
@@ -1655,6 +1737,14 @@
         "debugInformation": {
           "type": "object",
           "title": "Debug information"
+        },
+        "receipts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3PublishReceipt"
+          },
+          "title": "Transactions and timing of each updated Pontus-X offering, in request order\nOnly set when the gateway runs with EXTENDED_RESPONSES=true"
         }
       },
       "description": "Response returned after updating offerings."

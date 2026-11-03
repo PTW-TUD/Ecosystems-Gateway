@@ -1,8 +1,97 @@
 // The transaction, payment and timing details responses carry with EXTENDED_RESPONSES=true,
 // mapped from what nautilus and the ocean-node return. Only addresses, amounts and hashes
 // are passed on: no fee signatures, provider data or node URLs.
-import type { ComputeResult } from '@deltadao/nautilus';
-import type { EscrowPayment, ProviderFee } from '../generated/spp_v3.js';
+import {
+  type AssetV5,
+  type ComputeResult,
+  getServices,
+  type PublishResponse,
+} from '@deltadao/nautilus';
+import type {
+  EscrowPayment,
+  ProviderFee,
+  PublishReceipt,
+  TxReceipt,
+} from '../generated/spp_v3.js';
+
+/** The fields of an ethers transaction receipt that are reported. */
+export type ReceiptLike = {
+  hash: string;
+  blockNumber?: number | null;
+  gasUsed?: bigint | number | string | null;
+  // ethers names the effective gas price of a receipt `gasPrice`
+  gasPrice?: bigint | number | string | null;
+};
+
+/** A transaction of the gateway, with what it did. */
+export function toTxReceipt(purpose: string, receipt: ReceiptLike): TxReceipt {
+  return {
+    purpose,
+    txHash: receipt.hash,
+    ...(receipt.blockNumber != null && { blockNumber: receipt.blockNumber }),
+    ...(receipt.gasUsed != null && { gasUsed: toAmount(receipt.gasUsed) }),
+    ...(receipt.gasPrice != null && {
+      effectiveGasPrice: toAmount(receipt.gasPrice),
+    }),
+  };
+}
+
+/** Datatoken address per service id of a DDO v5; none for a DDO nautilus cannot read. */
+export function toDatatokens(ddo: unknown): Record<string, string> {
+  let services: ReturnType<typeof getServices>;
+  try {
+    services = getServices(ddo as AssetV5);
+  } catch {
+    return {};
+  }
+  return Object.fromEntries(
+    services
+      .filter((service) => service.datatokenAddress)
+      .map((service) => [service.id, service.datatokenAddress]),
+  );
+}
+
+/**
+ * What a publish or edit sent: the datatoken transactions, the metadata transaction and
+ * then `more` (e.g. price changes), with the times given.
+ */
+export function toPublishReceipt(
+  published: PublishResponse,
+  times: Pick<PublishReceipt, 'submittedAt' | 'metadataMinedAt' | 'indexedAt'>,
+  more: TxReceipt[] = [],
+): PublishReceipt {
+  const datatokens = toDatatokens(published.ddo);
+  const serviceOf = (datatoken: string) =>
+    Object.keys(datatokens).find(
+      (id) => datatokens[id].toLowerCase() === datatoken?.toLowerCase(),
+    );
+  const transactions = (published.services ?? [])
+    .filter(({ tx }) => tx)
+    .map(({ tx, datatokenAddress, service }) =>
+      toTxReceipt(
+        `datatoken:${serviceOf(datatokenAddress) ?? service?.id ?? datatokenAddress}`,
+        tx,
+      ),
+    );
+  if (published.setMetadataTxReceipt) {
+    transactions.push(
+      toTxReceipt('setMetadata', published.setMetadataTxReceipt),
+    );
+  }
+  return {
+    did: String(published.ddo?.id),
+    nftAddress: published.nftAddress,
+    datatokens,
+    transactions: [...transactions, ...more],
+    ...withoutUndefined(times),
+  };
+}
+
+function withoutUndefined<T extends object>(value: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined),
+  ) as Partial<T>;
+}
 
 type InitializeResults = Partial<ComputeResult['initializeResults']>;
 

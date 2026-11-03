@@ -242,6 +242,28 @@ the fields below stay unset.
   ISO 8601. The span covers waiting for the wallet, initialize, escrow, orders
   and start.
 
+`CreateOffering`, `UpdateOffering` and `UpdateOfferingLifecycle` return
+`receipts`, one per Pontus-X offering in request order (XFSC offerings have
+none):
+
+- `did`, `nftAddress` and `datatokens` (datatoken address per service id).
+- `transactions` in the order they were sent, each with `purpose`, `txHash`,
+  `blockNumber`, `gasUsed` and `effectiveGasPrice` (wei). Purposes:
+  `datatoken:<serviceId>` (for the first service of a new offering, the same
+  transaction also creates its NFT), `setMetadata`,
+  `setServicePrice:<serviceId>` (an update's price change) and
+  `setMetadataState` (a lifecycle change; none when the offering already was
+  in the state).
+- `submittedAt` (request received), `metadataMinedAt` (timestamp of the block
+  the metadata or state transaction is in, so seconds precision) and
+  `indexedAt` (the ocean-node had indexed it; unset with
+  `WAIT_FOR_INDEXER=false`).
+
+`effectiveGasPrice × gasUsed` is the L2 execution fee only. On OP Stack chains
+such as OP Sepolia, the L1 data fee is extra: ethers does not keep the
+receipt's `l1Fee`, so read it from the RPC by `txHash`
+(`eth_getTransactionReceipt`).
+
 The escrow deposit and authorization transactions are not reported: nautilus
 sends them without returning their hashes. They can be read from the chain as
 transactions of `consumerAddress` to the escrow contract.

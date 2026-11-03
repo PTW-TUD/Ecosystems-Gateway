@@ -240,7 +240,64 @@ export interface CreateOfferingResponse {
    */
   id: string[];
   /** Debug information */
-  debugInformation?: { [key: string]: any } | undefined;
+  debugInformation?:
+    | { [key: string]: any }
+    | undefined;
+  /**
+   * Transactions and timing of each published Pontus-X offering, in request order
+   * Only set when the gateway runs with EXTENDED_RESPONSES=true
+   */
+  receipts: PublishReceipt[];
+}
+
+/** What publishing or changing a Pontus-X offering sent to the chain. */
+export interface PublishReceipt {
+  /** DID of the offering */
+  did: string;
+  /** Address of the offering's NFT */
+  nftAddress: string;
+  /** Datatoken address per service id */
+  datatokens: { [key: string]: string };
+  /** The transactions sent, in the order they were sent */
+  transactions: TxReceipt[];
+  /** When the gateway received the request (ISO 8601) */
+  submittedAt?:
+    | string
+    | undefined;
+  /** Timestamp of the block the metadata transaction was mined in (ISO 8601) */
+  metadataMinedAt?:
+    | string
+    | undefined;
+  /** When the ocean-node had indexed the offering (ISO 8601); unset with WAIT_FOR_INDEXER=false */
+  indexedAt?: string | undefined;
+}
+
+export interface PublishReceipt_DatatokensEntry {
+  key: string;
+  value: string;
+}
+
+/** A transaction the gateway sent. */
+export interface TxReceipt {
+  /**
+   * What the transaction did: "datatoken:<serviceId>" (for the first service of a new
+   * offering, together with its NFT), "setMetadata", "setServicePrice:<serviceId>" or
+   * "setMetadataState"
+   */
+  purpose: string;
+  txHash: string;
+  blockNumber?:
+    | number
+    | undefined;
+  /** Gas used, as a decimal string */
+  gasUsed?:
+    | string
+    | undefined;
+  /**
+   * Price paid per gas in wei, as a decimal string; the L1 data fee of OP Stack chains
+   * is not included
+   */
+  effectiveGasPrice?: string | undefined;
 }
 
 /** Request payload for updating already published offerings. */
@@ -337,7 +394,14 @@ export interface UpdateOfferingResponse {
   /** Locations of the offering which where published to the Credential Event Service */
   locations: string[];
   /** Debug information */
-  debugInformation?: { [key: string]: any } | undefined;
+  debugInformation?:
+    | { [key: string]: any }
+    | undefined;
+  /**
+   * Transactions and timing of each updated Pontus-X offering, in request order
+   * Only set when the gateway runs with EXTENDED_RESPONSES=true
+   */
+  receipts: PublishReceipt[];
 }
 
 /** Request payload for changing the lifecycle state of an existing offering. */
@@ -431,7 +495,15 @@ export interface UpdateOfferingLifecycleResponse {
    */
   id: string[];
   /** Debug information */
-  debugInformation?: { [key: string]: any } | undefined;
+  debugInformation?:
+    | { [key: string]: any }
+    | undefined;
+  /**
+   * The setMetadataState transaction of each Pontus-X offering, in request order; none
+   * for an offering that already was in the state
+   * Only set when the gateway runs with EXTENDED_RESPONSES=true
+   */
+  receipts: PublishReceipt[];
 }
 
 /** Request payload for retrieving offerings. */
@@ -1604,7 +1676,7 @@ export const PontusxOffering: MessageFns<PontusxOffering> = {
 };
 
 function createBaseCreateOfferingResponse(): CreateOfferingResponse {
-  return { id: [], debugInformation: undefined };
+  return { id: [], debugInformation: undefined, receipts: [] };
 }
 
 export const CreateOfferingResponse: MessageFns<CreateOfferingResponse> = {
@@ -1614,6 +1686,9 @@ export const CreateOfferingResponse: MessageFns<CreateOfferingResponse> = {
     }
     if (message.debugInformation !== undefined) {
       Struct.encode(Struct.wrap(message.debugInformation), writer.uint32(18).fork()).join();
+    }
+    for (const v of message.receipts) {
+      PublishReceipt.encode(v!, writer.uint32(26).fork()).join();
     }
     return writer;
   },
@@ -1641,6 +1716,14 @@ export const CreateOfferingResponse: MessageFns<CreateOfferingResponse> = {
           message.debugInformation = Struct.unwrap(Struct.decode(reader, reader.uint32()));
           continue;
         }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.receipts.push(PublishReceipt.decode(reader, reader.uint32()));
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1654,6 +1737,9 @@ export const CreateOfferingResponse: MessageFns<CreateOfferingResponse> = {
     return {
       id: globalThis.Array.isArray(object?.id) ? object.id.map((e: any) => globalThis.String(e)) : [],
       debugInformation: isObject(object.debugInformation) ? object.debugInformation : undefined,
+      receipts: globalThis.Array.isArray(object?.receipts)
+        ? object.receipts.map((e: any) => PublishReceipt.fromJSON(e))
+        : [],
     };
   },
 
@@ -1665,6 +1751,9 @@ export const CreateOfferingResponse: MessageFns<CreateOfferingResponse> = {
     if (message.debugInformation !== undefined) {
       obj.debugInformation = message.debugInformation;
     }
+    if (message.receipts?.length) {
+      obj.receipts = message.receipts.map((e) => PublishReceipt.toJSON(e));
+    }
     return obj;
   },
 
@@ -1675,6 +1764,397 @@ export const CreateOfferingResponse: MessageFns<CreateOfferingResponse> = {
     const message = createBaseCreateOfferingResponse();
     message.id = object.id?.map((e) => e) || [];
     message.debugInformation = object.debugInformation ?? undefined;
+    message.receipts = object.receipts?.map((e) => PublishReceipt.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBasePublishReceipt(): PublishReceipt {
+  return {
+    did: "",
+    nftAddress: "",
+    datatokens: {},
+    transactions: [],
+    submittedAt: undefined,
+    metadataMinedAt: undefined,
+    indexedAt: undefined,
+  };
+}
+
+export const PublishReceipt: MessageFns<PublishReceipt> = {
+  encode(message: PublishReceipt, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.did !== "") {
+      writer.uint32(10).string(message.did);
+    }
+    if (message.nftAddress !== "") {
+      writer.uint32(18).string(message.nftAddress);
+    }
+    Object.entries(message.datatokens).forEach(([key, value]) => {
+      PublishReceipt_DatatokensEntry.encode({ key: key as any, value }, writer.uint32(26).fork()).join();
+    });
+    for (const v of message.transactions) {
+      TxReceipt.encode(v!, writer.uint32(34).fork()).join();
+    }
+    if (message.submittedAt !== undefined) {
+      writer.uint32(42).string(message.submittedAt);
+    }
+    if (message.metadataMinedAt !== undefined) {
+      writer.uint32(50).string(message.metadataMinedAt);
+    }
+    if (message.indexedAt !== undefined) {
+      writer.uint32(58).string(message.indexedAt);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): PublishReceipt {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBasePublishReceipt();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.did = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.nftAddress = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          const entry3 = PublishReceipt_DatatokensEntry.decode(reader, reader.uint32());
+          if (entry3.value !== undefined) {
+            message.datatokens[entry3.key] = entry3.value;
+          }
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.transactions.push(TxReceipt.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.submittedAt = reader.string();
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.metadataMinedAt = reader.string();
+          continue;
+        }
+        case 7: {
+          if (tag !== 58) {
+            break;
+          }
+
+          message.indexedAt = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): PublishReceipt {
+    return {
+      did: isSet(object.did) ? globalThis.String(object.did) : "",
+      nftAddress: isSet(object.nftAddress) ? globalThis.String(object.nftAddress) : "",
+      datatokens: isObject(object.datatokens)
+        ? Object.entries(object.datatokens).reduce<{ [key: string]: string }>((acc, [key, value]) => {
+          acc[key] = String(value);
+          return acc;
+        }, {})
+        : {},
+      transactions: globalThis.Array.isArray(object?.transactions)
+        ? object.transactions.map((e: any) => TxReceipt.fromJSON(e))
+        : [],
+      submittedAt: isSet(object.submittedAt) ? globalThis.String(object.submittedAt) : undefined,
+      metadataMinedAt: isSet(object.metadataMinedAt) ? globalThis.String(object.metadataMinedAt) : undefined,
+      indexedAt: isSet(object.indexedAt) ? globalThis.String(object.indexedAt) : undefined,
+    };
+  },
+
+  toJSON(message: PublishReceipt): unknown {
+    const obj: any = {};
+    if (message.did !== "") {
+      obj.did = message.did;
+    }
+    if (message.nftAddress !== "") {
+      obj.nftAddress = message.nftAddress;
+    }
+    if (message.datatokens) {
+      const entries = Object.entries(message.datatokens);
+      if (entries.length > 0) {
+        obj.datatokens = {};
+        entries.forEach(([k, v]) => {
+          obj.datatokens[k] = v;
+        });
+      }
+    }
+    if (message.transactions?.length) {
+      obj.transactions = message.transactions.map((e) => TxReceipt.toJSON(e));
+    }
+    if (message.submittedAt !== undefined) {
+      obj.submittedAt = message.submittedAt;
+    }
+    if (message.metadataMinedAt !== undefined) {
+      obj.metadataMinedAt = message.metadataMinedAt;
+    }
+    if (message.indexedAt !== undefined) {
+      obj.indexedAt = message.indexedAt;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<PublishReceipt>, I>>(base?: I): PublishReceipt {
+    return PublishReceipt.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<PublishReceipt>, I>>(object: I): PublishReceipt {
+    const message = createBasePublishReceipt();
+    message.did = object.did ?? "";
+    message.nftAddress = object.nftAddress ?? "";
+    message.datatokens = Object.entries(object.datatokens ?? {}).reduce<{ [key: string]: string }>(
+      (acc, [key, value]) => {
+        if (value !== undefined) {
+          acc[key] = globalThis.String(value);
+        }
+        return acc;
+      },
+      {},
+    );
+    message.transactions = object.transactions?.map((e) => TxReceipt.fromPartial(e)) || [];
+    message.submittedAt = object.submittedAt ?? undefined;
+    message.metadataMinedAt = object.metadataMinedAt ?? undefined;
+    message.indexedAt = object.indexedAt ?? undefined;
+    return message;
+  },
+};
+
+function createBasePublishReceipt_DatatokensEntry(): PublishReceipt_DatatokensEntry {
+  return { key: "", value: "" };
+}
+
+export const PublishReceipt_DatatokensEntry: MessageFns<PublishReceipt_DatatokensEntry> = {
+  encode(message: PublishReceipt_DatatokensEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    if (message.value !== "") {
+      writer.uint32(18).string(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): PublishReceipt_DatatokensEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBasePublishReceipt_DatatokensEntry();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.value = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): PublishReceipt_DatatokensEntry {
+    return {
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+      value: isSet(object.value) ? globalThis.String(object.value) : "",
+    };
+  },
+
+  toJSON(message: PublishReceipt_DatatokensEntry): unknown {
+    const obj: any = {};
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    if (message.value !== "") {
+      obj.value = message.value;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<PublishReceipt_DatatokensEntry>, I>>(base?: I): PublishReceipt_DatatokensEntry {
+    return PublishReceipt_DatatokensEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<PublishReceipt_DatatokensEntry>, I>>(
+    object: I,
+  ): PublishReceipt_DatatokensEntry {
+    const message = createBasePublishReceipt_DatatokensEntry();
+    message.key = object.key ?? "";
+    message.value = object.value ?? "";
+    return message;
+  },
+};
+
+function createBaseTxReceipt(): TxReceipt {
+  return { purpose: "", txHash: "", blockNumber: undefined, gasUsed: undefined, effectiveGasPrice: undefined };
+}
+
+export const TxReceipt: MessageFns<TxReceipt> = {
+  encode(message: TxReceipt, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.purpose !== "") {
+      writer.uint32(10).string(message.purpose);
+    }
+    if (message.txHash !== "") {
+      writer.uint32(18).string(message.txHash);
+    }
+    if (message.blockNumber !== undefined) {
+      writer.uint32(24).uint64(message.blockNumber);
+    }
+    if (message.gasUsed !== undefined) {
+      writer.uint32(34).string(message.gasUsed);
+    }
+    if (message.effectiveGasPrice !== undefined) {
+      writer.uint32(42).string(message.effectiveGasPrice);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): TxReceipt {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseTxReceipt();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.purpose = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.txHash = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.blockNumber = longToNumber(reader.uint64());
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.gasUsed = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.effectiveGasPrice = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): TxReceipt {
+    return {
+      purpose: isSet(object.purpose) ? globalThis.String(object.purpose) : "",
+      txHash: isSet(object.txHash) ? globalThis.String(object.txHash) : "",
+      blockNumber: isSet(object.blockNumber) ? globalThis.Number(object.blockNumber) : undefined,
+      gasUsed: isSet(object.gasUsed) ? globalThis.String(object.gasUsed) : undefined,
+      effectiveGasPrice: isSet(object.effectiveGasPrice) ? globalThis.String(object.effectiveGasPrice) : undefined,
+    };
+  },
+
+  toJSON(message: TxReceipt): unknown {
+    const obj: any = {};
+    if (message.purpose !== "") {
+      obj.purpose = message.purpose;
+    }
+    if (message.txHash !== "") {
+      obj.txHash = message.txHash;
+    }
+    if (message.blockNumber !== undefined) {
+      obj.blockNumber = Math.round(message.blockNumber);
+    }
+    if (message.gasUsed !== undefined) {
+      obj.gasUsed = message.gasUsed;
+    }
+    if (message.effectiveGasPrice !== undefined) {
+      obj.effectiveGasPrice = message.effectiveGasPrice;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<TxReceipt>, I>>(base?: I): TxReceipt {
+    return TxReceipt.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<TxReceipt>, I>>(object: I): TxReceipt {
+    const message = createBaseTxReceipt();
+    message.purpose = object.purpose ?? "";
+    message.txHash = object.txHash ?? "";
+    message.blockNumber = object.blockNumber ?? undefined;
+    message.gasUsed = object.gasUsed ?? undefined;
+    message.effectiveGasPrice = object.effectiveGasPrice ?? undefined;
     return message;
   },
 };
@@ -2244,7 +2724,7 @@ export const PublishInfo: MessageFns<PublishInfo> = {
 };
 
 function createBaseUpdateOfferingResponse(): UpdateOfferingResponse {
-  return { id: [], locations: [], debugInformation: undefined };
+  return { id: [], locations: [], debugInformation: undefined, receipts: [] };
 }
 
 export const UpdateOfferingResponse: MessageFns<UpdateOfferingResponse> = {
@@ -2257,6 +2737,9 @@ export const UpdateOfferingResponse: MessageFns<UpdateOfferingResponse> = {
     }
     if (message.debugInformation !== undefined) {
       Struct.encode(Struct.wrap(message.debugInformation), writer.uint32(26).fork()).join();
+    }
+    for (const v of message.receipts) {
+      PublishReceipt.encode(v!, writer.uint32(34).fork()).join();
     }
     return writer;
   },
@@ -2292,6 +2775,14 @@ export const UpdateOfferingResponse: MessageFns<UpdateOfferingResponse> = {
           message.debugInformation = Struct.unwrap(Struct.decode(reader, reader.uint32()));
           continue;
         }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.receipts.push(PublishReceipt.decode(reader, reader.uint32()));
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -2308,6 +2799,9 @@ export const UpdateOfferingResponse: MessageFns<UpdateOfferingResponse> = {
         ? object.locations.map((e: any) => globalThis.String(e))
         : [],
       debugInformation: isObject(object.debugInformation) ? object.debugInformation : undefined,
+      receipts: globalThis.Array.isArray(object?.receipts)
+        ? object.receipts.map((e: any) => PublishReceipt.fromJSON(e))
+        : [],
     };
   },
 
@@ -2322,6 +2816,9 @@ export const UpdateOfferingResponse: MessageFns<UpdateOfferingResponse> = {
     if (message.debugInformation !== undefined) {
       obj.debugInformation = message.debugInformation;
     }
+    if (message.receipts?.length) {
+      obj.receipts = message.receipts.map((e) => PublishReceipt.toJSON(e));
+    }
     return obj;
   },
 
@@ -2333,6 +2830,7 @@ export const UpdateOfferingResponse: MessageFns<UpdateOfferingResponse> = {
     message.id = object.id?.map((e) => e) || [];
     message.locations = object.locations?.map((e) => e) || [];
     message.debugInformation = object.debugInformation ?? undefined;
+    message.receipts = object.receipts?.map((e) => PublishReceipt.fromPartial(e)) || [];
     return message;
   },
 };
@@ -2656,7 +3154,7 @@ export const XfscUpdateOfferingLifecycle: MessageFns<XfscUpdateOfferingLifecycle
 };
 
 function createBaseUpdateOfferingLifecycleResponse(): UpdateOfferingLifecycleResponse {
-  return { id: [], debugInformation: undefined };
+  return { id: [], debugInformation: undefined, receipts: [] };
 }
 
 export const UpdateOfferingLifecycleResponse: MessageFns<UpdateOfferingLifecycleResponse> = {
@@ -2666,6 +3164,9 @@ export const UpdateOfferingLifecycleResponse: MessageFns<UpdateOfferingLifecycle
     }
     if (message.debugInformation !== undefined) {
       Struct.encode(Struct.wrap(message.debugInformation), writer.uint32(18).fork()).join();
+    }
+    for (const v of message.receipts) {
+      PublishReceipt.encode(v!, writer.uint32(26).fork()).join();
     }
     return writer;
   },
@@ -2693,6 +3194,14 @@ export const UpdateOfferingLifecycleResponse: MessageFns<UpdateOfferingLifecycle
           message.debugInformation = Struct.unwrap(Struct.decode(reader, reader.uint32()));
           continue;
         }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.receipts.push(PublishReceipt.decode(reader, reader.uint32()));
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -2706,6 +3215,9 @@ export const UpdateOfferingLifecycleResponse: MessageFns<UpdateOfferingLifecycle
     return {
       id: globalThis.Array.isArray(object?.id) ? object.id.map((e: any) => globalThis.String(e)) : [],
       debugInformation: isObject(object.debugInformation) ? object.debugInformation : undefined,
+      receipts: globalThis.Array.isArray(object?.receipts)
+        ? object.receipts.map((e: any) => PublishReceipt.fromJSON(e))
+        : [],
     };
   },
 
@@ -2716,6 +3228,9 @@ export const UpdateOfferingLifecycleResponse: MessageFns<UpdateOfferingLifecycle
     }
     if (message.debugInformation !== undefined) {
       obj.debugInformation = message.debugInformation;
+    }
+    if (message.receipts?.length) {
+      obj.receipts = message.receipts.map((e) => PublishReceipt.toJSON(e));
     }
     return obj;
   },
@@ -2729,6 +3244,7 @@ export const UpdateOfferingLifecycleResponse: MessageFns<UpdateOfferingLifecycle
     const message = createBaseUpdateOfferingLifecycleResponse();
     message.id = object.id?.map((e) => e) || [];
     message.debugInformation = object.debugInformation ?? undefined;
+    message.receipts = object.receipts?.map((e) => PublishReceipt.fromPartial(e)) || [];
     return message;
   },
 };

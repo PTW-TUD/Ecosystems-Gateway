@@ -126,6 +126,53 @@ message CreateOfferingResponse {
 
     // Debug information
     google.protobuf.Struct debugInformation = 2;
+
+    // Transactions and timing of each published Pontus-X offering, in request order
+    // Only set when the gateway runs with EXTENDED_RESPONSES=true
+    repeated PublishReceipt receipts = 3;
+}
+
+// What publishing or changing a Pontus-X offering sent to the chain.
+message PublishReceipt {
+    // DID of the offering
+    string did = 1;
+
+    // Address of the offering's NFT
+    string nftAddress = 2;
+
+    // Datatoken address per service id
+    map<string, string> datatokens = 3;
+
+    // The transactions sent, in the order they were sent
+    repeated TxReceipt transactions = 4;
+
+    // When the gateway received the request (ISO 8601)
+    optional string submittedAt = 5;
+
+    // Timestamp of the block the metadata transaction was mined in (ISO 8601)
+    optional string metadataMinedAt = 6;
+
+    // When the ocean-node had indexed the offering (ISO 8601); unset with WAIT_FOR_INDEXER=false
+    optional string indexedAt = 7;
+}
+
+// A transaction the gateway sent.
+message TxReceipt {
+    // What the transaction did: "datatoken:<serviceId>" (for the first service of a new
+    // offering, together with its NFT), "setMetadata", "setServicePrice:<serviceId>" or
+    // "setMetadataState"
+    string purpose = 1;
+
+    string txHash = 2;
+
+    optional uint64 blockNumber = 3;
+
+    // Gas used, as a decimal string
+    optional string gasUsed = 4;
+
+    // Price paid per gas in wei, as a decimal string; the L1 data fee of OP Stack chains
+    // is not included
+    optional string effectiveGasPrice = 5;
 }
 
 // Request payload for updating already published offerings.
@@ -208,6 +255,10 @@ message UpdateOfferingResponse{
 
     // Debug information
     google.protobuf.Struct debugInformation = 3;
+
+    // Transactions and timing of each updated Pontus-X offering, in request order
+    // Only set when the gateway runs with EXTENDED_RESPONSES=true
+    repeated PublishReceipt receipts = 4;
 }
 
 // Request payload for changing the lifecycle state of an existing offering.
@@ -263,6 +314,11 @@ message UpdateOfferingLifecycleResponse {
 
     // Debug information
     google.protobuf.Struct debugInformation = 2;
+
+    // The setMetadataState transaction of each Pontus-X offering, in request order; none
+    // for an offering that already was in the state
+    // Only set when the gateway runs with EXTENDED_RESPONSES=true
+    repeated PublishReceipt receipts = 3;
 }
 
 // Request payload for retrieving offerings.
