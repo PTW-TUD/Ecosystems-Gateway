@@ -198,7 +198,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"did\": \"did:op:ea6890f851252e0646ab4887c40603182e42ab684f597f5731f02cfe9efe5be0\",\n    \"algorithm\": \"did:op:7e36f8d3c52faaa2f5aa9336b05ce9d9e499188b1408ebdeb9c0834c9b94c450\",\n    \"user_data\": {}\n}\n",
+							"raw": "{\n    \"did\": \"did:ope:<dataset>\",\n    \"algorithm\": \"did:ope:<algorithm>\",\n    \"algorithmParameters\": {},\n    \"computeEnv\": \"<environment id from GetComputeEnvironments>\",\n    \"resources\": [\n        {\n            \"id\": \"cpu\",\n            \"amount\": 1\n        }\n    ]\n}\n",
 							"options": {
 								"raw": {
 									"headerFamily": "json",
@@ -216,12 +216,132 @@
 								"RunComputeToDataJob"
 							]
 						},
-						"description": "Calls the gRPC method runComputeToDataJob"
+						"description": "Calls the gRPC method RunComputeToDataJob"
+					},
+					"response": []
+				},
+				{
+					"name": "Request a Compute2Data Job on several datasets",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"did\": \"did:ope:<model artifact 1>\",\n    \"algorithm\": \"did:ope:<aggregation algorithm>\",\n    \"additionalDatasets\": [\n        {\n            \"did\": \"did:ope:<model artifact 2>\"\n        },\n        {\n            \"did\": \"did:ope:<model artifact 3>\",\n            \"userdata\": {}\n        }\n    ],\n    \"algorithmEnvs\": {\n        \"OMP_NUM_THREADS\": \"2\"\n    },\n    \"free\": true\n}\n",
+							"options": {
+								"raw": {
+									"headerFamily": "json",
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/grpc/RunComputeToDataJob",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"grpc",
+								"RunComputeToDataJob"
+							]
+						},
+						"description": "Runs one algorithm on several datasets (additionalDatasets), with environment variables in its container (algorithmEnvs). With EXTENDED_RESPONSES=true the response also carries the order transactions, escrow payment, provider fees and submit and start times."
 					},
 					"response": []
 				}
 			],
-			"description": "Pontus-x's \"Compute to Data\" model enables secure data usage by allowing computations on sensitive data without exposing the raw dataset. Data owners maintain full control as computations are sent to their environment, ensuring privacy while only sharing the results. Blockchain technology ensures transparency and trust in the process, while allowing data owners to monetize their data securely. The system supports a variety of data types and computations.\n\nThe current gRPC format:\n\n``` protobuf\nmessage CreateComputeToDataRequest {\n    string did = 1;\n    string algorithm = 2;\n    map<string, string> user_data = 3;\n}\n\n ```\n\nThe result will be a base64 encoded data."
+			"description": "Starts a compute-to-data job: an algorithm runs on one or more datasets in a compute environment of the ocean-node, and only its results leave it.\n\nSee CreateComputeToDataRequest in src/_proto/spp_v3.proto for all fields. The response holds the ocean-node job id (`<environmentHash>-<jobId>`), which the status and result calls take."
+		},
+		{
+			"name": "GetComputeToDataStatus",
+			"item": [
+				{
+					"name": "Get Status",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jobId\": \"<environmentHash>-<jobId>\"\n}\n",
+							"options": {
+								"raw": {
+									"headerFamily": "json",
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/grpc/GetComputeToDataStatus",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"grpc",
+								"GetComputeToDataStatus"
+							]
+						},
+						"description": "Calls the gRPC method GetComputeToDataStatus"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Status with Details",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jobId\": \"<environmentHash>-<jobId>\",\n    \"details\": true\n}\n",
+							"options": {
+								"raw": {
+									"headerFamily": "json",
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/grpc/GetComputeToDataStatus",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"grpc",
+								"GetComputeToDataStatus"
+							]
+						},
+						"description": "Returns the job as the node reports it: phase timestamps, environment, resources, payment transactions, result files with their index, exit code and runtime metrics. Needs EXTENDED_RESPONSES=true on the gateway."
+					},
+					"response": []
+				}
+			],
+			"description": "The Compute-to-Data v2 status of a job, e.g. 1 queued, 40 running algorithm, 70 finished; a job that ends below 70 failed."
 		},
 		{
 			"name": "GetComputeToDataResult",
@@ -242,7 +362,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"jobId\": \"a42c9742e59a486c94345c1d5769fc51\",\n    \"compute_to_data_return_type\": 0\n}\n",
+							"raw": "{\n    \"jobId\": \"<environmentHash>-<jobId>\",\n    \"computeToDataReturnType\": \"C2D_DATA\"\n}\n",
 							"options": {
 								"raw": {
 									"headerFamily": "json",
@@ -260,7 +380,7 @@
 								"GetComputeToDataResult"
 							]
 						},
-						"description": "Calls the gRPC method GetComputeToDataResult"
+						"description": "The output archive (outputs.tar), base64 encoded, once the gateway fetched it."
 					},
 					"response": []
 				},
@@ -280,7 +400,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"jobId\": \"a42c9742e59a486c94345c1d5769fc51\",\n    \"compute_to_data_return_type\": 1\n}",
+							"raw": "{\n    \"jobId\": \"<environmentHash>-<jobId>\",\n    \"computeToDataReturnType\": \"C2D_URI\"\n}\n",
 							"options": {
 								"raw": {
 									"headerFamily": "json",
@@ -298,12 +418,94 @@
 								"GetComputeToDataResult"
 							]
 						},
-						"description": "Calls the gRPC method GetComputeToDataResult"
+						"description": "A download URL of the ocean-node for the output archive."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Algorithm Log as URL",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jobId\": \"<environmentHash>-<jobId>\",\n    \"computeToDataReturnType\": \"C2D_URI\",\n    \"jobIndex\": 0\n}\n",
+							"options": {
+								"raw": {
+									"headerFamily": "json",
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/grpc/GetComputeToDataResult",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"grpc",
+								"GetComputeToDataResult"
+							]
+						},
+						"description": "A download URL of one result file: jobIndex is the index of the file in the results of GetComputeToDataStatus with details, e.g. the one of type algorithmLog."
 					},
 					"response": []
 				}
 			],
-			"description": "Pontus-x's \"Compute to Data\" model enables secure data usage by allowing computations on sensitive data without exposing the raw dataset. Data owners maintain full control as computations are sent to their environment, ensuring privacy while only sharing the results. Blockchain technology ensures transparency and trust in the process, while allowing data owners to monetize their data securely. The system supports a variety of data types and computations.\n\nThe current gRPC format:\n\n``` protobuf\nmessage CreateComputeToDataRequest {\n    string jobId = 1;\n    string compute_to_data_return_type = 2;\n}\n\n ```\n\nThe result will be a base64 encoded data."
+			"description": "The result of a finished compute-to-data job: the output archive as data (C2D_DATA) or a download URL (C2D_URI); with C2D_URI, jobIndex selects another result file."
+		},
+		{
+			"name": "GetComputeEnvironments",
+			"item": [
+				{
+					"name": "List Compute Environments",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}\n",
+							"options": {
+								"raw": {
+									"headerFamily": "json",
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/grpc/GetComputeEnvironments",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"grpc",
+								"GetComputeEnvironments"
+							]
+						},
+						"description": "Calls the gRPC method GetComputeEnvironments"
+					},
+					"response": []
+				}
+			],
+			"description": "The ocean-node's compute environments with their resources, job limits, free tier and prices on the gateway's chain. Their id is the computeEnv of RunComputeToDataJob."
 		}
 	],
 	"variable": [
