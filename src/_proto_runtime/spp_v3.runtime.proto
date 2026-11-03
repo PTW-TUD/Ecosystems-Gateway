@@ -584,9 +584,17 @@ message ProviderFee {
 message ComputeToDataStatusRequest {
     // ocean-node job id in the form <environmentHash>-<jobId>
     string jobId = 1;
+
+    // 2 is kept for the alias of the wallet that started the job
+
+    // Return the job's details as well; needs EXTENDED_RESPONSES=true on the gateway
+    // Defaults to false
+    optional bool details = 3;
 }
 
 // Status of a compute-to-data job.
+// The fields after description are only set when details was requested. Timestamps are
+// passed on as the ocean-node gives them, as Unix seconds or ISO 8601 depending on the node.
 message ComputeToDataStatusResponse {
     // Compute-to-Data v2 status code of the ocean-node, e.g. 1 queued, 40 running algorithm,
     // 70 finished; a job that ends below 70 failed
@@ -594,6 +602,82 @@ message ComputeToDataStatusResponse {
 
     // Description of the status code
     string description = 2;
+
+    // When the node created the job, i.e. queued it
+    optional string dateCreated = 3;
+
+    // When the job ended, successfully or not; unset while it runs
+    optional string dateFinished = 4;
+
+    // When the algorithm started and stopped running
+    optional string algoStartTimestamp = 5;
+    optional string algoStopTimestamp = 6;
+
+    // How long the algorithm ran, in seconds
+    optional double algoDuration = 7;
+
+    // Compute environment the job runs in
+    optional string computeEnv = 8;
+
+    // Resources the job was given
+    repeated ComputeResource resources = 9;
+
+    // Whether the job runs in the environment's free tier
+    optional bool isFree = 10;
+
+    // Escrow payment of the job; unset for a free job
+    optional ComputeJobPayment payment = 11;
+
+    // Result files of the job
+    repeated ComputeJobResult results = 12;
+
+    // Exit code of the algorithm's container, and whether it ran out of memory
+    optional int32 exitCode = 13;
+    optional bool oomKilled = 14;
+
+    // DIDs of the job's datasets and its algorithm
+    repeated string inputDids = 15;
+    optional string algorithmDid = 16;
+
+    // Container metrics as the node reports them (CPU, memory, disk, network), as JSON
+    optional string runtimeMetrics = 17;
+
+    // Maximum job duration in seconds
+    optional double maxJobDuration = 18;
+
+    // Seconds the job may wait in the node's queue
+    optional double queueMaxWaitTime = 19;
+
+    // When the node deletes the job and its results
+    optional string expireTimestamp = 20;
+}
+
+// A result file of a compute-to-data job.
+message ComputeJobResult {
+    string filename = 1;
+
+    // e.g. "output", "algorithmLog", "configurationLog"
+    string type = 2;
+
+    // Size in bytes
+    optional uint64 filesize = 3;
+
+    // Index of the file, usable as jobIndex in GetComputeToDataResult with C2D_URI
+    uint32 index = 4;
+}
+
+// The escrow payment of a compute-to-data job, as the node reports it.
+message ComputeJobPayment {
+    // Payment token
+    optional string token = 1;
+
+    // Cost of the job, in the token's units as the node gives it
+    optional string cost = 2;
+
+    // Transactions locking the payment, claiming it after the job, or cancelling the lock
+    optional string lockTx = 3;
+    optional string claimTx = 4;
+    optional string cancelTx = 5;
 }
 
 // How the result of a compute-to-data job is returned.

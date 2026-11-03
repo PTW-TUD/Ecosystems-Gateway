@@ -410,16 +410,26 @@ export class GrpcController {
     data: ComputeToDataStatusRequest,
   ): Promise<ComputeToDataStatusResponse> {
     this.logRequest('GetComputeToDataStatus', data);
-    const result = await this.runRpc('getComputeToDataStatus', () =>
-      this.pontusxService.getComputeToDataStatus(data.jobId),
+    const result = await this.runRpc('getComputeToDataStatus', async () =>
+      data.details
+        ? this.pontusxService.getComputeToDataStatusDetails(data.jobId)
+        : {
+            status: await this.pontusxService.getComputeToDataStatus(
+              data.jobId,
+            ),
+            resources: [],
+            results: [],
+            inputDids: [],
+          },
     );
     // 0 ("Job started") is a valid status
-    if (result !== undefined && result !== null) {
+    const status = result?.status;
+    if (status !== undefined && status !== null) {
       return {
-        status: result,
-        description: isCtdStatusCode(result)
-          ? getCtdStatusText(result) + ' | ' + CtdToDcpStateMap[result]
-          : `Unknown compute job status ${result}`,
+        ...result,
+        description: isCtdStatusCode(status)
+          ? getCtdStatusText(status) + ' | ' + CtdToDcpStateMap[status]
+          : `Unknown compute job status ${status}`,
       };
     }
     throw new RpcException({

@@ -27,6 +27,7 @@ describe('Grpc Controller', () => {
     updateOfferingLifecycle: vi.fn(),
     getOffering: vi.fn(),
     getComputeToDataStatus: vi.fn(),
+    getComputeToDataStatusDetails: vi.fn(),
   };
 
   const mockXFSCService = {
@@ -178,7 +179,35 @@ describe('Grpc Controller', () => {
 
       await expect(
         controller.GetComputeToDataStatus({ jobId }),
-      ).resolves.toEqual({ status: 0, description: 'Job started | REQUESTED' });
+      ).resolves.toEqual({
+        status: 0,
+        description: 'Job started | REQUESTED',
+        resources: [],
+        results: [],
+        inputDids: [],
+      });
+    });
+
+    it('returns the details of a job on request', async () => {
+      mockPontusXService.getComputeToDataStatusDetails.mockResolvedValueOnce({
+        status: 70,
+        computeEnv: 'env-1',
+        resources: [],
+        results: [],
+        inputDids: ['did:ope:1'],
+      });
+
+      await expect(
+        controller.GetComputeToDataStatus({ jobId, details: true }),
+      ).resolves.toEqual({
+        status: 70,
+        description: 'Job finished | COMPLETED',
+        computeEnv: 'env-1',
+        resources: [],
+        results: [],
+        inputDids: ['did:ope:1'],
+      });
+      expect(mockPontusXService.getComputeToDataStatus).not.toHaveBeenCalled();
     });
   });
 });

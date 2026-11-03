@@ -5,9 +5,11 @@ import {
   type AssetV5,
   type ComputeResult,
   getServices,
+  type NodeComputeJob,
   type PublishResponse,
 } from '@deltadao/nautilus';
 import type {
+  ComputeToDataStatusResponse,
   EscrowPayment,
   ProviderFee,
   PublishReceipt,
@@ -84,6 +86,58 @@ export function toPublishReceipt(
     datatokens,
     transactions: [...transactions, ...more],
     ...withoutUndefined(times),
+  };
+}
+
+/** The details of a compute job the status response carries, as the node reports them. */
+export function toComputeJobDetails(
+  job: NodeComputeJob,
+): Omit<ComputeToDataStatusResponse, 'status' | 'description'> {
+  const text = (value: unknown) =>
+    value === undefined || value === null || value === ''
+      ? undefined
+      : String(value);
+  const number = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+  const payment = job.payment
+    ? withoutUndefined({
+        token: text(job.payment.token),
+        cost: text(job.payment.cost),
+        lockTx: text(job.payment.lockTx),
+        claimTx: text(job.payment.claimTx),
+        cancelTx: text(job.payment.cancelTx),
+      })
+    : undefined;
+  return {
+    ...withoutUndefined({
+      dateCreated: text(job.dateCreated),
+      dateFinished: text(job.dateFinished),
+      algoStartTimestamp: text(job.algoStartTimestamp),
+      algoStopTimestamp: text(job.algoStopTimestamp),
+      algoDuration: number(job.algoDuration),
+      computeEnv: text(job.environment),
+      isFree: job.isFree ?? undefined,
+      payment,
+      exitCode: number(job.terminationDetails?.exitCode),
+      oomKilled: job.terminationDetails?.OOMKilled ?? undefined,
+      algorithmDid: text(job.algoDID),
+      runtimeMetrics: job.runtimeMetrics
+        ? JSON.stringify(job.runtimeMetrics)
+        : undefined,
+      maxJobDuration: number(job.maxJobDuration),
+      queueMaxWaitTime: number(job.queueMaxWaitTime),
+      expireTimestamp: text(job.expireTimestamp),
+    }),
+    resources: (job.resources ?? []).map(({ id, amount }) => ({ id, amount })),
+    results: (job.results ?? []).map((result, position) => ({
+      filename: result.filename,
+      type: result.type,
+      ...(number(result.filesize) !== undefined && {
+        filesize: result.filesize,
+      }),
+      index: result.index ?? position,
+    })),
+    inputDids: job.inputDID ?? [],
   };
 }
 

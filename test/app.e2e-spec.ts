@@ -34,6 +34,7 @@ describe('HTTP and gRPC gateway (e2e)', () => {
   const queryOfferings = vi.fn();
   const requestComputeToData = vi.fn();
   const publishAsset = vi.fn();
+  const getComputeToDataStatusDetails = vi.fn();
 
   beforeAll(async () => {
     const port = await new Promise<number>((resolve, reject) => {
@@ -69,6 +70,7 @@ describe('HTTP and gRPC gateway (e2e)', () => {
         queryOfferings,
         requestComputeToData,
         publishAsset,
+        getComputeToDataStatusDetails,
       })
       .overrideProvider(XfscService)
       .useValue({})
@@ -114,6 +116,7 @@ describe('HTTP and gRPC gateway (e2e)', () => {
     queryOfferings.mockReset();
     requestComputeToData.mockReset();
     publishAsset.mockReset();
+    getComputeToDataStatusDetails.mockReset();
   });
 
   afterAll(async () => {
@@ -308,6 +311,50 @@ describe('HTTP and gRPC gateway (e2e)', () => {
           ],
         },
       ],
+    });
+  });
+
+  it('returns the details of a compute job on request', async () => {
+    getComputeToDataStatusDetails.mockResolvedValue({
+      status: 70,
+      dateCreated: '1793000000.123',
+      computeEnv: 'env-1',
+      resources: [{ id: 'cpu', amount: 2 }],
+      payment: { token: '0xtoken', lockTx: '0xlock' },
+      results: [
+        {
+          filename: 'algorithm.log',
+          type: 'algorithmLog',
+          filesize: 120,
+          index: 0,
+        },
+      ],
+      inputDids: ['did:ope:1'],
+    });
+
+    const response = await request(app.getHttpServer())
+      .post('/grpc/GetComputeToDataStatus')
+      .send({ jobId: '0xenv-job', details: true })
+      .expect(201);
+
+    expect(getComputeToDataStatusDetails).toHaveBeenCalledWith('0xenv-job');
+    expect(response.body).toEqual({
+      status: 70,
+      description: 'Job finished | COMPLETED',
+      dateCreated: '1793000000.123',
+      computeEnv: 'env-1',
+      resources: [{ id: 'cpu', amount: 2 }],
+      payment: { token: '0xtoken', lockTx: '0xlock' },
+      results: [
+        // a 64-bit integer is a string in JSON
+        {
+          filename: 'algorithm.log',
+          type: 'algorithmLog',
+          filesize: '120',
+          index: 0,
+        },
+      ],
+      inputDids: ['did:ope:1'],
     });
   });
 

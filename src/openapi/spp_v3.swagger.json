@@ -588,6 +588,53 @@
       },
       "description": "A further dataset of a compute-to-data job."
     },
+    "v3ComputeJobPayment": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string",
+          "title": "Payment token"
+        },
+        "cost": {
+          "type": "string",
+          "title": "Cost of the job, in the token's units as the node gives it"
+        },
+        "lockTx": {
+          "type": "string",
+          "title": "Transactions locking the payment, claiming it after the job, or cancelling the lock"
+        },
+        "claimTx": {
+          "type": "string"
+        },
+        "cancelTx": {
+          "type": "string"
+        }
+      },
+      "description": "The escrow payment of a compute-to-data job, as the node reports it."
+    },
+    "v3ComputeJobResult": {
+      "type": "object",
+      "properties": {
+        "filename": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "title": "e.g. \"output\", \"algorithmLog\", \"configurationLog\""
+        },
+        "filesize": {
+          "type": "string",
+          "format": "uint64",
+          "title": "Size in bytes"
+        },
+        "index": {
+          "type": "integer",
+          "format": "int64",
+          "title": "Index of the file, usable as jobIndex in GetComputeToDataResult with C2D_URI"
+        }
+      },
+      "description": "A result file of a compute-to-data job."
+    },
     "v3ComputeOptions": {
       "type": "object",
       "properties": {
@@ -717,6 +764,10 @@
         "jobId": {
           "type": "string",
           "title": "ocean-node job id in the form \u003cenvironmentHash\u003e-\u003cjobId\u003e"
+        },
+        "details": {
+          "type": "boolean",
+          "title": "Return the job's details as well; needs EXTENDED_RESPONSES=true on the gateway\nDefaults to false"
         }
       },
       "description": "Request payload for the status of a compute-to-data job."
@@ -732,9 +783,93 @@
         "description": {
           "type": "string",
           "title": "Description of the status code"
+        },
+        "dateCreated": {
+          "type": "string",
+          "title": "When the node created the job, i.e. queued it"
+        },
+        "dateFinished": {
+          "type": "string",
+          "title": "When the job ended, successfully or not; unset while it runs"
+        },
+        "algoStartTimestamp": {
+          "type": "string",
+          "title": "When the algorithm started and stopped running"
+        },
+        "algoStopTimestamp": {
+          "type": "string"
+        },
+        "algoDuration": {
+          "type": "number",
+          "format": "double",
+          "title": "How long the algorithm ran, in seconds"
+        },
+        "computeEnv": {
+          "type": "string",
+          "title": "Compute environment the job runs in"
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3ComputeResource"
+          },
+          "title": "Resources the job was given"
+        },
+        "isFree": {
+          "type": "boolean",
+          "title": "Whether the job runs in the environment's free tier"
+        },
+        "payment": {
+          "$ref": "#/definitions/v3ComputeJobPayment",
+          "title": "Escrow payment of the job; unset for a free job"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3ComputeJobResult"
+          },
+          "title": "Result files of the job"
+        },
+        "exitCode": {
+          "type": "integer",
+          "format": "int32",
+          "title": "Exit code of the algorithm's container, and whether it ran out of memory"
+        },
+        "oomKilled": {
+          "type": "boolean"
+        },
+        "inputDids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "DIDs of the job's datasets and its algorithm"
+        },
+        "algorithmDid": {
+          "type": "string"
+        },
+        "runtimeMetrics": {
+          "type": "string",
+          "title": "Container metrics as the node reports them (CPU, memory, disk, network), as JSON"
+        },
+        "maxJobDuration": {
+          "type": "number",
+          "format": "double",
+          "title": "Maximum job duration in seconds"
+        },
+        "queueMaxWaitTime": {
+          "type": "number",
+          "format": "double",
+          "title": "Seconds the job may wait in the node's queue"
+        },
+        "expireTimestamp": {
+          "type": "string",
+          "title": "When the node deletes the job and its results"
         }
       },
-      "description": "Status of a compute-to-data job."
+      "description": "Status of a compute-to-data job.\nThe fields after description are only set when details was requested. Timestamps are\npassed on as the ocean-node gives them, as Unix seconds or ISO 8601 depending on the node."
     },
     "v3ConsumerParameter": {
       "type": "object",

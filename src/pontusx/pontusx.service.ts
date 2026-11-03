@@ -52,6 +52,7 @@ import {
   ConsumerParameter,
   CreateComputeToDataRequest,
   ComputeToDataResponse,
+  ComputeToDataStatusResponse,
   CredentialLists,
   PublishReceipt,
   TxReceipt,
@@ -98,6 +99,7 @@ import {
   toUserdata,
 } from './utility.js';
 import {
+  toComputeJobDetails,
   toDatatokens,
   toEscrowPayment,
   toInput,
@@ -1503,6 +1505,22 @@ export class PontusxService implements OnModuleInit {
     return (await this.getComputeJob(jobId)).status;
   }
 
+  /** The status of a job with its details; needs EXTENDED_RESPONSES. */
+  async getComputeToDataStatusDetails(
+    jobId: string,
+  ): Promise<Omit<ComputeToDataStatusResponse, 'description'>> {
+    if (!this.extendedResponses) {
+      throw new RpcException({
+        code: GrpcStatusCode.FAILED_PRECONDITION,
+        message:
+          'Job details are not enabled on this gateway: set EXTENDED_RESPONSES=true, or request the status without details',
+        metadata: createErrorMetadata('pontusx', 'getComputeToDataStatus'),
+      });
+    }
+    const job = await this.getComputeJob(jobId);
+    return { status: job.status, ...toComputeJobDetails(job) };
+  }
+
   async getComputeToDataResult(
     jobId: string,
     return_type: ComputeToDataResultType,
@@ -1539,10 +1557,10 @@ export class PontusxService implements OnModuleInit {
         return { state: ComputeToDataResponseState.FINISHED, data: cached };
       case ComputeToDataResultType.C2D_URI:
         this.assertComputeJobId(jobId, metadata);
-        // by default the job's output (outputs.tar)
+        // by default the job's output (outputs.tar); index 0 is a result of its own
         const resp = await this.nautilus.getComputeResult({
           jobId: jobId,
-          ...(jobIndex ? { resultIndex: jobIndex } : {}),
+          ...(jobIndex != null ? { resultIndex: jobIndex } : {}),
         });
         if (resp) {
           return { state: ComputeToDataResponseState.FINISHED, data: resp };

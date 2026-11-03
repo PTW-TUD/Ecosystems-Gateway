@@ -259,6 +259,24 @@ none):
   `indexedAt` (the ocean-node had indexed it; unset with
   `WAIT_FOR_INDEXER=false`).
 
+`GetComputeToDataStatus` with `details: true` also returns the job as the node
+reports it: `dateCreated` (queued), `algoStartTimestamp`,
+`algoStopTimestamp`, `algoDuration` and `dateFinished` for the time of each
+phase; `computeEnv`, `resources`, `isFree`, `maxJobDuration`,
+`queueMaxWaitTime` and `expireTimestamp`; `payment` (`token`, `cost`,
+`lockTx`, `claimTx`, `cancelTx`; unset for a free job); `results`;
+`exitCode` and `oomKilled`; `inputDids` and `algorithmDid`; and
+`runtimeMetrics`, the container metrics as a JSON string. Node timestamps are
+passed on unchanged, as Unix seconds or ISO 8601 depending on the node.
+Without `EXTENDED_RESPONSES`, `details: true` is refused with
+`FAILED_PRECONDITION`; without `details`, the response is `status` and
+`description` as before.
+
+Each entry of `results` has an `index`. `GetComputeToDataResult` with
+`C2D_URI` and that index as `jobIndex` returns the file's URL, e.g. the
+algorithm log (`type: "algorithmLog"`); without `jobIndex` it is the output
+archive.
+
 `effectiveGasPrice × gasUsed` is the L2 execution fee only. On OP Stack chains
 such as OP Sepolia, the L1 data fee is extra: ethers does not keep the
 receipt's `l1Fee`, so read it from the RPC by `txHash`

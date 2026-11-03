@@ -803,9 +803,18 @@ export interface ProviderFee {
 export interface ComputeToDataStatusRequest {
   /** ocean-node job id in the form <environmentHash>-<jobId> */
   jobId: string;
+  /**
+   * Return the job's details as well; needs EXTENDED_RESPONSES=true on the gateway
+   * Defaults to false
+   */
+  details?: boolean | undefined;
 }
 
-/** Status of a compute-to-data job. */
+/**
+ * Status of a compute-to-data job.
+ * The fields after description are only set when details was requested. Timestamps are
+ * passed on as the ocean-node gives them, as Unix seconds or ISO 8601 depending on the node.
+ */
 export interface ComputeToDataStatusResponse {
   /**
    * Compute-to-Data v2 status code of the ocean-node, e.g. 1 queued, 40 running algorithm,
@@ -814,6 +823,92 @@ export interface ComputeToDataStatusResponse {
   status: number;
   /** Description of the status code */
   description: string;
+  /** When the node created the job, i.e. queued it */
+  dateCreated?:
+    | string
+    | undefined;
+  /** When the job ended, successfully or not; unset while it runs */
+  dateFinished?:
+    | string
+    | undefined;
+  /** When the algorithm started and stopped running */
+  algoStartTimestamp?: string | undefined;
+  algoStopTimestamp?:
+    | string
+    | undefined;
+  /** How long the algorithm ran, in seconds */
+  algoDuration?:
+    | number
+    | undefined;
+  /** Compute environment the job runs in */
+  computeEnv?:
+    | string
+    | undefined;
+  /** Resources the job was given */
+  resources: ComputeResource[];
+  /** Whether the job runs in the environment's free tier */
+  isFree?:
+    | boolean
+    | undefined;
+  /** Escrow payment of the job; unset for a free job */
+  payment?:
+    | ComputeJobPayment
+    | undefined;
+  /** Result files of the job */
+  results: ComputeJobResult[];
+  /** Exit code of the algorithm's container, and whether it ran out of memory */
+  exitCode?: number | undefined;
+  oomKilled?:
+    | boolean
+    | undefined;
+  /** DIDs of the job's datasets and its algorithm */
+  inputDids: string[];
+  algorithmDid?:
+    | string
+    | undefined;
+  /** Container metrics as the node reports them (CPU, memory, disk, network), as JSON */
+  runtimeMetrics?:
+    | string
+    | undefined;
+  /** Maximum job duration in seconds */
+  maxJobDuration?:
+    | number
+    | undefined;
+  /** Seconds the job may wait in the node's queue */
+  queueMaxWaitTime?:
+    | number
+    | undefined;
+  /** When the node deletes the job and its results */
+  expireTimestamp?: string | undefined;
+}
+
+/** A result file of a compute-to-data job. */
+export interface ComputeJobResult {
+  filename: string;
+  /** e.g. "output", "algorithmLog", "configurationLog" */
+  type: string;
+  /** Size in bytes */
+  filesize?:
+    | number
+    | undefined;
+  /** Index of the file, usable as jobIndex in GetComputeToDataResult with C2D_URI */
+  index: number;
+}
+
+/** The escrow payment of a compute-to-data job, as the node reports it. */
+export interface ComputeJobPayment {
+  /** Payment token */
+  token?:
+    | string
+    | undefined;
+  /** Cost of the job, in the token's units as the node gives it */
+  cost?:
+    | string
+    | undefined;
+  /** Transactions locking the payment, claiming it after the job, or cancelling the lock */
+  lockTx?: string | undefined;
+  claimTx?: string | undefined;
+  cancelTx?: string | undefined;
 }
 
 /**
@@ -5948,13 +6043,16 @@ export const ProviderFee: MessageFns<ProviderFee> = {
 };
 
 function createBaseComputeToDataStatusRequest(): ComputeToDataStatusRequest {
-  return { jobId: "" };
+  return { jobId: "", details: undefined };
 }
 
 export const ComputeToDataStatusRequest: MessageFns<ComputeToDataStatusRequest> = {
   encode(message: ComputeToDataStatusRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.jobId !== "") {
       writer.uint32(10).string(message.jobId);
+    }
+    if (message.details !== undefined) {
+      writer.uint32(24).bool(message.details);
     }
     return writer;
   },
@@ -5974,6 +6072,14 @@ export const ComputeToDataStatusRequest: MessageFns<ComputeToDataStatusRequest> 
           message.jobId = reader.string();
           continue;
         }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.details = reader.bool();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -5984,13 +6090,19 @@ export const ComputeToDataStatusRequest: MessageFns<ComputeToDataStatusRequest> 
   },
 
   fromJSON(object: any): ComputeToDataStatusRequest {
-    return { jobId: isSet(object.jobId) ? globalThis.String(object.jobId) : "" };
+    return {
+      jobId: isSet(object.jobId) ? globalThis.String(object.jobId) : "",
+      details: isSet(object.details) ? globalThis.Boolean(object.details) : undefined,
+    };
   },
 
   toJSON(message: ComputeToDataStatusRequest): unknown {
     const obj: any = {};
     if (message.jobId !== "") {
       obj.jobId = message.jobId;
+    }
+    if (message.details !== undefined) {
+      obj.details = message.details;
     }
     return obj;
   },
@@ -6001,12 +6113,34 @@ export const ComputeToDataStatusRequest: MessageFns<ComputeToDataStatusRequest> 
   fromPartial<I extends Exact<DeepPartial<ComputeToDataStatusRequest>, I>>(object: I): ComputeToDataStatusRequest {
     const message = createBaseComputeToDataStatusRequest();
     message.jobId = object.jobId ?? "";
+    message.details = object.details ?? undefined;
     return message;
   },
 };
 
 function createBaseComputeToDataStatusResponse(): ComputeToDataStatusResponse {
-  return { status: 0, description: "" };
+  return {
+    status: 0,
+    description: "",
+    dateCreated: undefined,
+    dateFinished: undefined,
+    algoStartTimestamp: undefined,
+    algoStopTimestamp: undefined,
+    algoDuration: undefined,
+    computeEnv: undefined,
+    resources: [],
+    isFree: undefined,
+    payment: undefined,
+    results: [],
+    exitCode: undefined,
+    oomKilled: undefined,
+    inputDids: [],
+    algorithmDid: undefined,
+    runtimeMetrics: undefined,
+    maxJobDuration: undefined,
+    queueMaxWaitTime: undefined,
+    expireTimestamp: undefined,
+  };
 }
 
 export const ComputeToDataStatusResponse: MessageFns<ComputeToDataStatusResponse> = {
@@ -6016,6 +6150,60 @@ export const ComputeToDataStatusResponse: MessageFns<ComputeToDataStatusResponse
     }
     if (message.description !== "") {
       writer.uint32(18).string(message.description);
+    }
+    if (message.dateCreated !== undefined) {
+      writer.uint32(26).string(message.dateCreated);
+    }
+    if (message.dateFinished !== undefined) {
+      writer.uint32(34).string(message.dateFinished);
+    }
+    if (message.algoStartTimestamp !== undefined) {
+      writer.uint32(42).string(message.algoStartTimestamp);
+    }
+    if (message.algoStopTimestamp !== undefined) {
+      writer.uint32(50).string(message.algoStopTimestamp);
+    }
+    if (message.algoDuration !== undefined) {
+      writer.uint32(57).double(message.algoDuration);
+    }
+    if (message.computeEnv !== undefined) {
+      writer.uint32(66).string(message.computeEnv);
+    }
+    for (const v of message.resources) {
+      ComputeResource.encode(v!, writer.uint32(74).fork()).join();
+    }
+    if (message.isFree !== undefined) {
+      writer.uint32(80).bool(message.isFree);
+    }
+    if (message.payment !== undefined) {
+      ComputeJobPayment.encode(message.payment, writer.uint32(90).fork()).join();
+    }
+    for (const v of message.results) {
+      ComputeJobResult.encode(v!, writer.uint32(98).fork()).join();
+    }
+    if (message.exitCode !== undefined) {
+      writer.uint32(104).int32(message.exitCode);
+    }
+    if (message.oomKilled !== undefined) {
+      writer.uint32(112).bool(message.oomKilled);
+    }
+    for (const v of message.inputDids) {
+      writer.uint32(122).string(v!);
+    }
+    if (message.algorithmDid !== undefined) {
+      writer.uint32(130).string(message.algorithmDid);
+    }
+    if (message.runtimeMetrics !== undefined) {
+      writer.uint32(138).string(message.runtimeMetrics);
+    }
+    if (message.maxJobDuration !== undefined) {
+      writer.uint32(145).double(message.maxJobDuration);
+    }
+    if (message.queueMaxWaitTime !== undefined) {
+      writer.uint32(153).double(message.queueMaxWaitTime);
+    }
+    if (message.expireTimestamp !== undefined) {
+      writer.uint32(162).string(message.expireTimestamp);
     }
     return writer;
   },
@@ -6043,6 +6231,150 @@ export const ComputeToDataStatusResponse: MessageFns<ComputeToDataStatusResponse
           message.description = reader.string();
           continue;
         }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.dateCreated = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.dateFinished = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.algoStartTimestamp = reader.string();
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.algoStopTimestamp = reader.string();
+          continue;
+        }
+        case 7: {
+          if (tag !== 57) {
+            break;
+          }
+
+          message.algoDuration = reader.double();
+          continue;
+        }
+        case 8: {
+          if (tag !== 66) {
+            break;
+          }
+
+          message.computeEnv = reader.string();
+          continue;
+        }
+        case 9: {
+          if (tag !== 74) {
+            break;
+          }
+
+          message.resources.push(ComputeResource.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 10: {
+          if (tag !== 80) {
+            break;
+          }
+
+          message.isFree = reader.bool();
+          continue;
+        }
+        case 11: {
+          if (tag !== 90) {
+            break;
+          }
+
+          message.payment = ComputeJobPayment.decode(reader, reader.uint32());
+          continue;
+        }
+        case 12: {
+          if (tag !== 98) {
+            break;
+          }
+
+          message.results.push(ComputeJobResult.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 13: {
+          if (tag !== 104) {
+            break;
+          }
+
+          message.exitCode = reader.int32();
+          continue;
+        }
+        case 14: {
+          if (tag !== 112) {
+            break;
+          }
+
+          message.oomKilled = reader.bool();
+          continue;
+        }
+        case 15: {
+          if (tag !== 122) {
+            break;
+          }
+
+          message.inputDids.push(reader.string());
+          continue;
+        }
+        case 16: {
+          if (tag !== 130) {
+            break;
+          }
+
+          message.algorithmDid = reader.string();
+          continue;
+        }
+        case 17: {
+          if (tag !== 138) {
+            break;
+          }
+
+          message.runtimeMetrics = reader.string();
+          continue;
+        }
+        case 18: {
+          if (tag !== 145) {
+            break;
+          }
+
+          message.maxJobDuration = reader.double();
+          continue;
+        }
+        case 19: {
+          if (tag !== 153) {
+            break;
+          }
+
+          message.queueMaxWaitTime = reader.double();
+          continue;
+        }
+        case 20: {
+          if (tag !== 162) {
+            break;
+          }
+
+          message.expireTimestamp = reader.string();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -6056,6 +6388,30 @@ export const ComputeToDataStatusResponse: MessageFns<ComputeToDataStatusResponse
     return {
       status: isSet(object.status) ? globalThis.Number(object.status) : 0,
       description: isSet(object.description) ? globalThis.String(object.description) : "",
+      dateCreated: isSet(object.dateCreated) ? globalThis.String(object.dateCreated) : undefined,
+      dateFinished: isSet(object.dateFinished) ? globalThis.String(object.dateFinished) : undefined,
+      algoStartTimestamp: isSet(object.algoStartTimestamp) ? globalThis.String(object.algoStartTimestamp) : undefined,
+      algoStopTimestamp: isSet(object.algoStopTimestamp) ? globalThis.String(object.algoStopTimestamp) : undefined,
+      algoDuration: isSet(object.algoDuration) ? globalThis.Number(object.algoDuration) : undefined,
+      computeEnv: isSet(object.computeEnv) ? globalThis.String(object.computeEnv) : undefined,
+      resources: globalThis.Array.isArray(object?.resources)
+        ? object.resources.map((e: any) => ComputeResource.fromJSON(e))
+        : [],
+      isFree: isSet(object.isFree) ? globalThis.Boolean(object.isFree) : undefined,
+      payment: isSet(object.payment) ? ComputeJobPayment.fromJSON(object.payment) : undefined,
+      results: globalThis.Array.isArray(object?.results)
+        ? object.results.map((e: any) => ComputeJobResult.fromJSON(e))
+        : [],
+      exitCode: isSet(object.exitCode) ? globalThis.Number(object.exitCode) : undefined,
+      oomKilled: isSet(object.oomKilled) ? globalThis.Boolean(object.oomKilled) : undefined,
+      inputDids: globalThis.Array.isArray(object?.inputDids)
+        ? object.inputDids.map((e: any) => globalThis.String(e))
+        : [],
+      algorithmDid: isSet(object.algorithmDid) ? globalThis.String(object.algorithmDid) : undefined,
+      runtimeMetrics: isSet(object.runtimeMetrics) ? globalThis.String(object.runtimeMetrics) : undefined,
+      maxJobDuration: isSet(object.maxJobDuration) ? globalThis.Number(object.maxJobDuration) : undefined,
+      queueMaxWaitTime: isSet(object.queueMaxWaitTime) ? globalThis.Number(object.queueMaxWaitTime) : undefined,
+      expireTimestamp: isSet(object.expireTimestamp) ? globalThis.String(object.expireTimestamp) : undefined,
     };
   },
 
@@ -6067,6 +6423,60 @@ export const ComputeToDataStatusResponse: MessageFns<ComputeToDataStatusResponse
     if (message.description !== "") {
       obj.description = message.description;
     }
+    if (message.dateCreated !== undefined) {
+      obj.dateCreated = message.dateCreated;
+    }
+    if (message.dateFinished !== undefined) {
+      obj.dateFinished = message.dateFinished;
+    }
+    if (message.algoStartTimestamp !== undefined) {
+      obj.algoStartTimestamp = message.algoStartTimestamp;
+    }
+    if (message.algoStopTimestamp !== undefined) {
+      obj.algoStopTimestamp = message.algoStopTimestamp;
+    }
+    if (message.algoDuration !== undefined) {
+      obj.algoDuration = message.algoDuration;
+    }
+    if (message.computeEnv !== undefined) {
+      obj.computeEnv = message.computeEnv;
+    }
+    if (message.resources?.length) {
+      obj.resources = message.resources.map((e) => ComputeResource.toJSON(e));
+    }
+    if (message.isFree !== undefined) {
+      obj.isFree = message.isFree;
+    }
+    if (message.payment !== undefined) {
+      obj.payment = ComputeJobPayment.toJSON(message.payment);
+    }
+    if (message.results?.length) {
+      obj.results = message.results.map((e) => ComputeJobResult.toJSON(e));
+    }
+    if (message.exitCode !== undefined) {
+      obj.exitCode = Math.round(message.exitCode);
+    }
+    if (message.oomKilled !== undefined) {
+      obj.oomKilled = message.oomKilled;
+    }
+    if (message.inputDids?.length) {
+      obj.inputDids = message.inputDids;
+    }
+    if (message.algorithmDid !== undefined) {
+      obj.algorithmDid = message.algorithmDid;
+    }
+    if (message.runtimeMetrics !== undefined) {
+      obj.runtimeMetrics = message.runtimeMetrics;
+    }
+    if (message.maxJobDuration !== undefined) {
+      obj.maxJobDuration = message.maxJobDuration;
+    }
+    if (message.queueMaxWaitTime !== undefined) {
+      obj.queueMaxWaitTime = message.queueMaxWaitTime;
+    }
+    if (message.expireTimestamp !== undefined) {
+      obj.expireTimestamp = message.expireTimestamp;
+    }
     return obj;
   },
 
@@ -6077,6 +6487,258 @@ export const ComputeToDataStatusResponse: MessageFns<ComputeToDataStatusResponse
     const message = createBaseComputeToDataStatusResponse();
     message.status = object.status ?? 0;
     message.description = object.description ?? "";
+    message.dateCreated = object.dateCreated ?? undefined;
+    message.dateFinished = object.dateFinished ?? undefined;
+    message.algoStartTimestamp = object.algoStartTimestamp ?? undefined;
+    message.algoStopTimestamp = object.algoStopTimestamp ?? undefined;
+    message.algoDuration = object.algoDuration ?? undefined;
+    message.computeEnv = object.computeEnv ?? undefined;
+    message.resources = object.resources?.map((e) => ComputeResource.fromPartial(e)) || [];
+    message.isFree = object.isFree ?? undefined;
+    message.payment = (object.payment !== undefined && object.payment !== null)
+      ? ComputeJobPayment.fromPartial(object.payment)
+      : undefined;
+    message.results = object.results?.map((e) => ComputeJobResult.fromPartial(e)) || [];
+    message.exitCode = object.exitCode ?? undefined;
+    message.oomKilled = object.oomKilled ?? undefined;
+    message.inputDids = object.inputDids?.map((e) => e) || [];
+    message.algorithmDid = object.algorithmDid ?? undefined;
+    message.runtimeMetrics = object.runtimeMetrics ?? undefined;
+    message.maxJobDuration = object.maxJobDuration ?? undefined;
+    message.queueMaxWaitTime = object.queueMaxWaitTime ?? undefined;
+    message.expireTimestamp = object.expireTimestamp ?? undefined;
+    return message;
+  },
+};
+
+function createBaseComputeJobResult(): ComputeJobResult {
+  return { filename: "", type: "", filesize: undefined, index: 0 };
+}
+
+export const ComputeJobResult: MessageFns<ComputeJobResult> = {
+  encode(message: ComputeJobResult, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.filename !== "") {
+      writer.uint32(10).string(message.filename);
+    }
+    if (message.type !== "") {
+      writer.uint32(18).string(message.type);
+    }
+    if (message.filesize !== undefined) {
+      writer.uint32(24).uint64(message.filesize);
+    }
+    if (message.index !== 0) {
+      writer.uint32(32).uint32(message.index);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ComputeJobResult {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseComputeJobResult();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.filename = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.type = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.filesize = longToNumber(reader.uint64());
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.index = reader.uint32();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ComputeJobResult {
+    return {
+      filename: isSet(object.filename) ? globalThis.String(object.filename) : "",
+      type: isSet(object.type) ? globalThis.String(object.type) : "",
+      filesize: isSet(object.filesize) ? globalThis.Number(object.filesize) : undefined,
+      index: isSet(object.index) ? globalThis.Number(object.index) : 0,
+    };
+  },
+
+  toJSON(message: ComputeJobResult): unknown {
+    const obj: any = {};
+    if (message.filename !== "") {
+      obj.filename = message.filename;
+    }
+    if (message.type !== "") {
+      obj.type = message.type;
+    }
+    if (message.filesize !== undefined) {
+      obj.filesize = Math.round(message.filesize);
+    }
+    if (message.index !== 0) {
+      obj.index = Math.round(message.index);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ComputeJobResult>, I>>(base?: I): ComputeJobResult {
+    return ComputeJobResult.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ComputeJobResult>, I>>(object: I): ComputeJobResult {
+    const message = createBaseComputeJobResult();
+    message.filename = object.filename ?? "";
+    message.type = object.type ?? "";
+    message.filesize = object.filesize ?? undefined;
+    message.index = object.index ?? 0;
+    return message;
+  },
+};
+
+function createBaseComputeJobPayment(): ComputeJobPayment {
+  return { token: undefined, cost: undefined, lockTx: undefined, claimTx: undefined, cancelTx: undefined };
+}
+
+export const ComputeJobPayment: MessageFns<ComputeJobPayment> = {
+  encode(message: ComputeJobPayment, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.token !== undefined) {
+      writer.uint32(10).string(message.token);
+    }
+    if (message.cost !== undefined) {
+      writer.uint32(18).string(message.cost);
+    }
+    if (message.lockTx !== undefined) {
+      writer.uint32(26).string(message.lockTx);
+    }
+    if (message.claimTx !== undefined) {
+      writer.uint32(34).string(message.claimTx);
+    }
+    if (message.cancelTx !== undefined) {
+      writer.uint32(42).string(message.cancelTx);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ComputeJobPayment {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseComputeJobPayment();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.token = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.cost = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.lockTx = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.claimTx = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.cancelTx = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ComputeJobPayment {
+    return {
+      token: isSet(object.token) ? globalThis.String(object.token) : undefined,
+      cost: isSet(object.cost) ? globalThis.String(object.cost) : undefined,
+      lockTx: isSet(object.lockTx) ? globalThis.String(object.lockTx) : undefined,
+      claimTx: isSet(object.claimTx) ? globalThis.String(object.claimTx) : undefined,
+      cancelTx: isSet(object.cancelTx) ? globalThis.String(object.cancelTx) : undefined,
+    };
+  },
+
+  toJSON(message: ComputeJobPayment): unknown {
+    const obj: any = {};
+    if (message.token !== undefined) {
+      obj.token = message.token;
+    }
+    if (message.cost !== undefined) {
+      obj.cost = message.cost;
+    }
+    if (message.lockTx !== undefined) {
+      obj.lockTx = message.lockTx;
+    }
+    if (message.claimTx !== undefined) {
+      obj.claimTx = message.claimTx;
+    }
+    if (message.cancelTx !== undefined) {
+      obj.cancelTx = message.cancelTx;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ComputeJobPayment>, I>>(base?: I): ComputeJobPayment {
+    return ComputeJobPayment.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ComputeJobPayment>, I>>(object: I): ComputeJobPayment {
+    const message = createBaseComputeJobPayment();
+    message.token = object.token ?? undefined;
+    message.cost = object.cost ?? undefined;
+    message.lockTx = object.lockTx ?? undefined;
+    message.claimTx = object.claimTx ?? undefined;
+    message.cancelTx = object.cancelTx ?? undefined;
     return message;
   },
 };

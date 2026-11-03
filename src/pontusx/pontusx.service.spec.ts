@@ -16,6 +16,8 @@ import { Network, PRICING_CONFIGS, resolveNetworkConfig } from './config.js';
 // the default network, without environment overrides
 const NETWORK_CONFIG = resolveNetworkConfig(Network.OPSEPOLIA, () => undefined);
 import {
+  ComputeToDataResponseState,
+  ComputeToDataResultType,
   CreateOfferingRequest,
   PontusxOffering,
   Pricing_PricingType,
@@ -1768,7 +1770,152 @@ describe('PontusxService', () => {
     });
   });
 
+  describe('getComputeToDataStatusDetails', () => {
+    // a finished paid job, as ocean-node reports it
+    const job = {
+      owner: OWNER,
+      jobId: JOB('1'),
+      status: 70,
+      statusText: 'Job finished',
+      dateCreated: '1793000000.123',
+      dateFinished: '1793000100.456',
+      algoStartTimestamp: '1793000030.000',
+      algoStopTimestamp: '1793000090.000',
+      algoDuration: 60,
+      environment: 'env-1',
+      resources: [
+        { id: 'cpu', amount: 2 },
+        { id: 'ram', amount: 4 },
+      ],
+      isFree: false,
+      maxJobDuration: 600,
+      queueMaxWaitTime: 0,
+      expireTimestamp: 1793086500,
+      payment: {
+        chainId: 11155420,
+        token: '0xtoken',
+        lockTx: '0xlock',
+        claimTx: '0xclaim',
+        cancelTx: null,
+        cost: 0.5,
+      },
+      results: [
+        {
+          filename: 'algorithm.log',
+          filesize: 120,
+          type: 'algorithmLog',
+          index: 0,
+        },
+        { filename: 'outputs.tar', filesize: 4096, type: 'output', index: 1 },
+      ],
+      terminationDetails: { exitCode: 0, OOMKilled: false },
+      runtimeMetrics: { cpu: { usagePercent: 80 } },
+      inputDID: ['did:ope:1', 'did:ope:2'],
+      algoDID: 'did:ope:algo',
+    };
+
+    it('maps the job the node reports', async () => {
+      const service = createExtendedService({
+        getComputeStatus: vi.fn().mockResolvedValue(job),
+      });
+
+      await expect(
+        service.getComputeToDataStatusDetails(JOB('1')),
+      ).resolves.toEqual({
+        status: 70,
+        dateCreated: '1793000000.123',
+        dateFinished: '1793000100.456',
+        algoStartTimestamp: '1793000030.000',
+        algoStopTimestamp: '1793000090.000',
+        algoDuration: 60,
+        computeEnv: 'env-1',
+        resources: [
+          { id: 'cpu', amount: 2 },
+          { id: 'ram', amount: 4 },
+        ],
+        isFree: false,
+        payment: {
+          token: '0xtoken',
+          cost: '0.5',
+          lockTx: '0xlock',
+          claimTx: '0xclaim',
+        },
+        results: [
+          {
+            filename: 'algorithm.log',
+            type: 'algorithmLog',
+            filesize: 120,
+            index: 0,
+          },
+          { filename: 'outputs.tar', type: 'output', filesize: 4096, index: 1 },
+        ],
+        exitCode: 0,
+        oomKilled: false,
+        inputDids: ['did:ope:1', 'did:ope:2'],
+        algorithmDid: 'did:ope:algo',
+        runtimeMetrics: '{"cpu":{"usagePercent":80}}',
+        maxJobDuration: 600,
+        queueMaxWaitTime: 0,
+        expireTimestamp: '1793086500',
+      });
+    });
+
+    it('leaves the payment of a free job unset', async () => {
+      const { payment: _, ...free } = job;
+      const service = createExtendedService({
+        getComputeStatus: vi
+          .fn()
+          .mockResolvedValue({ ...free, isFree: true, dateFinished: null }),
+      });
+
+      const details = await service.getComputeToDataStatusDetails(JOB('1'));
+
+      expect(details).not.toHaveProperty('payment');
+      expect(details).not.toHaveProperty('dateFinished');
+      expect(details.isFree).toBe(true);
+    });
+
+    it('refuses details without EXTENDED_RESPONSES', async () => {
+      const getComputeStatus = vi.fn();
+
+      await expect(
+        createService({ getComputeStatus }).getComputeToDataStatusDetails(
+          JOB('1'),
+        ),
+      ).rejects.toMatchObject({
+        error: {
+          code: GrpcStatusCode.FAILED_PRECONDITION,
+          message: expect.stringContaining('EXTENDED_RESPONSES'),
+        },
+      });
+      expect(getComputeStatus).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getComputeToDataResult', () => {
+    it.each([
+      [0, { jobId: JOB('3'), resultIndex: 0 }],
+      [2, { jobId: JOB('3'), resultIndex: 2 }],
+      [undefined, { jobId: JOB('3') }],
+    ])(
+      'returns the URL of result %p, by default the output',
+      async (jobIndex, expected) => {
+        const getComputeResult = vi.fn().mockResolvedValue('https://result');
+
+        await expect(
+          createService({ getComputeResult }).getComputeToDataResult(
+            JOB('3'),
+            ComputeToDataResultType.C2D_URI,
+            jobIndex,
+          ),
+        ).resolves.toEqual({
+          state: ComputeToDataResponseState.FINISHED,
+          data: 'https://result',
+        });
+        expect(getComputeResult).toHaveBeenCalledWith(expected);
+      },
+    );
+
     it('reports a failed job instead of queueing it', async () => {
       const service = createService({
         getComputeStatus: vi.fn().mockResolvedValue({
