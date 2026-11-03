@@ -35,6 +35,7 @@ describe('HTTP and gRPC gateway (e2e)', () => {
   const requestComputeToData = vi.fn();
   const publishAsset = vi.fn();
   const getComputeToDataStatusDetails = vi.fn();
+  const getComputeEnvironments = vi.fn();
 
   beforeAll(async () => {
     const port = await new Promise<number>((resolve, reject) => {
@@ -71,6 +72,7 @@ describe('HTTP and gRPC gateway (e2e)', () => {
         requestComputeToData,
         publishAsset,
         getComputeToDataStatusDetails,
+        getComputeEnvironments,
       })
       .overrideProvider(XfscService)
       .useValue({})
@@ -117,6 +119,7 @@ describe('HTTP and gRPC gateway (e2e)', () => {
     requestComputeToData.mockReset();
     publishAsset.mockReset();
     getComputeToDataStatusDetails.mockReset();
+    getComputeEnvironments.mockReset();
   });
 
   afterAll(async () => {
@@ -131,12 +134,13 @@ describe('HTTP and gRPC gateway (e2e)', () => {
     const response = await request(app.getHttpServer())
       .get('/grpc/list')
       .expect(200);
-    expect(response.body).toHaveLength(9);
+    expect(response.body).toHaveLength(10);
     expect(response.body).toEqual(
       expect.arrayContaining([
         'GetOffering',
         'CreateOffering',
         'RunComputeToDataJob',
+        'GetComputeEnvironments',
       ]),
     );
   });
@@ -356,6 +360,29 @@ describe('HTTP and gRPC gateway (e2e)', () => {
       ],
       inputDids: ['did:ope:1'],
     });
+  });
+
+  it('lists the compute environments', async () => {
+    const environment = {
+      id: '0xenv',
+      consumerAddress: '0xpayee',
+      maxJobDuration: 3600,
+      resources: [{ id: 'cpu', min: 1, max: 8, inUse: 2 }],
+      fees: [{ token: '0xtoken', prices: [{ id: 'cpu', price: 0.01 }] }],
+      free: {
+        resources: [{ id: 'cpu', max: 1 }],
+        maxJobDuration: 60,
+        allowedAddresses: [],
+      },
+    };
+    getComputeEnvironments.mockResolvedValue([environment]);
+
+    const response = await request(app.getHttpServer())
+      .post('/grpc/GetComputeEnvironments')
+      .send({})
+      .expect(201);
+
+    expect(response.body).toEqual({ environments: [environment] });
   });
 
   it('maps gRPC errors to HTTP status codes', async () => {

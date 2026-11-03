@@ -19,6 +19,8 @@ import {
   AccessServiceResponse,
   ComputeToDataStatusRequest,
   ComputeToDataStatusResponse,
+  GetComputeEnvironmentsRequest,
+  GetComputeEnvironmentsResponse,
   PublishReceipt,
   QueryOfferingsRequest,
   QueryOfferingsResponse,
@@ -403,6 +405,18 @@ export class GrpcController {
       code: GrpcStatusCode.INTERNAL,
       message: 'Internal error - no results',
     });
+  }
+
+  @GrpcMethod('ecosystemsgateway')
+  async getComputeEnvironments(
+    data: GetComputeEnvironmentsRequest,
+  ): Promise<GetComputeEnvironmentsResponse> {
+    this.logRequest('GetComputeEnvironments', data);
+    return {
+      environments: await this.runRpc('getComputeEnvironments', () =>
+        this.pontusxService.getComputeEnvironments(),
+      ),
+    };
   }
 
   @GrpcMethod('ecosystemsgateway')

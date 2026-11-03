@@ -1,14 +1,18 @@
-// The transaction, payment and timing details responses carry with EXTENDED_RESPONSES=true,
-// mapped from what nautilus and the ocean-node return. Only addresses, amounts and hashes
-// are passed on: no fee signatures, provider data or node URLs.
+// What nautilus and the ocean-node return, mapped onto the response messages: the
+// transaction, payment and timing details responses carry with EXTENDED_RESPONSES=true, and
+// the compute environments. Only addresses, amounts and hashes are passed on: no fee
+// signatures, provider data or node URLs.
 import {
   type AssetV5,
+  type ComputeEnvironment as NodeComputeEnvironment,
   type ComputeResult,
   getServices,
   type NodeComputeJob,
   type PublishResponse,
 } from '@deltadao/nautilus';
 import type {
+  ComputeEnvironment,
+  ComputeEnvironmentResource,
   ComputeToDataStatusResponse,
   EscrowPayment,
   ProviderFee,
@@ -93,12 +97,6 @@ export function toPublishReceipt(
 export function toComputeJobDetails(
   job: NodeComputeJob,
 ): Omit<ComputeToDataStatusResponse, 'status' | 'description'> {
-  const text = (value: unknown) =>
-    value === undefined || value === null || value === ''
-      ? undefined
-      : String(value);
-  const number = (value: unknown) =>
-    typeof value === 'number' && Number.isFinite(value) ? value : undefined;
   const payment = job.payment
     ? withoutUndefined({
         token: text(job.payment.token),
@@ -139,6 +137,87 @@ export function toComputeJobDetails(
     })),
     inputDids: job.inputDID ?? [],
   };
+}
+
+/** A compute environment of the node, with its prices on `chainId`. */
+export function toComputeEnvironment(
+  env: NodeComputeEnvironment,
+  chainId: number,
+): ComputeEnvironment {
+  const free = env.free
+    ? {
+        resources: (env.free.resources ?? []).map(toEnvironmentResource),
+        ...withoutUndefined({
+          maxJobDuration: number(env.free.maxJobDuration),
+          maxJobs: number(env.free.maxJobs),
+          storageExpiry: number(env.free.storageExpiry),
+        }),
+        allowedAddresses: (env.free.access?.addresses ?? []).filter(
+          (address) => typeof address === 'string',
+        ),
+      }
+    : undefined;
+  return {
+    id: env.id,
+    ...withoutUndefined({
+      description: text(env.description),
+      consumerAddress: text(env.consumerAddress),
+      minJobDuration: number(env.minJobDuration),
+      maxJobDuration: number(env.maxJobDuration),
+      maxJobs: number(env.maxJobs),
+      free,
+      runningJobs: number(env.runningJobs),
+      runningFreeJobs: number(env.runningfreeJobs),
+      queuedJobs: number(env.queuedJobs),
+      queuedFreeJobs: number(env.queuedFreeJobs),
+      queueMaxWaitTime: number(env.queMaxWaitTime),
+      queueMaxWaitTimeFree: number(env.queMaxWaitTimeFree),
+      storageExpiry: number(env.storageExpiry),
+      platform: env.platform
+        ? `${env.platform.os}/${env.platform.architecture}`
+        : undefined,
+    }),
+    resources: (env.resources ?? []).map(toEnvironmentResource),
+    fees: (env.fees?.[String(chainId)] ?? []).map((fee) => ({
+      token: fee.feeToken,
+      prices: (fee.prices ?? []).map(({ id, price }) => ({
+        id,
+        price: number(price) ?? 0,
+      })),
+    })),
+  };
+}
+
+function toEnvironmentResource(
+  resource: NonNullable<NodeComputeEnvironment['resources']>[number],
+): ComputeEnvironmentResource {
+  return {
+    id: resource.id,
+    max: number(resource.max) ?? 0,
+    ...withoutUndefined({
+      type: text(resource.type),
+      kind: text(resource.kind),
+      description: text(resource.description),
+      min: number(resource.min),
+      total: number(resource.total),
+      inUse: number(resource.inUse),
+    }),
+  };
+}
+
+// A value the node reported as text, `undefined` when it reported none.
+function text(value: unknown): string | undefined {
+  return value === undefined || value === null || value === ''
+    ? undefined
+    : String(value);
+}
+
+// A value the node reported as a number, also as a numeric string.
+function number(value: unknown): number | undefined {
+  if (typeof value === 'string' && value.trim() !== '') value = Number(value);
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 function withoutUndefined<T extends object>(value: T): Partial<T> {

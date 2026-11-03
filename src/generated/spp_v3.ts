@@ -929,6 +929,114 @@ export interface GetComputeToDataResultResponse {
   data: string;
 }
 
+/** Request payload for listing the compute environments of the gateway's ocean-node. */
+export interface GetComputeEnvironmentsRequest {
+}
+
+/** The compute environments of the gateway's ocean-node. */
+export interface GetComputeEnvironmentsResponse {
+  environments: ComputeEnvironment[];
+}
+
+/** A compute environment of the ocean-node, as it reports it. Durations are in seconds. */
+export interface ComputeEnvironment {
+  /** Id to give as computeEnv when starting a job */
+  id: string;
+  description?:
+    | string
+    | undefined;
+  /** Account the environment's escrow payments go to */
+  consumerAddress?:
+    | string
+    | undefined;
+  /** Resources a job can request */
+  resources: ComputeEnvironmentResource[];
+  minJobDuration?: number | undefined;
+  maxJobDuration?:
+    | number
+    | undefined;
+  /** Most jobs the environment runs at a time */
+  maxJobs?:
+    | number
+    | undefined;
+  /** The free tier; unset when the environment offers none */
+  free?:
+    | ComputeEnvironmentFreeTier
+    | undefined;
+  /** Prices on the gateway's chain, one entry per payment token */
+  fees: ComputeEnvironmentFee[];
+  /** Jobs running and waiting, as far as the node reports them */
+  runningJobs?: number | undefined;
+  runningFreeJobs?: number | undefined;
+  queuedJobs?: number | undefined;
+  queuedFreeJobs?:
+    | number
+    | undefined;
+  /** Longest time a paid or free job may wait in the queue */
+  queueMaxWaitTime?: number | undefined;
+  queueMaxWaitTimeFree?:
+    | number
+    | undefined;
+  /** How long results are kept */
+  storageExpiry?:
+    | number
+    | undefined;
+  /** Platform of the environment as <os>/<architecture>, e.g. "linux/amd64" */
+  platform?: string | undefined;
+}
+
+/** A resource of a compute environment. */
+export interface ComputeEnvironmentResource {
+  /** Id to request it by, e.g. "cpu", "ram" or "disk" */
+  id: string;
+  /** e.g. "cpu", "ram", "disk" or "gpu" */
+  type?:
+    | string
+    | undefined;
+  /** e.g. the GPU model */
+  kind?: string | undefined;
+  description?:
+    | string
+    | undefined;
+  /** Least and most a job can request, in the resource's unit (e.g. cores or GB) */
+  min?: number | undefined;
+  max: number;
+  /** How much the environment has, and how much running jobs use */
+  total?: number | undefined;
+  inUse?: number | undefined;
+}
+
+/** The free tier of a compute environment. */
+export interface ComputeEnvironmentFreeTier {
+  /** Resources a free job can request */
+  resources: ComputeEnvironmentResource[];
+  maxJobDuration?:
+    | number
+    | undefined;
+  /** Most free jobs at a time */
+  maxJobs?: number | undefined;
+  storageExpiry?:
+    | number
+    | undefined;
+  /** Addresses that may use it; empty when it is not limited by address */
+  allowedAddresses: string[];
+}
+
+/** The prices of a compute environment in one payment token. */
+export interface ComputeEnvironmentFee {
+  /** Payment token */
+  token: string;
+  prices: ComputeResourcePrice[];
+}
+
+/** The price of a resource of a compute environment. */
+export interface ComputeResourcePrice {
+  /** Resource id */
+  id: string;
+  /** Price per unit of the resource and minute, in token units as the node gives it */
+  price: number;
+}
+
 /**
  * Core asset metadata used for Pontus-X create and update operations.
  * On an update, given values replace the stored ones; tags and categories are added to the stored ones.
@@ -6919,6 +7027,924 @@ export const GetComputeToDataResultResponse: MessageFns<GetComputeToDataResultRe
   },
 };
 
+function createBaseGetComputeEnvironmentsRequest(): GetComputeEnvironmentsRequest {
+  return {};
+}
+
+export const GetComputeEnvironmentsRequest: MessageFns<GetComputeEnvironmentsRequest> = {
+  encode(_: GetComputeEnvironmentsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetComputeEnvironmentsRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetComputeEnvironmentsRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): GetComputeEnvironmentsRequest {
+    return {};
+  },
+
+  toJSON(_: GetComputeEnvironmentsRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetComputeEnvironmentsRequest>, I>>(base?: I): GetComputeEnvironmentsRequest {
+    return GetComputeEnvironmentsRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetComputeEnvironmentsRequest>, I>>(_: I): GetComputeEnvironmentsRequest {
+    const message = createBaseGetComputeEnvironmentsRequest();
+    return message;
+  },
+};
+
+function createBaseGetComputeEnvironmentsResponse(): GetComputeEnvironmentsResponse {
+  return { environments: [] };
+}
+
+export const GetComputeEnvironmentsResponse: MessageFns<GetComputeEnvironmentsResponse> = {
+  encode(message: GetComputeEnvironmentsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.environments) {
+      ComputeEnvironment.encode(v!, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetComputeEnvironmentsResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetComputeEnvironmentsResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.environments.push(ComputeEnvironment.decode(reader, reader.uint32()));
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): GetComputeEnvironmentsResponse {
+    return {
+      environments: globalThis.Array.isArray(object?.environments)
+        ? object.environments.map((e: any) => ComputeEnvironment.fromJSON(e))
+        : [],
+    };
+  },
+
+  toJSON(message: GetComputeEnvironmentsResponse): unknown {
+    const obj: any = {};
+    if (message.environments?.length) {
+      obj.environments = message.environments.map((e) => ComputeEnvironment.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetComputeEnvironmentsResponse>, I>>(base?: I): GetComputeEnvironmentsResponse {
+    return GetComputeEnvironmentsResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetComputeEnvironmentsResponse>, I>>(
+    object: I,
+  ): GetComputeEnvironmentsResponse {
+    const message = createBaseGetComputeEnvironmentsResponse();
+    message.environments = object.environments?.map((e) => ComputeEnvironment.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseComputeEnvironment(): ComputeEnvironment {
+  return {
+    id: "",
+    description: undefined,
+    consumerAddress: undefined,
+    resources: [],
+    minJobDuration: undefined,
+    maxJobDuration: undefined,
+    maxJobs: undefined,
+    free: undefined,
+    fees: [],
+    runningJobs: undefined,
+    runningFreeJobs: undefined,
+    queuedJobs: undefined,
+    queuedFreeJobs: undefined,
+    queueMaxWaitTime: undefined,
+    queueMaxWaitTimeFree: undefined,
+    storageExpiry: undefined,
+    platform: undefined,
+  };
+}
+
+export const ComputeEnvironment: MessageFns<ComputeEnvironment> = {
+  encode(message: ComputeEnvironment, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
+    if (message.description !== undefined) {
+      writer.uint32(18).string(message.description);
+    }
+    if (message.consumerAddress !== undefined) {
+      writer.uint32(26).string(message.consumerAddress);
+    }
+    for (const v of message.resources) {
+      ComputeEnvironmentResource.encode(v!, writer.uint32(34).fork()).join();
+    }
+    if (message.minJobDuration !== undefined) {
+      writer.uint32(41).double(message.minJobDuration);
+    }
+    if (message.maxJobDuration !== undefined) {
+      writer.uint32(49).double(message.maxJobDuration);
+    }
+    if (message.maxJobs !== undefined) {
+      writer.uint32(56).uint32(message.maxJobs);
+    }
+    if (message.free !== undefined) {
+      ComputeEnvironmentFreeTier.encode(message.free, writer.uint32(66).fork()).join();
+    }
+    for (const v of message.fees) {
+      ComputeEnvironmentFee.encode(v!, writer.uint32(74).fork()).join();
+    }
+    if (message.runningJobs !== undefined) {
+      writer.uint32(80).uint32(message.runningJobs);
+    }
+    if (message.runningFreeJobs !== undefined) {
+      writer.uint32(88).uint32(message.runningFreeJobs);
+    }
+    if (message.queuedJobs !== undefined) {
+      writer.uint32(96).uint32(message.queuedJobs);
+    }
+    if (message.queuedFreeJobs !== undefined) {
+      writer.uint32(104).uint32(message.queuedFreeJobs);
+    }
+    if (message.queueMaxWaitTime !== undefined) {
+      writer.uint32(113).double(message.queueMaxWaitTime);
+    }
+    if (message.queueMaxWaitTimeFree !== undefined) {
+      writer.uint32(121).double(message.queueMaxWaitTimeFree);
+    }
+    if (message.storageExpiry !== undefined) {
+      writer.uint32(129).double(message.storageExpiry);
+    }
+    if (message.platform !== undefined) {
+      writer.uint32(138).string(message.platform);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ComputeEnvironment {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseComputeEnvironment();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.description = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.consumerAddress = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.resources.push(ComputeEnvironmentResource.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 5: {
+          if (tag !== 41) {
+            break;
+          }
+
+          message.minJobDuration = reader.double();
+          continue;
+        }
+        case 6: {
+          if (tag !== 49) {
+            break;
+          }
+
+          message.maxJobDuration = reader.double();
+          continue;
+        }
+        case 7: {
+          if (tag !== 56) {
+            break;
+          }
+
+          message.maxJobs = reader.uint32();
+          continue;
+        }
+        case 8: {
+          if (tag !== 66) {
+            break;
+          }
+
+          message.free = ComputeEnvironmentFreeTier.decode(reader, reader.uint32());
+          continue;
+        }
+        case 9: {
+          if (tag !== 74) {
+            break;
+          }
+
+          message.fees.push(ComputeEnvironmentFee.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 10: {
+          if (tag !== 80) {
+            break;
+          }
+
+          message.runningJobs = reader.uint32();
+          continue;
+        }
+        case 11: {
+          if (tag !== 88) {
+            break;
+          }
+
+          message.runningFreeJobs = reader.uint32();
+          continue;
+        }
+        case 12: {
+          if (tag !== 96) {
+            break;
+          }
+
+          message.queuedJobs = reader.uint32();
+          continue;
+        }
+        case 13: {
+          if (tag !== 104) {
+            break;
+          }
+
+          message.queuedFreeJobs = reader.uint32();
+          continue;
+        }
+        case 14: {
+          if (tag !== 113) {
+            break;
+          }
+
+          message.queueMaxWaitTime = reader.double();
+          continue;
+        }
+        case 15: {
+          if (tag !== 121) {
+            break;
+          }
+
+          message.queueMaxWaitTimeFree = reader.double();
+          continue;
+        }
+        case 16: {
+          if (tag !== 129) {
+            break;
+          }
+
+          message.storageExpiry = reader.double();
+          continue;
+        }
+        case 17: {
+          if (tag !== 138) {
+            break;
+          }
+
+          message.platform = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ComputeEnvironment {
+    return {
+      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      description: isSet(object.description) ? globalThis.String(object.description) : undefined,
+      consumerAddress: isSet(object.consumerAddress) ? globalThis.String(object.consumerAddress) : undefined,
+      resources: globalThis.Array.isArray(object?.resources)
+        ? object.resources.map((e: any) => ComputeEnvironmentResource.fromJSON(e))
+        : [],
+      minJobDuration: isSet(object.minJobDuration) ? globalThis.Number(object.minJobDuration) : undefined,
+      maxJobDuration: isSet(object.maxJobDuration) ? globalThis.Number(object.maxJobDuration) : undefined,
+      maxJobs: isSet(object.maxJobs) ? globalThis.Number(object.maxJobs) : undefined,
+      free: isSet(object.free) ? ComputeEnvironmentFreeTier.fromJSON(object.free) : undefined,
+      fees: globalThis.Array.isArray(object?.fees)
+        ? object.fees.map((e: any) => ComputeEnvironmentFee.fromJSON(e))
+        : [],
+      runningJobs: isSet(object.runningJobs) ? globalThis.Number(object.runningJobs) : undefined,
+      runningFreeJobs: isSet(object.runningFreeJobs) ? globalThis.Number(object.runningFreeJobs) : undefined,
+      queuedJobs: isSet(object.queuedJobs) ? globalThis.Number(object.queuedJobs) : undefined,
+      queuedFreeJobs: isSet(object.queuedFreeJobs) ? globalThis.Number(object.queuedFreeJobs) : undefined,
+      queueMaxWaitTime: isSet(object.queueMaxWaitTime) ? globalThis.Number(object.queueMaxWaitTime) : undefined,
+      queueMaxWaitTimeFree: isSet(object.queueMaxWaitTimeFree)
+        ? globalThis.Number(object.queueMaxWaitTimeFree)
+        : undefined,
+      storageExpiry: isSet(object.storageExpiry) ? globalThis.Number(object.storageExpiry) : undefined,
+      platform: isSet(object.platform) ? globalThis.String(object.platform) : undefined,
+    };
+  },
+
+  toJSON(message: ComputeEnvironment): unknown {
+    const obj: any = {};
+    if (message.id !== "") {
+      obj.id = message.id;
+    }
+    if (message.description !== undefined) {
+      obj.description = message.description;
+    }
+    if (message.consumerAddress !== undefined) {
+      obj.consumerAddress = message.consumerAddress;
+    }
+    if (message.resources?.length) {
+      obj.resources = message.resources.map((e) => ComputeEnvironmentResource.toJSON(e));
+    }
+    if (message.minJobDuration !== undefined) {
+      obj.minJobDuration = message.minJobDuration;
+    }
+    if (message.maxJobDuration !== undefined) {
+      obj.maxJobDuration = message.maxJobDuration;
+    }
+    if (message.maxJobs !== undefined) {
+      obj.maxJobs = Math.round(message.maxJobs);
+    }
+    if (message.free !== undefined) {
+      obj.free = ComputeEnvironmentFreeTier.toJSON(message.free);
+    }
+    if (message.fees?.length) {
+      obj.fees = message.fees.map((e) => ComputeEnvironmentFee.toJSON(e));
+    }
+    if (message.runningJobs !== undefined) {
+      obj.runningJobs = Math.round(message.runningJobs);
+    }
+    if (message.runningFreeJobs !== undefined) {
+      obj.runningFreeJobs = Math.round(message.runningFreeJobs);
+    }
+    if (message.queuedJobs !== undefined) {
+      obj.queuedJobs = Math.round(message.queuedJobs);
+    }
+    if (message.queuedFreeJobs !== undefined) {
+      obj.queuedFreeJobs = Math.round(message.queuedFreeJobs);
+    }
+    if (message.queueMaxWaitTime !== undefined) {
+      obj.queueMaxWaitTime = message.queueMaxWaitTime;
+    }
+    if (message.queueMaxWaitTimeFree !== undefined) {
+      obj.queueMaxWaitTimeFree = message.queueMaxWaitTimeFree;
+    }
+    if (message.storageExpiry !== undefined) {
+      obj.storageExpiry = message.storageExpiry;
+    }
+    if (message.platform !== undefined) {
+      obj.platform = message.platform;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ComputeEnvironment>, I>>(base?: I): ComputeEnvironment {
+    return ComputeEnvironment.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ComputeEnvironment>, I>>(object: I): ComputeEnvironment {
+    const message = createBaseComputeEnvironment();
+    message.id = object.id ?? "";
+    message.description = object.description ?? undefined;
+    message.consumerAddress = object.consumerAddress ?? undefined;
+    message.resources = object.resources?.map((e) => ComputeEnvironmentResource.fromPartial(e)) || [];
+    message.minJobDuration = object.minJobDuration ?? undefined;
+    message.maxJobDuration = object.maxJobDuration ?? undefined;
+    message.maxJobs = object.maxJobs ?? undefined;
+    message.free = (object.free !== undefined && object.free !== null)
+      ? ComputeEnvironmentFreeTier.fromPartial(object.free)
+      : undefined;
+    message.fees = object.fees?.map((e) => ComputeEnvironmentFee.fromPartial(e)) || [];
+    message.runningJobs = object.runningJobs ?? undefined;
+    message.runningFreeJobs = object.runningFreeJobs ?? undefined;
+    message.queuedJobs = object.queuedJobs ?? undefined;
+    message.queuedFreeJobs = object.queuedFreeJobs ?? undefined;
+    message.queueMaxWaitTime = object.queueMaxWaitTime ?? undefined;
+    message.queueMaxWaitTimeFree = object.queueMaxWaitTimeFree ?? undefined;
+    message.storageExpiry = object.storageExpiry ?? undefined;
+    message.platform = object.platform ?? undefined;
+    return message;
+  },
+};
+
+function createBaseComputeEnvironmentResource(): ComputeEnvironmentResource {
+  return {
+    id: "",
+    type: undefined,
+    kind: undefined,
+    description: undefined,
+    min: undefined,
+    max: 0,
+    total: undefined,
+    inUse: undefined,
+  };
+}
+
+export const ComputeEnvironmentResource: MessageFns<ComputeEnvironmentResource> = {
+  encode(message: ComputeEnvironmentResource, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
+    if (message.type !== undefined) {
+      writer.uint32(18).string(message.type);
+    }
+    if (message.kind !== undefined) {
+      writer.uint32(26).string(message.kind);
+    }
+    if (message.description !== undefined) {
+      writer.uint32(34).string(message.description);
+    }
+    if (message.min !== undefined) {
+      writer.uint32(41).double(message.min);
+    }
+    if (message.max !== 0) {
+      writer.uint32(49).double(message.max);
+    }
+    if (message.total !== undefined) {
+      writer.uint32(57).double(message.total);
+    }
+    if (message.inUse !== undefined) {
+      writer.uint32(65).double(message.inUse);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ComputeEnvironmentResource {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseComputeEnvironmentResource();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.type = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.kind = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.description = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 41) {
+            break;
+          }
+
+          message.min = reader.double();
+          continue;
+        }
+        case 6: {
+          if (tag !== 49) {
+            break;
+          }
+
+          message.max = reader.double();
+          continue;
+        }
+        case 7: {
+          if (tag !== 57) {
+            break;
+          }
+
+          message.total = reader.double();
+          continue;
+        }
+        case 8: {
+          if (tag !== 65) {
+            break;
+          }
+
+          message.inUse = reader.double();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ComputeEnvironmentResource {
+    return {
+      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      type: isSet(object.type) ? globalThis.String(object.type) : undefined,
+      kind: isSet(object.kind) ? globalThis.String(object.kind) : undefined,
+      description: isSet(object.description) ? globalThis.String(object.description) : undefined,
+      min: isSet(object.min) ? globalThis.Number(object.min) : undefined,
+      max: isSet(object.max) ? globalThis.Number(object.max) : 0,
+      total: isSet(object.total) ? globalThis.Number(object.total) : undefined,
+      inUse: isSet(object.inUse) ? globalThis.Number(object.inUse) : undefined,
+    };
+  },
+
+  toJSON(message: ComputeEnvironmentResource): unknown {
+    const obj: any = {};
+    if (message.id !== "") {
+      obj.id = message.id;
+    }
+    if (message.type !== undefined) {
+      obj.type = message.type;
+    }
+    if (message.kind !== undefined) {
+      obj.kind = message.kind;
+    }
+    if (message.description !== undefined) {
+      obj.description = message.description;
+    }
+    if (message.min !== undefined) {
+      obj.min = message.min;
+    }
+    if (message.max !== 0) {
+      obj.max = message.max;
+    }
+    if (message.total !== undefined) {
+      obj.total = message.total;
+    }
+    if (message.inUse !== undefined) {
+      obj.inUse = message.inUse;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ComputeEnvironmentResource>, I>>(base?: I): ComputeEnvironmentResource {
+    return ComputeEnvironmentResource.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ComputeEnvironmentResource>, I>>(object: I): ComputeEnvironmentResource {
+    const message = createBaseComputeEnvironmentResource();
+    message.id = object.id ?? "";
+    message.type = object.type ?? undefined;
+    message.kind = object.kind ?? undefined;
+    message.description = object.description ?? undefined;
+    message.min = object.min ?? undefined;
+    message.max = object.max ?? 0;
+    message.total = object.total ?? undefined;
+    message.inUse = object.inUse ?? undefined;
+    return message;
+  },
+};
+
+function createBaseComputeEnvironmentFreeTier(): ComputeEnvironmentFreeTier {
+  return {
+    resources: [],
+    maxJobDuration: undefined,
+    maxJobs: undefined,
+    storageExpiry: undefined,
+    allowedAddresses: [],
+  };
+}
+
+export const ComputeEnvironmentFreeTier: MessageFns<ComputeEnvironmentFreeTier> = {
+  encode(message: ComputeEnvironmentFreeTier, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.resources) {
+      ComputeEnvironmentResource.encode(v!, writer.uint32(10).fork()).join();
+    }
+    if (message.maxJobDuration !== undefined) {
+      writer.uint32(17).double(message.maxJobDuration);
+    }
+    if (message.maxJobs !== undefined) {
+      writer.uint32(24).uint32(message.maxJobs);
+    }
+    if (message.storageExpiry !== undefined) {
+      writer.uint32(33).double(message.storageExpiry);
+    }
+    for (const v of message.allowedAddresses) {
+      writer.uint32(42).string(v!);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ComputeEnvironmentFreeTier {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseComputeEnvironmentFreeTier();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.resources.push(ComputeEnvironmentResource.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 2: {
+          if (tag !== 17) {
+            break;
+          }
+
+          message.maxJobDuration = reader.double();
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.maxJobs = reader.uint32();
+          continue;
+        }
+        case 4: {
+          if (tag !== 33) {
+            break;
+          }
+
+          message.storageExpiry = reader.double();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.allowedAddresses.push(reader.string());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ComputeEnvironmentFreeTier {
+    return {
+      resources: globalThis.Array.isArray(object?.resources)
+        ? object.resources.map((e: any) => ComputeEnvironmentResource.fromJSON(e))
+        : [],
+      maxJobDuration: isSet(object.maxJobDuration) ? globalThis.Number(object.maxJobDuration) : undefined,
+      maxJobs: isSet(object.maxJobs) ? globalThis.Number(object.maxJobs) : undefined,
+      storageExpiry: isSet(object.storageExpiry) ? globalThis.Number(object.storageExpiry) : undefined,
+      allowedAddresses: globalThis.Array.isArray(object?.allowedAddresses)
+        ? object.allowedAddresses.map((e: any) => globalThis.String(e))
+        : [],
+    };
+  },
+
+  toJSON(message: ComputeEnvironmentFreeTier): unknown {
+    const obj: any = {};
+    if (message.resources?.length) {
+      obj.resources = message.resources.map((e) => ComputeEnvironmentResource.toJSON(e));
+    }
+    if (message.maxJobDuration !== undefined) {
+      obj.maxJobDuration = message.maxJobDuration;
+    }
+    if (message.maxJobs !== undefined) {
+      obj.maxJobs = Math.round(message.maxJobs);
+    }
+    if (message.storageExpiry !== undefined) {
+      obj.storageExpiry = message.storageExpiry;
+    }
+    if (message.allowedAddresses?.length) {
+      obj.allowedAddresses = message.allowedAddresses;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ComputeEnvironmentFreeTier>, I>>(base?: I): ComputeEnvironmentFreeTier {
+    return ComputeEnvironmentFreeTier.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ComputeEnvironmentFreeTier>, I>>(object: I): ComputeEnvironmentFreeTier {
+    const message = createBaseComputeEnvironmentFreeTier();
+    message.resources = object.resources?.map((e) => ComputeEnvironmentResource.fromPartial(e)) || [];
+    message.maxJobDuration = object.maxJobDuration ?? undefined;
+    message.maxJobs = object.maxJobs ?? undefined;
+    message.storageExpiry = object.storageExpiry ?? undefined;
+    message.allowedAddresses = object.allowedAddresses?.map((e) => e) || [];
+    return message;
+  },
+};
+
+function createBaseComputeEnvironmentFee(): ComputeEnvironmentFee {
+  return { token: "", prices: [] };
+}
+
+export const ComputeEnvironmentFee: MessageFns<ComputeEnvironmentFee> = {
+  encode(message: ComputeEnvironmentFee, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.token !== "") {
+      writer.uint32(10).string(message.token);
+    }
+    for (const v of message.prices) {
+      ComputeResourcePrice.encode(v!, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ComputeEnvironmentFee {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseComputeEnvironmentFee();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.token = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.prices.push(ComputeResourcePrice.decode(reader, reader.uint32()));
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ComputeEnvironmentFee {
+    return {
+      token: isSet(object.token) ? globalThis.String(object.token) : "",
+      prices: globalThis.Array.isArray(object?.prices)
+        ? object.prices.map((e: any) => ComputeResourcePrice.fromJSON(e))
+        : [],
+    };
+  },
+
+  toJSON(message: ComputeEnvironmentFee): unknown {
+    const obj: any = {};
+    if (message.token !== "") {
+      obj.token = message.token;
+    }
+    if (message.prices?.length) {
+      obj.prices = message.prices.map((e) => ComputeResourcePrice.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ComputeEnvironmentFee>, I>>(base?: I): ComputeEnvironmentFee {
+    return ComputeEnvironmentFee.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ComputeEnvironmentFee>, I>>(object: I): ComputeEnvironmentFee {
+    const message = createBaseComputeEnvironmentFee();
+    message.token = object.token ?? "";
+    message.prices = object.prices?.map((e) => ComputeResourcePrice.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseComputeResourcePrice(): ComputeResourcePrice {
+  return { id: "", price: 0 };
+}
+
+export const ComputeResourcePrice: MessageFns<ComputeResourcePrice> = {
+  encode(message: ComputeResourcePrice, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
+    if (message.price !== 0) {
+      writer.uint32(17).double(message.price);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ComputeResourcePrice {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseComputeResourcePrice();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 17) {
+            break;
+          }
+
+          message.price = reader.double();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ComputeResourcePrice {
+    return {
+      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      price: isSet(object.price) ? globalThis.Number(object.price) : 0,
+    };
+  },
+
+  toJSON(message: ComputeResourcePrice): unknown {
+    const obj: any = {};
+    if (message.id !== "") {
+      obj.id = message.id;
+    }
+    if (message.price !== 0) {
+      obj.price = message.price;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ComputeResourcePrice>, I>>(base?: I): ComputeResourcePrice {
+    return ComputeResourcePrice.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ComputeResourcePrice>, I>>(object: I): ComputeResourcePrice {
+    const message = createBaseComputeResourcePrice();
+    message.id = object.id ?? "";
+    message.price = object.price ?? 0;
+    return message;
+  },
+};
+
 function createBaseMetadata(): Metadata {
   return {
     type: "",
@@ -9285,6 +10311,17 @@ export const ecosystemsgatewayService = {
       Buffer.from(GetComputeToDataResultResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer) => GetComputeToDataResultResponse.decode(value),
   },
+  getComputeEnvironments: {
+    path: "/eupg.ecosystemsgateway.v3.ecosystemsgateway/GetComputeEnvironments",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: GetComputeEnvironmentsRequest) =>
+      Buffer.from(GetComputeEnvironmentsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => GetComputeEnvironmentsRequest.decode(value),
+    responseSerialize: (value: GetComputeEnvironmentsResponse) =>
+      Buffer.from(GetComputeEnvironmentsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => GetComputeEnvironmentsResponse.decode(value),
+  },
 } as const;
 
 export interface ecosystemsgatewayServer extends UntypedServiceImplementation {
@@ -9300,6 +10337,7 @@ export interface ecosystemsgatewayServer extends UntypedServiceImplementation {
   runComputeToDataJob: handleUnaryCall<CreateComputeToDataRequest, ComputeToDataResponse>;
   getComputeToDataStatus: handleUnaryCall<ComputeToDataStatusRequest, ComputeToDataStatusResponse>;
   getComputeToDataResult: handleUnaryCall<CreateComputeToDataResultRequest, GetComputeToDataResultResponse>;
+  getComputeEnvironments: handleUnaryCall<GetComputeEnvironmentsRequest, GetComputeEnvironmentsResponse>;
 }
 
 export interface ecosystemsgatewayClient extends Client {
@@ -9440,6 +10478,21 @@ export interface ecosystemsgatewayClient extends Client {
     metadata: Metadata1,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: GetComputeToDataResultResponse) => void,
+  ): ClientUnaryCall;
+  getComputeEnvironments(
+    request: GetComputeEnvironmentsRequest,
+    callback: (error: ServiceError | null, response: GetComputeEnvironmentsResponse) => void,
+  ): ClientUnaryCall;
+  getComputeEnvironments(
+    request: GetComputeEnvironmentsRequest,
+    metadata: Metadata1,
+    callback: (error: ServiceError | null, response: GetComputeEnvironmentsResponse) => void,
+  ): ClientUnaryCall;
+  getComputeEnvironments(
+    request: GetComputeEnvironmentsRequest,
+    metadata: Metadata1,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: GetComputeEnvironmentsResponse) => void,
   ): ClientUnaryCall;
 }
 

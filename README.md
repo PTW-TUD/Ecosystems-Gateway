@@ -56,6 +56,7 @@ Available RPC methods:
 | `RunComputeToDataJob`     | Start a Pontus-X compute-to-data job.                     |
 | `GetComputeToDataStatus`  | Retrieve the current state of a compute-to-data job.      |
 | `GetComputeToDataResult`  | Retrieve a compute-to-data result URL or cached data.     |
+| `GetComputeEnvironments`  | List the ocean-node's compute environments and prices.    |
 
 When the HTTP gateway is enabled, calls are available under:
 
@@ -128,6 +129,12 @@ New in v3:
   one. The node gets the primary dataset first, then these in request order;
   the algorithm tells its inputs apart by DID. A dataset service may be an
   input only once. The gateway sets no limit of its own on their number.
+- `GetComputeEnvironments` (empty request) lists the ocean-node's compute
+  environments: `id` (for `computeEnv`), `resources` (`min`, `max`, `total`,
+  `inUse`), job duration limits, `maxJobs`, the `free` tier (its resources,
+  limits and allowed addresses), `fees` on the gateway's chain (price per
+  resource unit and minute, per payment token), running and queued jobs, and
+  the `platform`, as far as the node reports them.
 
 `QueryOfferings` now answers over gRPC as well; in v2 its handler was
 registered under a misspelled service name.

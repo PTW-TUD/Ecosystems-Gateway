@@ -51,6 +51,7 @@ import {
   AdditionalInformation,
   ConsumerParameter,
   CreateComputeToDataRequest,
+  ComputeEnvironment,
   ComputeToDataResponse,
   ComputeToDataStatusResponse,
   CredentialLists,
@@ -99,6 +100,7 @@ import {
   toUserdata,
 } from './utility.js';
 import {
+  toComputeEnvironment,
   toComputeJobDetails,
   toDatatokens,
   toEscrowPayment,
@@ -1503,6 +1505,22 @@ export class PontusxService implements OnModuleInit {
 
   async getComputeToDataStatus(jobId: string): Promise<number> {
     return (await this.getComputeJob(jobId)).status;
+  }
+
+  /** The compute environments of the ocean-node, with their prices on the gateway's chain. */
+  async getComputeEnvironments(): Promise<ComputeEnvironment[]> {
+    const environments = await this.nautilus
+      .getComputeEnvironments()
+      .catch((err) => {
+        throw this.toRpcException(
+          err,
+          'getComputeEnvironments',
+          GrpcStatusCode.UNAVAILABLE,
+        );
+      });
+    return (environments ?? []).map((env) =>
+      toComputeEnvironment(env, this.networkConfig.chainId),
+    );
   }
 
   /** The status of a job with its details; needs EXTENDED_RESPONSES. */

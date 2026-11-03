@@ -1770,6 +1770,113 @@ describe('PontusxService', () => {
     });
   });
 
+  describe('getComputeEnvironments', () => {
+    const EURAU = '0xD35141583f374d401fee1BFdDc35910E1D33a588';
+
+    it('lists the environments with their resources and prices on the chain', async () => {
+      const getComputeEnvironments = vi.fn().mockResolvedValue([
+        {
+          id: '0xenv-paid',
+          description: 'Paid environment',
+          consumerAddress: '0xpayee',
+          maxJobDuration: 3600,
+          maxJobs: 4,
+          runningJobs: 1,
+          queuedJobs: 2,
+          queMaxWaitTime: 600,
+          platform: { os: 'linux', architecture: 'x86_64' },
+          resources: [
+            { id: 'cpu', type: 'cpu', min: 1, max: 8, total: 8, inUse: 2 },
+            { id: 'ram', type: 'ram', min: 1, max: 16, init: { secret: 'x' } },
+          ],
+          fees: {
+            '11155420': [
+              {
+                feeToken: EURAU,
+                prices: [
+                  { id: 'cpu', price: 0.01 },
+                  { id: 'ram', price: 0.005 },
+                ],
+              },
+            ],
+            '32457': [
+              { feeToken: '0xother', prices: [{ id: 'cpu', price: 1 }] },
+            ],
+          },
+        },
+        {
+          id: '0xenv-free',
+          consumerAddress: '0xpayee',
+          runningJobs: 0,
+          fees: {},
+          free: {
+            maxJobDuration: 60,
+            maxJobs: 1,
+            access: { addresses: ['0xallowed'], accessLists: [] },
+            resources: [{ id: 'cpu', max: 1 }],
+          },
+        },
+      ]);
+
+      const environments = await createService({
+        getComputeEnvironments,
+      }).getComputeEnvironments();
+
+      expect(environments).toEqual([
+        {
+          id: '0xenv-paid',
+          description: 'Paid environment',
+          consumerAddress: '0xpayee',
+          maxJobDuration: 3600,
+          maxJobs: 4,
+          runningJobs: 1,
+          queuedJobs: 2,
+          queueMaxWaitTime: 600,
+          platform: 'linux/x86_64',
+          resources: [
+            { id: 'cpu', type: 'cpu', min: 1, max: 8, total: 8, inUse: 2 },
+            { id: 'ram', type: 'ram', min: 1, max: 16 },
+          ],
+          // only the gateway's chain
+          fees: [
+            {
+              token: EURAU,
+              prices: [
+                { id: 'cpu', price: 0.01 },
+                { id: 'ram', price: 0.005 },
+              ],
+            },
+          ],
+        },
+        {
+          id: '0xenv-free',
+          consumerAddress: '0xpayee',
+          runningJobs: 0,
+          resources: [],
+          fees: [],
+          free: {
+            maxJobDuration: 60,
+            maxJobs: 1,
+            allowedAddresses: ['0xallowed'],
+            resources: [{ id: 'cpu', max: 1 }],
+          },
+        },
+      ]);
+    });
+
+    it('reports an unreachable node as UNAVAILABLE', async () => {
+      await expect(
+        createService({
+          getComputeEnvironments: vi
+            .fn()
+            .mockRejectedValue(new Error('connect ECONNREFUSED')),
+        }).getComputeEnvironments(),
+      ).rejects.toMatchObject({
+        error: { code: GrpcStatusCode.UNAVAILABLE },
+      });
+    });
+  });
+
   describe('getComputeToDataStatusDetails', () => {
     // a finished paid job, as ocean-node reports it
     const job = {

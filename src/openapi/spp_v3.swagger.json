@@ -92,6 +92,41 @@
         ]
       }
     },
+    "/grpc/GetComputeEnvironments": {
+      "post": {
+        "summary": "Get compute environments",
+        "description": "Lists the compute environments of the ocean-node with their resources, limits, free tier and prices.",
+        "operationId": "ecosystemsgateway_GetComputeEnvironments",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v3GetComputeEnvironmentsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "Request payload for listing the compute environments of the gateway's ocean-node.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v3GetComputeEnvironmentsRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ecosystemsgateway"
+        ]
+      }
+    },
     "/grpc/GetComputeToDataResult": {
       "post": {
         "summary": "Get compute-to-data result",
@@ -588,6 +623,181 @@
       },
       "description": "A further dataset of a compute-to-data job."
     },
+    "v3ComputeEnvironment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "title": "Id to give as computeEnv when starting a job"
+        },
+        "description": {
+          "type": "string"
+        },
+        "consumerAddress": {
+          "type": "string",
+          "title": "Account the environment's escrow payments go to"
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3ComputeEnvironmentResource"
+          },
+          "title": "Resources a job can request"
+        },
+        "minJobDuration": {
+          "type": "number",
+          "format": "double"
+        },
+        "maxJobDuration": {
+          "type": "number",
+          "format": "double"
+        },
+        "maxJobs": {
+          "type": "integer",
+          "format": "int64",
+          "title": "Most jobs the environment runs at a time"
+        },
+        "free": {
+          "$ref": "#/definitions/v3ComputeEnvironmentFreeTier",
+          "title": "The free tier; unset when the environment offers none"
+        },
+        "fees": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3ComputeEnvironmentFee"
+          },
+          "title": "Prices on the gateway's chain, one entry per payment token"
+        },
+        "runningJobs": {
+          "type": "integer",
+          "format": "int64",
+          "title": "Jobs running and waiting, as far as the node reports them"
+        },
+        "runningFreeJobs": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "queuedJobs": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "queuedFreeJobs": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "queueMaxWaitTime": {
+          "type": "number",
+          "format": "double",
+          "title": "Longest time a paid or free job may wait in the queue"
+        },
+        "queueMaxWaitTimeFree": {
+          "type": "number",
+          "format": "double"
+        },
+        "storageExpiry": {
+          "type": "number",
+          "format": "double",
+          "title": "How long results are kept"
+        },
+        "platform": {
+          "type": "string",
+          "title": "Platform of the environment as \u003cos\u003e/\u003carchitecture\u003e, e.g. \"linux/amd64\""
+        }
+      },
+      "description": "A compute environment of the ocean-node, as it reports it. Durations are in seconds."
+    },
+    "v3ComputeEnvironmentFee": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string",
+          "title": "Payment token"
+        },
+        "prices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3ComputeResourcePrice"
+          }
+        }
+      },
+      "description": "The prices of a compute environment in one payment token."
+    },
+    "v3ComputeEnvironmentFreeTier": {
+      "type": "object",
+      "properties": {
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3ComputeEnvironmentResource"
+          },
+          "title": "Resources a free job can request"
+        },
+        "maxJobDuration": {
+          "type": "number",
+          "format": "double"
+        },
+        "maxJobs": {
+          "type": "integer",
+          "format": "int64",
+          "title": "Most free jobs at a time"
+        },
+        "storageExpiry": {
+          "type": "number",
+          "format": "double"
+        },
+        "allowedAddresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Addresses that may use it; empty when it is not limited by address"
+        }
+      },
+      "description": "The free tier of a compute environment."
+    },
+    "v3ComputeEnvironmentResource": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "title": "Id to request it by, e.g. \"cpu\", \"ram\" or \"disk\""
+        },
+        "type": {
+          "type": "string",
+          "title": "e.g. \"cpu\", \"ram\", \"disk\" or \"gpu\""
+        },
+        "kind": {
+          "type": "string",
+          "title": "e.g. the GPU model"
+        },
+        "description": {
+          "type": "string"
+        },
+        "min": {
+          "type": "number",
+          "format": "double",
+          "title": "Least and most a job can request, in the resource's unit (e.g. cores or GB)"
+        },
+        "max": {
+          "type": "number",
+          "format": "double"
+        },
+        "total": {
+          "type": "number",
+          "format": "double",
+          "title": "How much the environment has, and how much running jobs use"
+        },
+        "inUse": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "description": "A resource of a compute environment."
+    },
     "v3ComputeJobPayment": {
       "type": "object",
       "properties": {
@@ -689,6 +899,21 @@
         }
       },
       "description": "A resource requested for a compute job."
+    },
+    "v3ComputeResourcePrice": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "title": "Resource id"
+        },
+        "price": {
+          "type": "number",
+          "format": "double",
+          "title": "Price per unit of the resource and minute, in token units as the node gives it"
+        }
+      },
+      "description": "The price of a resource of a compute environment."
     },
     "v3ComputeToDataResponse": {
       "type": "object",
@@ -1203,6 +1428,23 @@
         }
       },
       "description": "Gaia-X credentials of an offering, hosted by the provider."
+    },
+    "v3GetComputeEnvironmentsRequest": {
+      "type": "object",
+      "description": "Request payload for listing the compute environments of the gateway's ocean-node."
+    },
+    "v3GetComputeEnvironmentsResponse": {
+      "type": "object",
+      "properties": {
+        "environments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3ComputeEnvironment"
+          }
+        }
+      },
+      "description": "The compute environments of the gateway's ocean-node."
     },
     "v3GetComputeToDataResultResponse": {
       "type": "object",

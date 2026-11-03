@@ -132,6 +132,17 @@ service ecosystemsgateway{
             tags: "ecosystemsgateway";
         };
     }
+    rpc GetComputeEnvironments(GetComputeEnvironmentsRequest) returns (GetComputeEnvironmentsResponse){
+        option (google.api.http) = {
+            post: "/grpc/GetComputeEnvironments";
+            body: "*";
+        };
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            summary: "Get compute environments";
+            description: "Lists the compute environments of the ocean-node with their resources, limits, free tier and prices.";
+            tags: "ecosystemsgateway";
+        };
+    }
 }
 
 // Request payload for publishing one or more offerings.
@@ -772,6 +783,111 @@ message GetComputeToDataResultResponse {
 
     // The result, or for a result not yet fetched a status message
     string data = 2;
+}
+
+// Request payload for listing the compute environments of the gateway's ocean-node.
+message GetComputeEnvironmentsRequest {}
+
+// The compute environments of the gateway's ocean-node.
+message GetComputeEnvironmentsResponse {
+    repeated ComputeEnvironment environments = 1;
+}
+
+// A compute environment of the ocean-node, as it reports it. Durations are in seconds.
+message ComputeEnvironment {
+    // Id to give as computeEnv when starting a job
+    string id = 1;
+
+    optional string description = 2;
+
+    // Account the environment's escrow payments go to
+    optional string consumerAddress = 3;
+
+    // Resources a job can request
+    repeated ComputeEnvironmentResource resources = 4;
+
+    optional double minJobDuration = 5;
+    optional double maxJobDuration = 6;
+
+    // Most jobs the environment runs at a time
+    optional uint32 maxJobs = 7;
+
+    // The free tier; unset when the environment offers none
+    optional ComputeEnvironmentFreeTier free = 8;
+
+    // Prices on the gateway's chain, one entry per payment token
+    repeated ComputeEnvironmentFee fees = 9;
+
+    // Jobs running and waiting, as far as the node reports them
+    optional uint32 runningJobs = 10;
+    optional uint32 runningFreeJobs = 11;
+    optional uint32 queuedJobs = 12;
+    optional uint32 queuedFreeJobs = 13;
+
+    // Longest time a paid or free job may wait in the queue
+    optional double queueMaxWaitTime = 14;
+    optional double queueMaxWaitTimeFree = 15;
+
+    // How long results are kept
+    optional double storageExpiry = 16;
+
+    // Platform of the environment as <os>/<architecture>, e.g. "linux/amd64"
+    optional string platform = 17;
+}
+
+// A resource of a compute environment.
+message ComputeEnvironmentResource {
+    // Id to request it by, e.g. "cpu", "ram" or "disk"
+    string id = 1;
+
+    // e.g. "cpu", "ram", "disk" or "gpu"
+    optional string type = 2;
+
+    // e.g. the GPU model
+    optional string kind = 3;
+
+    optional string description = 4;
+
+    // Least and most a job can request, in the resource's unit (e.g. cores or GB)
+    optional double min = 5;
+    double max = 6;
+
+    // How much the environment has, and how much running jobs use
+    optional double total = 7;
+    optional double inUse = 8;
+}
+
+// The free tier of a compute environment.
+message ComputeEnvironmentFreeTier {
+    // Resources a free job can request
+    repeated ComputeEnvironmentResource resources = 1;
+
+    optional double maxJobDuration = 2;
+
+    // Most free jobs at a time
+    optional uint32 maxJobs = 3;
+
+    optional double storageExpiry = 4;
+
+    // Addresses that may use it; empty when it is not limited by address
+    repeated string allowedAddresses = 5;
+}
+
+// The prices of a compute environment in one payment token.
+message ComputeEnvironmentFee {
+    // Payment token
+    string token = 1;
+
+    repeated ComputeResourcePrice prices = 2;
+}
+
+// The price of a resource of a compute environment.
+message ComputeResourcePrice {
+    // Resource id
+    string id = 1;
+
+    // Price per unit of the resource and minute, in token units as the node gives it
+    double price = 2;
 }
 
 // Core asset metadata used for Pontus-X create and update operations.

@@ -43,7 +43,7 @@ describe('runtime proto', () => {
       'eupg.ecosystemsgateway.v3.ecosystemsgateway'
     ] as protoLoader.ServiceDefinition;
 
-    expect(Object.keys(service)).toHaveLength(9);
+    expect(Object.keys(service)).toHaveLength(10);
     expect(service.CreateOffering.path).toBe(
       '/eupg.ecosystemsgateway.v3.ecosystemsgateway/CreateOffering',
     );
