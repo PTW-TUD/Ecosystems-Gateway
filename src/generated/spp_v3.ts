@@ -596,7 +596,14 @@ export interface CreateComputeToDataRequest {
    * Runs the job in the environment's free tier: nothing is ordered or paid, but the
    * environment has to offer one and its limits apply
    */
-  free?: boolean | undefined;
+  free?:
+    | boolean
+    | undefined;
+  /**
+   * Further datasets the algorithm runs on, after `did` and in this order
+   * The algorithm tells its inputs apart by DID, not by position
+   */
+  additionalDatasets: ComputeDataset[];
 }
 
 export interface CreateComputeToDataRequest_UserdataEntry {
@@ -610,6 +617,23 @@ export interface CreateComputeToDataRequest_AlgorithmUserdataEntry {
 }
 
 export interface CreateComputeToDataRequest_AlgorithmParametersEntry {
+  key: string;
+  value: string;
+}
+
+/** A further dataset of a compute-to-data job. */
+export interface ComputeDataset {
+  /** DID of the dataset */
+  did: string;
+  /** Compute service of the dataset; defaults to its first compute service */
+  serviceId?:
+    | string
+    | undefined;
+  /** Values for the consumer parameters of that service */
+  userdata: { [key: string]: string };
+}
+
+export interface ComputeDataset_UserdataEntry {
   key: string;
   value: string;
 }
@@ -3989,6 +4013,7 @@ function createBaseCreateComputeToDataRequest(): CreateComputeToDataRequest {
     resources: [],
     maxJobDuration: undefined,
     free: undefined,
+    additionalDatasets: [],
   };
 }
 
@@ -4028,6 +4053,9 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
     }
     if (message.free !== undefined) {
       writer.uint32(88).bool(message.free);
+    }
+    for (const v of message.additionalDatasets) {
+      ComputeDataset.encode(v!, writer.uint32(98).fork()).join();
     }
     return writer;
   },
@@ -4136,6 +4164,14 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
           message.free = reader.bool();
           continue;
         }
+        case 12: {
+          if (tag !== 98) {
+            break;
+          }
+
+          message.additionalDatasets.push(ComputeDataset.decode(reader, reader.uint32()));
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -4175,6 +4211,9 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
         : [],
       maxJobDuration: isSet(object.maxJobDuration) ? globalThis.Number(object.maxJobDuration) : undefined,
       free: isSet(object.free) ? globalThis.Boolean(object.free) : undefined,
+      additionalDatasets: globalThis.Array.isArray(object?.additionalDatasets)
+        ? object.additionalDatasets.map((e: any) => ComputeDataset.fromJSON(e))
+        : [],
     };
   },
 
@@ -4231,6 +4270,9 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
     if (message.free !== undefined) {
       obj.free = message.free;
     }
+    if (message.additionalDatasets?.length) {
+      obj.additionalDatasets = message.additionalDatasets.map((e) => ComputeDataset.toJSON(e));
+    }
     return obj;
   },
 
@@ -4271,6 +4313,7 @@ export const CreateComputeToDataRequest: MessageFns<CreateComputeToDataRequest> 
     message.resources = object.resources?.map((e) => ComputeResource.fromPartial(e)) || [];
     message.maxJobDuration = object.maxJobDuration ?? undefined;
     message.free = object.free ?? undefined;
+    message.additionalDatasets = object.additionalDatasets?.map((e) => ComputeDataset.fromPartial(e)) || [];
     return message;
   },
 };
@@ -4519,6 +4562,193 @@ export const CreateComputeToDataRequest_AlgorithmParametersEntry: MessageFns<
     object: I,
   ): CreateComputeToDataRequest_AlgorithmParametersEntry {
     const message = createBaseCreateComputeToDataRequest_AlgorithmParametersEntry();
+    message.key = object.key ?? "";
+    message.value = object.value ?? "";
+    return message;
+  },
+};
+
+function createBaseComputeDataset(): ComputeDataset {
+  return { did: "", serviceId: undefined, userdata: {} };
+}
+
+export const ComputeDataset: MessageFns<ComputeDataset> = {
+  encode(message: ComputeDataset, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.did !== "") {
+      writer.uint32(10).string(message.did);
+    }
+    if (message.serviceId !== undefined) {
+      writer.uint32(18).string(message.serviceId);
+    }
+    Object.entries(message.userdata).forEach(([key, value]) => {
+      ComputeDataset_UserdataEntry.encode({ key: key as any, value }, writer.uint32(26).fork()).join();
+    });
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ComputeDataset {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseComputeDataset();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.did = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.serviceId = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          const entry3 = ComputeDataset_UserdataEntry.decode(reader, reader.uint32());
+          if (entry3.value !== undefined) {
+            message.userdata[entry3.key] = entry3.value;
+          }
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ComputeDataset {
+    return {
+      did: isSet(object.did) ? globalThis.String(object.did) : "",
+      serviceId: isSet(object.serviceId) ? globalThis.String(object.serviceId) : undefined,
+      userdata: isObject(object.userdata)
+        ? Object.entries(object.userdata).reduce<{ [key: string]: string }>((acc, [key, value]) => {
+          acc[key] = String(value);
+          return acc;
+        }, {})
+        : {},
+    };
+  },
+
+  toJSON(message: ComputeDataset): unknown {
+    const obj: any = {};
+    if (message.did !== "") {
+      obj.did = message.did;
+    }
+    if (message.serviceId !== undefined) {
+      obj.serviceId = message.serviceId;
+    }
+    if (message.userdata) {
+      const entries = Object.entries(message.userdata);
+      if (entries.length > 0) {
+        obj.userdata = {};
+        entries.forEach(([k, v]) => {
+          obj.userdata[k] = v;
+        });
+      }
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ComputeDataset>, I>>(base?: I): ComputeDataset {
+    return ComputeDataset.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ComputeDataset>, I>>(object: I): ComputeDataset {
+    const message = createBaseComputeDataset();
+    message.did = object.did ?? "";
+    message.serviceId = object.serviceId ?? undefined;
+    message.userdata = Object.entries(object.userdata ?? {}).reduce<{ [key: string]: string }>((acc, [key, value]) => {
+      if (value !== undefined) {
+        acc[key] = globalThis.String(value);
+      }
+      return acc;
+    }, {});
+    return message;
+  },
+};
+
+function createBaseComputeDataset_UserdataEntry(): ComputeDataset_UserdataEntry {
+  return { key: "", value: "" };
+}
+
+export const ComputeDataset_UserdataEntry: MessageFns<ComputeDataset_UserdataEntry> = {
+  encode(message: ComputeDataset_UserdataEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    if (message.value !== "") {
+      writer.uint32(18).string(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ComputeDataset_UserdataEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseComputeDataset_UserdataEntry();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.value = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ComputeDataset_UserdataEntry {
+    return {
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+      value: isSet(object.value) ? globalThis.String(object.value) : "",
+    };
+  },
+
+  toJSON(message: ComputeDataset_UserdataEntry): unknown {
+    const obj: any = {};
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    if (message.value !== "") {
+      obj.value = message.value;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ComputeDataset_UserdataEntry>, I>>(base?: I): ComputeDataset_UserdataEntry {
+    return ComputeDataset_UserdataEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ComputeDataset_UserdataEntry>, I>>(object: I): ComputeDataset_UserdataEntry {
+    const message = createBaseComputeDataset_UserdataEntry();
     message.key = object.key ?? "";
     message.value = object.value ?? "";
     return message;

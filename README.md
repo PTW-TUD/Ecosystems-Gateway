@@ -123,6 +123,11 @@ New in v3:
   algorithm's service, `algorithmParameters` for those of the algorithm itself
   (`Metadata.algorithm.consumerParameters`), `computeEnv`, `resources`,
   `maxJobDuration` and `free` for the environment's free tier.
+- `CreateComputeToDataRequest.additionalDatasets`: further datasets of one job
+  (`did`, optional `serviceId`, `userdata`), each resolved like the primary
+  one. The node gets the primary dataset first, then these in request order;
+  the algorithm tells its inputs apart by DID. A dataset service may be an
+  input only once. The gateway sets no limit of its own on their number.
 
 `QueryOfferings` now answers over gRPC as well; in v2 its handler was
 registered under a misspelled service name.

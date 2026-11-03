@@ -474,6 +474,22 @@ message CreateComputeToDataRequest {
     // Runs the job in the environment's free tier: nothing is ordered or paid, but the
     // environment has to offer one and its limits apply
     optional bool free = 11;
+
+    // Further datasets the algorithm runs on, after `did` and in this order
+    // The algorithm tells its inputs apart by DID, not by position
+    repeated ComputeDataset additionalDatasets = 12;
+}
+
+// A further dataset of a compute-to-data job.
+message ComputeDataset {
+    // DID of the dataset
+    string did = 1;
+
+    // Compute service of the dataset; defaults to its first compute service
+    optional string serviceId = 2;
+
+    // Values for the consumer parameters of that service
+    map<string, string> userdata = 3;
 }
 
 // A resource requested for a compute job.

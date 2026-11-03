@@ -16,6 +16,7 @@ import { JsonRpcProvider, Wallet } from 'ethers';
 import {
   AssetBuilder,
   type AssetV5,
+  type ComputeAssetRef,
   type ConsumerParameterV5,
   CredentialListTypes,
   type DdoCredentials,
@@ -1192,6 +1193,12 @@ export class PontusxService implements OnModuleInit {
         });
       }
 
+      const additionalDatasets = await this.resolveAdditionalDatasets(
+        request,
+        computeService.id,
+        metadata,
+      );
+
       const config = {
         dataset: {
           did: request.did,
@@ -1201,6 +1208,8 @@ export class PontusxService implements OnModuleInit {
             computeService.consumerParameters,
           ),
         },
+        // the node gets the primary dataset first, then these in request order
+        ...(additionalDatasets.length ? { additionalDatasets } : {}),
         algorithm: {
           did: request.algorithm,
           serviceId: algorithmService.id,
@@ -1249,6 +1258,69 @@ export class PontusxService implements OnModuleInit {
     } finally {
       release();
     }
+  }
+
+  /**
+   * The further datasets of a compute job, each resolved as the primary one is: its given
+   * compute service, else its first. No dataset service may be an input twice.
+   */
+  private async resolveAdditionalDatasets(
+    request: CreateComputeToDataRequest,
+    primaryServiceId: string,
+    metadata: Metadata,
+  ): Promise<ComputeAssetRef[]> {
+    const resolved = await Promise.all(
+      (request.additionalDatasets ?? []).map(
+        async ({ did, serviceId, userdata }, index) => {
+          const name = `additionalDatasets[${index}] (${did})`;
+          if (!did?.trim()) {
+            throw new RpcException({
+              code: GrpcStatusCode.INVALID_ARGUMENT,
+              message: `additionalDatasets[${index}] has no did`,
+              metadata,
+            });
+          }
+          const asset = await this.getOffering(did).catch((err) => {
+            throw new RpcException({
+              code: GrpcStatusCode.NOT_FOUND,
+              message: `${name} not found: ${formatErrorMessage(err)}`,
+              metadata,
+            });
+          });
+          const service = serviceId
+            ? getService(asset, serviceId)
+            : getServiceByType(asset, 'compute');
+          if (service?.type !== 'compute') {
+            throw new RpcException({
+              code: GrpcStatusCode.INVALID_ARGUMENT,
+              message: serviceId
+                ? `${name}: service ${serviceId} is not a compute service of it`
+                : `${name} has no compute service`,
+              metadata,
+            });
+          }
+          return {
+            did,
+            serviceId: service.id,
+            userdata: toUserdata(userdata, service.consumerParameters),
+          };
+        },
+      ),
+    );
+
+    const inputs = new Set([`${request.did}#${primaryServiceId}`]);
+    resolved.forEach(({ did, serviceId }, index) => {
+      const input = `${did}#${serviceId}`;
+      if (inputs.has(input)) {
+        throw new RpcException({
+          code: GrpcStatusCode.INVALID_ARGUMENT,
+          message: `additionalDatasets[${index}] (${did}): service ${serviceId} is already an input of the job`,
+          metadata,
+        });
+      }
+      inputs.add(input);
+    });
+    return resolved;
   }
 
   private async getComputeJob(jobId: string): Promise<NodeComputeJob> {

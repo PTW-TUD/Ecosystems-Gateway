@@ -1187,9 +1187,14 @@ describe('PontusxService', () => {
           consumerParameters: [{ name: 'threshold', type: 'number' }],
         },
       };
+      const accessOnly = assetV5([{ id: 'access-2', type: 'access' }]);
       const service = createService({
         getAsset: vi.fn(async (did: string) =>
-          did === 'did:ope:algo' ? algorithm : dataset,
+          did === 'did:ope:algo'
+            ? algorithm
+            : did === 'did:ope:access-only'
+              ? accessOnly
+              : dataset,
         ),
         ...nautilus,
       });
@@ -1207,6 +1212,7 @@ describe('PontusxService', () => {
       algorithmUserdata: { verbose: 'true' },
       algorithmParameters: { threshold: '0.5' },
       resources: [],
+      additionalDatasets: [],
     };
 
     it('starts a paid job with typed parameters for the dataset and the algorithm', async () => {
@@ -1238,10 +1244,96 @@ describe('PontusxService', () => {
         resources: [{ id: 'cpu', amount: 2 }],
         maxJobDuration: 600,
       });
+      expect(compute.mock.calls[0][0]).not.toHaveProperty('additionalDatasets');
       expect((service as any).redis.rpush).toHaveBeenCalledWith(
         expect.any(String),
         JOB_ID,
       );
+    });
+
+    it('runs on further datasets, each with its compute service and typed userdata', async () => {
+      const compute = vi.fn().mockResolvedValue({ jobs: [{ jobId: JOB_ID }] });
+
+      await computeService({ compute }).requestComputeToData({
+        ...request,
+        additionalDatasets: [
+          { did: 'did:ope:model-1', userdata: { rows: '1' } },
+          { did: 'did:ope:model-2', serviceId: 'compute-1', userdata: {} },
+          { did: 'did:ope:model-3', userdata: { rows: '3' } },
+        ],
+      });
+
+      expect(compute.mock.calls[0][0].dataset.did).toBe('did:ope:1234');
+      expect(compute.mock.calls[0][0].additionalDatasets).toEqual([
+        {
+          did: 'did:ope:model-1',
+          serviceId: 'compute-1',
+          userdata: { rows: 1 },
+        },
+        { did: 'did:ope:model-2', serviceId: 'compute-1', userdata: undefined },
+        {
+          did: 'did:ope:model-3',
+          serviceId: 'compute-1',
+          userdata: { rows: 3 },
+        },
+      ]);
+    });
+
+    it('passes further datasets to a free job too', async () => {
+      const freeCompute = vi
+        .fn()
+        .mockResolvedValue({ jobs: [{ jobId: JOB_ID }] });
+
+      await computeService({ freeCompute }).requestComputeToData({
+        ...request,
+        free: true,
+        additionalDatasets: [{ did: 'did:ope:model-1', userdata: {} }],
+      });
+
+      expect(freeCompute.mock.calls[0][0].additionalDatasets).toEqual([
+        { did: 'did:ope:model-1', serviceId: 'compute-1', userdata: undefined },
+      ]);
+    });
+
+    it('names the index and DID of a further dataset without compute service', async () => {
+      const compute = vi.fn();
+
+      await expect(
+        computeService({ compute }).requestComputeToData({
+          ...request,
+          additionalDatasets: [
+            { did: 'did:ope:model-1', userdata: {} },
+            { did: 'did:ope:access-only', userdata: {} },
+          ],
+        }),
+      ).rejects.toMatchObject({
+        error: {
+          code: GrpcStatusCode.INVALID_ARGUMENT,
+          message:
+            'additionalDatasets[1] (did:ope:access-only) has no compute service',
+        },
+      });
+      expect(compute).not.toHaveBeenCalled();
+    });
+
+    it('refuses a dataset service given twice', async () => {
+      const compute = vi.fn();
+
+      await expect(
+        computeService({ compute }).requestComputeToData({
+          ...request,
+          additionalDatasets: [
+            { did: 'did:ope:1234', serviceId: 'compute-1', userdata: {} },
+          ],
+        }),
+      ).rejects.toMatchObject({
+        error: {
+          code: GrpcStatusCode.INVALID_ARGUMENT,
+          message:
+            'additionalDatasets[0] (did:ope:1234): service compute-1 is already an input of the job',
+        },
+      });
+      expect(compute).not.toHaveBeenCalled();
     });
 
     it('starts a free job in the configured environment', async () => {

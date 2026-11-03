@@ -567,6 +567,27 @@
       },
       "description": "Metadata of an algorithm."
     },
+    "v3ComputeDataset": {
+      "type": "object",
+      "properties": {
+        "did": {
+          "type": "string",
+          "title": "DID of the dataset"
+        },
+        "serviceId": {
+          "type": "string",
+          "title": "Compute service of the dataset; defaults to its first compute service"
+        },
+        "userdata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Values for the consumer parameters of that service"
+        }
+      },
+      "description": "A further dataset of a compute-to-data job."
+    },
     "v3ComputeOptions": {
       "type": "object",
       "properties": {
@@ -779,6 +800,14 @@
         "free": {
           "type": "boolean",
           "title": "Runs the job in the environment's free tier: nothing is ordered or paid, but the\nenvironment has to offer one and its limits apply"
+        },
+        "additionalDatasets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3ComputeDataset"
+          },
+          "title": "Further datasets the algorithm runs on, after `did` and in this order\nThe algorithm tells its inputs apart by DID, not by position"
         }
       },
       "description": "Request payload for starting a compute-to-data job in Pontus-X."

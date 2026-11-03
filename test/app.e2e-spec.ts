@@ -185,6 +185,14 @@ describe('HTTP and gRPC gateway (e2e)', () => {
         computeEnv: 'env-1',
         resources: [{ id: 'cpu', amount: 2 }],
         free: true,
+        additionalDatasets: [
+          { did: 'did:ope:model-1' },
+          {
+            did: 'did:ope:model-2',
+            serviceId: 'compute',
+            userdata: { a: '1' },
+          },
+        ],
       })
       .expect(201);
     expect(response.body).toEqual({ jobId: ['0xenv-job'] });
@@ -197,6 +205,14 @@ describe('HTTP and gRPC gateway (e2e)', () => {
         computeEnv: 'env-1',
         resources: [{ id: 'cpu', amount: 2 }],
         free: true,
+        additionalDatasets: [
+          { did: 'did:ope:model-1', userdata: {} },
+          expect.objectContaining({
+            did: 'did:ope:model-2',
+            serviceId: 'compute',
+            userdata: { a: '1' },
+          }),
+        ],
       }),
     );
     // unset optional fields are left out
