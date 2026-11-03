@@ -502,9 +502,85 @@ message ComputeResource {
 }
 
 // Response returned after starting a compute-to-data job.
+// The fields after jobId are only set when the gateway runs with EXTENDED_RESPONSES=true.
 message ComputeToDataResponse {
     // ocean-node job ids in the form <environmentHash>-<jobId>
     repeated string jobId = 1;
+
+    // 2 is kept for the alias of the wallet that started the job
+
+    // Address of the gateway wallet that started and pays for the job
+    optional string consumerAddress = 3;
+
+    // Compute environment the job runs in
+    optional string computeEnv = 4;
+
+    // Order transactions of the algorithm and every dataset; empty for a free job.
+    // The escrow deposit and authorization transactions are not included: nautilus does
+    // not report them.
+    repeated ComputeOrder orders = 5;
+
+    // Escrow payment the node quoted for the job; unset for a free job
+    optional EscrowPayment escrowPayment = 6;
+
+    // Provider fees the node quoted per input; empty for a free job and inputs without fee
+    repeated ProviderFee providerFees = 7;
+
+    // When the gateway received the request (ISO 8601)
+    optional string submittedAt = 8;
+
+    // When the node accepted the job (ISO 8601). From submittedAt to here: waiting for the
+    // gateway wallet, initialize, escrow, orders and start.
+    optional string startedAt = 9;
+}
+
+// An order transaction of a compute job input.
+message ComputeOrder {
+    // Input the order is for, in the form <did>#<serviceId>
+    string input = 1;
+
+    // Order transaction hash; a reused order has the hash of the earlier order
+    string txHash = 2;
+
+    // true when an earlier order still in force was used and nothing was sent, false when
+    // the transaction was sent for this job; unset when the chain could not be read
+    optional bool reused = 3;
+}
+
+// The escrow payment of a paid compute job, as the node quoted it.
+message EscrowPayment {
+    // Escrow contract the payment is locked in
+    string escrowAddress = 1;
+
+    // Payment token
+    string token = 2;
+
+    // Amount in the token's smallest unit, as a decimal string
+    string amount = 3;
+
+    // Account the payment goes to: the compute environment's
+    string payee = 4;
+
+    // Shortest time in seconds the payment is locked for
+    optional uint64 minLockSeconds = 5;
+}
+
+// The provider fee of a compute job input, as the node quoted it.
+message ProviderFee {
+    // Input the fee is for, in the form <did>#<serviceId>
+    string input = 1;
+
+    // Fee token
+    string token = 2;
+
+    // Amount in the token's smallest unit, as a decimal string
+    string amount = 3;
+
+    // Account the fee goes to
+    optional string payee = 4;
+
+    // Until when the quote is valid, as the node gives it (Unix seconds)
+    optional string validUntil = 5;
 }
 
 // Request payload for the status of a compute-to-data job.

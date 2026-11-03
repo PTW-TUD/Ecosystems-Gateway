@@ -3,6 +3,7 @@ import { getOceanConfig } from '@deltadao/nautilus';
 import {
   Network,
   PRICING_CONFIGS,
+  parseExtendedResponses,
   parseWaitForIndexer,
   resolveNetworkConfig,
   selectNetwork,
@@ -131,5 +132,23 @@ describe('parseWaitForIndexer', () => {
     expect(() =>
       parseWaitForIndexer(env({ WAIT_FOR_INDEXER_TIMEOUT_MS: value })),
     ).toThrow('WAIT_FOR_INDEXER_TIMEOUT_MS');
+  });
+});
+
+describe('parseExtendedResponses', () => {
+  it('is off when unset', () => {
+    expect(parseExtendedResponses(env({}))).toBe(false);
+  });
+
+  it('can be turned on', () => {
+    expect(parseExtendedResponses(env({ EXTENDED_RESPONSES: 'true' }))).toBe(
+      true,
+    );
+  });
+
+  it('refuses anything but true or false', () => {
+    expect(() =>
+      parseExtendedResponses(env({ EXTENDED_RESPONSES: 'maybe' })),
+    ).toThrow("EXTENDED_RESPONSES must be true or false, not 'maybe'.");
   });
 });

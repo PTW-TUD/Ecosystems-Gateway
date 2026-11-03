@@ -216,8 +216,38 @@ public ocean-node serves them yet: they need `OCEAN_NODE_URI`.
 | `MAX_ESCROW_PAYMENT`   | `<token>:<amount>`, comma separated                    | Most a compute job may lock in escrow, in the token's smallest unit. Unset: a job that needs an escrow payment is refused before anything is spent.                                                                                                                          |
 | `ESCROW_ADDRESS`       | Ethereum address                                       | The chain's EnterpriseEscrow contract, the only one paid compute funds. Unset, nautilus uses the EnterpriseEscrow of Ocean's address data, which on OP Sepolia is the demo node's (`0xfa48…7B02`). Needed for paid compute on Pontus-X, for which the address data has none. |
 | `COMPUTE_ENV`          | String                                                 | Optional compute environment id. Defaults to the ocean-node's first environment.                                                                                                                                                                                             |
+| `EXTENDED_RESPONSES`   | `true` or `false`                                      | Responses carry the transactions, payments and timestamps of their call (see [Extended Responses](#extended-responses)). Defaults to `false`: the responses are as without the extension.                                                                                    |
 | `NAUTILUS_LOG_LEVEL`   | `silent`, `error`, `warn`, `info`, `debug`, or `trace` | Nautilus log level; its events, redacted by nautilus, are logged through the NestJS logger with the context `Nautilus:<component>`. Defaults to the most verbose of `NESTJS_LOG_LEVELS`. The v1 values `none`, `log` and `verbose` still work.                               |
 | `NAUTILUS_DEBUG`       | `sensitive` or `secrets`                               | Nautilus' debug channel with the raw data it otherwise redacts, written to stderr apart from the logs. `NAUTILUS_DEBUG_TOPICS` narrows it, e.g. `policy,wallet`. Never in production.                                                                                        |
+
+### Extended Responses
+
+With `EXTENDED_RESPONSES=true` the gateway reports what each call cost and how
+long its steps took, e.g. to measure transaction counts and costs. Without it,
+the fields below stay unset.
+
+`RunComputeToDataJob` returns, next to `jobId`:
+
+- `consumerAddress`: the gateway wallet that started and pays for the job, and
+  `computeEnv`, the environment it runs in.
+- `orders`: one order transaction per input (`input` is `<did>#<serviceId>`).
+  `reused` is `true` when an order still in force was used and nothing was
+  sent (its transaction was mined before the request), `false` when it was
+  sent for this job, and unset when the chain could not be read. A free job
+  has no orders.
+- `escrowPayment` (escrow contract, token, amount in the token's smallest
+  unit, payee, `minLockSeconds`) and `providerFees` per input, as the node
+  quoted them. Fee signatures and provider data are left out.
+- `submittedAt` (request received) and `startedAt` (node accepted the job),
+  ISO 8601. The span covers waiting for the wallet, initialize, escrow, orders
+  and start.
+
+The escrow deposit and authorization transactions are not reported: nautilus
+sends them without returning their hashes. They can be read from the chain as
+transactions of `consumerAddress` to the escrow contract.
+
+Over HTTP, 64-bit integers such as `minLockSeconds` are JSON strings, and
+unset repeated fields are empty lists.
 
 ### SSI Policies
 

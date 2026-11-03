@@ -646,10 +646,85 @@ export interface ComputeResource {
   amount: number;
 }
 
-/** Response returned after starting a compute-to-data job. */
+/**
+ * Response returned after starting a compute-to-data job.
+ * The fields after jobId are only set when the gateway runs with EXTENDED_RESPONSES=true.
+ */
 export interface ComputeToDataResponse {
   /** ocean-node job ids in the form <environmentHash>-<jobId> */
   jobId: string[];
+  /** Address of the gateway wallet that started and pays for the job */
+  consumerAddress?:
+    | string
+    | undefined;
+  /** Compute environment the job runs in */
+  computeEnv?:
+    | string
+    | undefined;
+  /**
+   * Order transactions of the algorithm and every dataset; empty for a free job.
+   * The escrow deposit and authorization transactions are not included: nautilus does
+   * not report them.
+   */
+  orders: ComputeOrder[];
+  /** Escrow payment the node quoted for the job; unset for a free job */
+  escrowPayment?:
+    | EscrowPayment
+    | undefined;
+  /** Provider fees the node quoted per input; empty for a free job and inputs without fee */
+  providerFees: ProviderFee[];
+  /** When the gateway received the request (ISO 8601) */
+  submittedAt?:
+    | string
+    | undefined;
+  /**
+   * When the node accepted the job (ISO 8601). From submittedAt to here: waiting for the
+   * gateway wallet, initialize, escrow, orders and start.
+   */
+  startedAt?: string | undefined;
+}
+
+/** An order transaction of a compute job input. */
+export interface ComputeOrder {
+  /** Input the order is for, in the form <did>#<serviceId> */
+  input: string;
+  /** Order transaction hash; a reused order has the hash of the earlier order */
+  txHash: string;
+  /**
+   * true when an earlier order still in force was used and nothing was sent, false when
+   * the transaction was sent for this job; unset when the chain could not be read
+   */
+  reused?: boolean | undefined;
+}
+
+/** The escrow payment of a paid compute job, as the node quoted it. */
+export interface EscrowPayment {
+  /** Escrow contract the payment is locked in */
+  escrowAddress: string;
+  /** Payment token */
+  token: string;
+  /** Amount in the token's smallest unit, as a decimal string */
+  amount: string;
+  /** Account the payment goes to: the compute environment's */
+  payee: string;
+  /** Shortest time in seconds the payment is locked for */
+  minLockSeconds?: number | undefined;
+}
+
+/** The provider fee of a compute job input, as the node quoted it. */
+export interface ProviderFee {
+  /** Input the fee is for, in the form <did>#<serviceId> */
+  input: string;
+  /** Fee token */
+  token: string;
+  /** Amount in the token's smallest unit, as a decimal string */
+  amount: string;
+  /** Account the fee goes to */
+  payee?:
+    | string
+    | undefined;
+  /** Until when the quote is valid, as the node gives it (Unix seconds) */
+  validUntil?: string | undefined;
 }
 
 /** Request payload for the status of a compute-to-data job. */
@@ -4832,13 +4907,43 @@ export const ComputeResource: MessageFns<ComputeResource> = {
 };
 
 function createBaseComputeToDataResponse(): ComputeToDataResponse {
-  return { jobId: [] };
+  return {
+    jobId: [],
+    consumerAddress: undefined,
+    computeEnv: undefined,
+    orders: [],
+    escrowPayment: undefined,
+    providerFees: [],
+    submittedAt: undefined,
+    startedAt: undefined,
+  };
 }
 
 export const ComputeToDataResponse: MessageFns<ComputeToDataResponse> = {
   encode(message: ComputeToDataResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     for (const v of message.jobId) {
       writer.uint32(10).string(v!);
+    }
+    if (message.consumerAddress !== undefined) {
+      writer.uint32(26).string(message.consumerAddress);
+    }
+    if (message.computeEnv !== undefined) {
+      writer.uint32(34).string(message.computeEnv);
+    }
+    for (const v of message.orders) {
+      ComputeOrder.encode(v!, writer.uint32(42).fork()).join();
+    }
+    if (message.escrowPayment !== undefined) {
+      EscrowPayment.encode(message.escrowPayment, writer.uint32(50).fork()).join();
+    }
+    for (const v of message.providerFees) {
+      ProviderFee.encode(v!, writer.uint32(58).fork()).join();
+    }
+    if (message.submittedAt !== undefined) {
+      writer.uint32(66).string(message.submittedAt);
+    }
+    if (message.startedAt !== undefined) {
+      writer.uint32(74).string(message.startedAt);
     }
     return writer;
   },
@@ -4858,6 +4963,62 @@ export const ComputeToDataResponse: MessageFns<ComputeToDataResponse> = {
           message.jobId.push(reader.string());
           continue;
         }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.consumerAddress = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.computeEnv = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.orders.push(ComputeOrder.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.escrowPayment = EscrowPayment.decode(reader, reader.uint32());
+          continue;
+        }
+        case 7: {
+          if (tag !== 58) {
+            break;
+          }
+
+          message.providerFees.push(ProviderFee.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 8: {
+          if (tag !== 66) {
+            break;
+          }
+
+          message.submittedAt = reader.string();
+          continue;
+        }
+        case 9: {
+          if (tag !== 74) {
+            break;
+          }
+
+          message.startedAt = reader.string();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -4868,13 +5029,45 @@ export const ComputeToDataResponse: MessageFns<ComputeToDataResponse> = {
   },
 
   fromJSON(object: any): ComputeToDataResponse {
-    return { jobId: globalThis.Array.isArray(object?.jobId) ? object.jobId.map((e: any) => globalThis.String(e)) : [] };
+    return {
+      jobId: globalThis.Array.isArray(object?.jobId) ? object.jobId.map((e: any) => globalThis.String(e)) : [],
+      consumerAddress: isSet(object.consumerAddress) ? globalThis.String(object.consumerAddress) : undefined,
+      computeEnv: isSet(object.computeEnv) ? globalThis.String(object.computeEnv) : undefined,
+      orders: globalThis.Array.isArray(object?.orders) ? object.orders.map((e: any) => ComputeOrder.fromJSON(e)) : [],
+      escrowPayment: isSet(object.escrowPayment) ? EscrowPayment.fromJSON(object.escrowPayment) : undefined,
+      providerFees: globalThis.Array.isArray(object?.providerFees)
+        ? object.providerFees.map((e: any) => ProviderFee.fromJSON(e))
+        : [],
+      submittedAt: isSet(object.submittedAt) ? globalThis.String(object.submittedAt) : undefined,
+      startedAt: isSet(object.startedAt) ? globalThis.String(object.startedAt) : undefined,
+    };
   },
 
   toJSON(message: ComputeToDataResponse): unknown {
     const obj: any = {};
     if (message.jobId?.length) {
       obj.jobId = message.jobId;
+    }
+    if (message.consumerAddress !== undefined) {
+      obj.consumerAddress = message.consumerAddress;
+    }
+    if (message.computeEnv !== undefined) {
+      obj.computeEnv = message.computeEnv;
+    }
+    if (message.orders?.length) {
+      obj.orders = message.orders.map((e) => ComputeOrder.toJSON(e));
+    }
+    if (message.escrowPayment !== undefined) {
+      obj.escrowPayment = EscrowPayment.toJSON(message.escrowPayment);
+    }
+    if (message.providerFees?.length) {
+      obj.providerFees = message.providerFees.map((e) => ProviderFee.toJSON(e));
+    }
+    if (message.submittedAt !== undefined) {
+      obj.submittedAt = message.submittedAt;
+    }
+    if (message.startedAt !== undefined) {
+      obj.startedAt = message.startedAt;
     }
     return obj;
   },
@@ -4885,6 +5078,355 @@ export const ComputeToDataResponse: MessageFns<ComputeToDataResponse> = {
   fromPartial<I extends Exact<DeepPartial<ComputeToDataResponse>, I>>(object: I): ComputeToDataResponse {
     const message = createBaseComputeToDataResponse();
     message.jobId = object.jobId?.map((e) => e) || [];
+    message.consumerAddress = object.consumerAddress ?? undefined;
+    message.computeEnv = object.computeEnv ?? undefined;
+    message.orders = object.orders?.map((e) => ComputeOrder.fromPartial(e)) || [];
+    message.escrowPayment = (object.escrowPayment !== undefined && object.escrowPayment !== null)
+      ? EscrowPayment.fromPartial(object.escrowPayment)
+      : undefined;
+    message.providerFees = object.providerFees?.map((e) => ProviderFee.fromPartial(e)) || [];
+    message.submittedAt = object.submittedAt ?? undefined;
+    message.startedAt = object.startedAt ?? undefined;
+    return message;
+  },
+};
+
+function createBaseComputeOrder(): ComputeOrder {
+  return { input: "", txHash: "", reused: undefined };
+}
+
+export const ComputeOrder: MessageFns<ComputeOrder> = {
+  encode(message: ComputeOrder, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.input !== "") {
+      writer.uint32(10).string(message.input);
+    }
+    if (message.txHash !== "") {
+      writer.uint32(18).string(message.txHash);
+    }
+    if (message.reused !== undefined) {
+      writer.uint32(24).bool(message.reused);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ComputeOrder {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseComputeOrder();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.input = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.txHash = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.reused = reader.bool();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ComputeOrder {
+    return {
+      input: isSet(object.input) ? globalThis.String(object.input) : "",
+      txHash: isSet(object.txHash) ? globalThis.String(object.txHash) : "",
+      reused: isSet(object.reused) ? globalThis.Boolean(object.reused) : undefined,
+    };
+  },
+
+  toJSON(message: ComputeOrder): unknown {
+    const obj: any = {};
+    if (message.input !== "") {
+      obj.input = message.input;
+    }
+    if (message.txHash !== "") {
+      obj.txHash = message.txHash;
+    }
+    if (message.reused !== undefined) {
+      obj.reused = message.reused;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ComputeOrder>, I>>(base?: I): ComputeOrder {
+    return ComputeOrder.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ComputeOrder>, I>>(object: I): ComputeOrder {
+    const message = createBaseComputeOrder();
+    message.input = object.input ?? "";
+    message.txHash = object.txHash ?? "";
+    message.reused = object.reused ?? undefined;
+    return message;
+  },
+};
+
+function createBaseEscrowPayment(): EscrowPayment {
+  return { escrowAddress: "", token: "", amount: "", payee: "", minLockSeconds: undefined };
+}
+
+export const EscrowPayment: MessageFns<EscrowPayment> = {
+  encode(message: EscrowPayment, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.escrowAddress !== "") {
+      writer.uint32(10).string(message.escrowAddress);
+    }
+    if (message.token !== "") {
+      writer.uint32(18).string(message.token);
+    }
+    if (message.amount !== "") {
+      writer.uint32(26).string(message.amount);
+    }
+    if (message.payee !== "") {
+      writer.uint32(34).string(message.payee);
+    }
+    if (message.minLockSeconds !== undefined) {
+      writer.uint32(40).uint64(message.minLockSeconds);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): EscrowPayment {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEscrowPayment();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.escrowAddress = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.token = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.amount = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.payee = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 40) {
+            break;
+          }
+
+          message.minLockSeconds = longToNumber(reader.uint64());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EscrowPayment {
+    return {
+      escrowAddress: isSet(object.escrowAddress) ? globalThis.String(object.escrowAddress) : "",
+      token: isSet(object.token) ? globalThis.String(object.token) : "",
+      amount: isSet(object.amount) ? globalThis.String(object.amount) : "",
+      payee: isSet(object.payee) ? globalThis.String(object.payee) : "",
+      minLockSeconds: isSet(object.minLockSeconds) ? globalThis.Number(object.minLockSeconds) : undefined,
+    };
+  },
+
+  toJSON(message: EscrowPayment): unknown {
+    const obj: any = {};
+    if (message.escrowAddress !== "") {
+      obj.escrowAddress = message.escrowAddress;
+    }
+    if (message.token !== "") {
+      obj.token = message.token;
+    }
+    if (message.amount !== "") {
+      obj.amount = message.amount;
+    }
+    if (message.payee !== "") {
+      obj.payee = message.payee;
+    }
+    if (message.minLockSeconds !== undefined) {
+      obj.minLockSeconds = Math.round(message.minLockSeconds);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<EscrowPayment>, I>>(base?: I): EscrowPayment {
+    return EscrowPayment.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<EscrowPayment>, I>>(object: I): EscrowPayment {
+    const message = createBaseEscrowPayment();
+    message.escrowAddress = object.escrowAddress ?? "";
+    message.token = object.token ?? "";
+    message.amount = object.amount ?? "";
+    message.payee = object.payee ?? "";
+    message.minLockSeconds = object.minLockSeconds ?? undefined;
+    return message;
+  },
+};
+
+function createBaseProviderFee(): ProviderFee {
+  return { input: "", token: "", amount: "", payee: undefined, validUntil: undefined };
+}
+
+export const ProviderFee: MessageFns<ProviderFee> = {
+  encode(message: ProviderFee, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.input !== "") {
+      writer.uint32(10).string(message.input);
+    }
+    if (message.token !== "") {
+      writer.uint32(18).string(message.token);
+    }
+    if (message.amount !== "") {
+      writer.uint32(26).string(message.amount);
+    }
+    if (message.payee !== undefined) {
+      writer.uint32(34).string(message.payee);
+    }
+    if (message.validUntil !== undefined) {
+      writer.uint32(42).string(message.validUntil);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ProviderFee {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseProviderFee();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.input = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.token = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.amount = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.payee = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.validUntil = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ProviderFee {
+    return {
+      input: isSet(object.input) ? globalThis.String(object.input) : "",
+      token: isSet(object.token) ? globalThis.String(object.token) : "",
+      amount: isSet(object.amount) ? globalThis.String(object.amount) : "",
+      payee: isSet(object.payee) ? globalThis.String(object.payee) : undefined,
+      validUntil: isSet(object.validUntil) ? globalThis.String(object.validUntil) : undefined,
+    };
+  },
+
+  toJSON(message: ProviderFee): unknown {
+    const obj: any = {};
+    if (message.input !== "") {
+      obj.input = message.input;
+    }
+    if (message.token !== "") {
+      obj.token = message.token;
+    }
+    if (message.amount !== "") {
+      obj.amount = message.amount;
+    }
+    if (message.payee !== undefined) {
+      obj.payee = message.payee;
+    }
+    if (message.validUntil !== undefined) {
+      obj.validUntil = message.validUntil;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ProviderFee>, I>>(base?: I): ProviderFee {
+    return ProviderFee.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ProviderFee>, I>>(object: I): ProviderFee {
+    const message = createBaseProviderFee();
+    message.input = object.input ?? "";
+    message.token = object.token ?? "";
+    message.amount = object.amount ?? "";
+    message.payee = object.payee ?? undefined;
+    message.validUntil = object.validUntil ?? undefined;
     return message;
   },
 };
@@ -7743,6 +8285,17 @@ export type DeepPartial<T> = T extends Builtin ? T
 type KeysOfUnion<T> = T extends T ? keyof T : never;
 export type Exact<P, I extends P> = P extends Builtin ? P
   : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P>>]: never };
+
+function longToNumber(int64: { toString(): string }): number {
+  const num = globalThis.Number(int64.toString());
+  if (num > globalThis.Number.MAX_SAFE_INTEGER) {
+    throw new globalThis.Error("Value is larger than Number.MAX_SAFE_INTEGER");
+  }
+  if (num < globalThis.Number.MIN_SAFE_INTEGER) {
+    throw new globalThis.Error("Value is smaller than Number.MIN_SAFE_INTEGER");
+  }
+  return num;
+}
 
 function isObject(value: any): boolean {
   return typeof value === "object" && value !== null;

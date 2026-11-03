@@ -7,6 +7,7 @@ import {
   NetworkConfig,
   PRICING_CONFIGS,
   PricingConfig,
+  parseExtendedResponses,
   parseTokenAmounts,
   parseWaitForIndexer,
   resolveNetworkConfig,
@@ -17,6 +18,7 @@ import {
   AssetBuilder,
   type AssetV5,
   type ComputeAssetRef,
+  type ComputeResult,
   type ConsumerParameterV5,
   CredentialListTypes,
   type DdoCredentials,
@@ -49,6 +51,7 @@ import {
   AdditionalInformation,
   ConsumerParameter,
   CreateComputeToDataRequest,
+  ComputeToDataResponse,
   CredentialLists,
   PontusxOffering,
   Pricing,
@@ -92,6 +95,11 @@ import {
   toLicense,
   toUserdata,
 } from './utility.js';
+import {
+  toEscrowPayment,
+  toInput,
+  toProviderFees,
+} from './extended-responses.js';
 import { configureNautilusLogging } from './nautilus-logging.js';
 import type { LogFormat } from '../logging.js';
 
@@ -117,6 +125,8 @@ export class PontusxService implements OnModuleInit {
   private readonly provider: JsonRpcProvider;
   private readonly remoteStore: RemoteStore | undefined;
   private readonly waitForIndexer: PublishOptions['waitForIndexer'];
+  // EXTENDED_RESPONSES: transaction, payment and timing details in the responses
+  private readonly extendedResponses: boolean;
   private nautilus: Nautilus;
   // there should only be one action with one private key at a time on the pontus-x network
   private mutex: Mutex;
@@ -149,6 +159,7 @@ export class PontusxService implements OnModuleInit {
     );
     this.remoteStore = createRemoteStore(env);
     this.waitForIndexer = parseWaitForIndexer(env);
+    this.extendedResponses = parseExtendedResponses(env);
 
     this.mutex = new Mutex();
   }
@@ -1136,7 +1147,8 @@ export class PontusxService implements OnModuleInit {
 
   async requestComputeToData(
     request: CreateComputeToDataRequest,
-  ): Promise<string[]> {
+  ): Promise<ComputeToDataResponse> {
+    const submittedAt = new Date().toISOString();
     const metadata = createErrorMetadata('pontusx', 'requestComputeToData');
     if (request.free && request.maxJobDuration !== undefined) {
       throw new RpcException({
@@ -1193,11 +1205,12 @@ export class PontusxService implements OnModuleInit {
         });
       }
 
-      const additionalDatasets = await this.resolveAdditionalDatasets(
+      const resolvedDatasets = await this.resolveAdditionalDatasets(
         request,
         computeService.id,
         metadata,
       );
+      const additionalDatasets = resolvedDatasets.map(({ ref }) => ref);
 
       const config = {
         dataset: {
@@ -1232,27 +1245,67 @@ export class PontusxService implements OnModuleInit {
           ? request.resources.map(({ id, amount }) => ({ id, amount }))
           : undefined,
       };
-      const computeJob = await (
-        request.free
-          ? this.nautilus.freeCompute(config)
-          : this.nautilus.compute({
-              ...config,
-              maxJobDuration: request.maxJobDuration,
-            })
-      ).catch((err) => {
-        throw this.toRpcException(
-          err,
-          'requestComputeToData',
-          GrpcStatusCode.NOT_FOUND,
-        );
-      });
+      // Orders mined up to this block were not sent for this job.
+      const startBlock = this.extendedResponses
+        ? await this.provider.getBlockNumber().catch(() => undefined)
+        : undefined;
+      const computeJob: Partial<ComputeResult> & Pick<ComputeResult, 'jobs'> =
+        await (
+          request.free
+            ? this.nautilus.freeCompute(config)
+            : this.nautilus.compute({
+                ...config,
+                maxJobDuration: request.maxJobDuration,
+              })
+        ).catch((err) => {
+          throw this.toRpcException(
+            err,
+            'requestComputeToData',
+            GrpcStatusCode.NOT_FOUND,
+          );
+        });
+
+      const startedAt = new Date().toISOString();
 
       const jobIds = computeJob.jobs.map((job) => job.jobId);
       if (jobIds.length) {
         await this.redis.rpush(this.pendingJobsKey(), ...jobIds);
       }
 
-      return jobIds;
+      if (!this.extendedResponses) {
+        return { jobId: jobIds, orders: [], providerFees: [] };
+      }
+      const escrowPayment = toEscrowPayment(computeJob.initializeResults);
+      return {
+        jobId: jobIds,
+        consumerAddress: await this.wallet.getAddress(),
+        computeEnv: computeJob.environment?.id,
+        orders: await Promise.all(
+          Object.entries(computeJob.orders ?? {}).map(
+            async ([input, txHash]) => {
+              const reused = await this.sentBefore(txHash, startBlock);
+              return { input, txHash, ...(reused !== undefined && { reused }) };
+            },
+          ),
+        ),
+        ...(escrowPayment && { escrowPayment }),
+        providerFees: toProviderFees(
+          computeJob.initializeResults,
+          [
+            {
+              input: toInput(request.did, computeService.id),
+              datatoken: getDatatokenForService(dataset, computeService.id),
+            },
+            ...resolvedDatasets.map(({ ref, datatoken }) => ({
+              input: toInput(ref.did, ref.serviceId),
+              datatoken,
+            })),
+          ],
+          toInput(request.algorithm, algorithmService.id),
+        ),
+        submittedAt,
+        startedAt,
+      };
     } catch (err: any) {
       throw this.toRpcException(err, 'requestComputeToData');
     } finally {
@@ -1268,7 +1321,7 @@ export class PontusxService implements OnModuleInit {
     request: CreateComputeToDataRequest,
     primaryServiceId: string,
     metadata: Metadata,
-  ): Promise<ComputeAssetRef[]> {
+  ): Promise<{ ref: ComputeAssetRef; datatoken?: string }[]> {
     const resolved = await Promise.all(
       (request.additionalDatasets ?? []).map(
         async ({ did, serviceId, userdata }, index) => {
@@ -1300,17 +1353,20 @@ export class PontusxService implements OnModuleInit {
             });
           }
           return {
-            did,
-            serviceId: service.id,
-            userdata: toUserdata(userdata, service.consumerParameters),
+            ref: {
+              did,
+              serviceId: service.id,
+              userdata: toUserdata(userdata, service.consumerParameters),
+            },
+            datatoken: getDatatokenForService(asset, service.id),
           };
         },
       ),
     );
 
-    const inputs = new Set([`${request.did}#${primaryServiceId}`]);
-    resolved.forEach(({ did, serviceId }, index) => {
-      const input = `${did}#${serviceId}`;
+    const inputs = new Set([toInput(request.did, primaryServiceId)]);
+    resolved.forEach(({ ref: { did, serviceId } }, index) => {
+      const input = toInput(did, serviceId);
       if (inputs.has(input)) {
         throw new RpcException({
           code: GrpcStatusCode.INVALID_ARGUMENT,
@@ -1321,6 +1377,26 @@ export class PontusxService implements OnModuleInit {
       inputs.add(input);
     });
     return resolved;
+  }
+
+  /**
+   * Whether the transaction was mined up to `block`, i.e. before the call that reports it:
+   * `undefined` when the chain cannot tell.
+   */
+  private async sentBefore(
+    txHash: string,
+    block: number | undefined,
+  ): Promise<boolean | undefined> {
+    if (block === undefined) return undefined;
+    try {
+      const receipt = await this.provider.getTransactionReceipt(txHash);
+      return receipt ? receipt.blockNumber <= block : undefined;
+    } catch (err) {
+      this.logger.debug(
+        `Could not read the receipt of ${txHash}: ${formatErrorMessage(err)}`,
+      );
+      return undefined;
+    }
   }
 
   private async getComputeJob(jobId: string): Promise<NodeComputeJob> {

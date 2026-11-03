@@ -385,9 +385,7 @@ export class GrpcController {
       this.pontusxService.requestComputeToData(data),
     );
     if (result) {
-      return {
-        jobId: result,
-      };
+      return result;
     }
     throw new RpcException({
       code: GrpcStatusCode.INTERNAL,

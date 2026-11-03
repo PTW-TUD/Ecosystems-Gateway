@@ -610,6 +610,24 @@
       },
       "description": "Which algorithms may run on a compute service.\nWhen publishing, a list that is not given trusts nobody; on an update, it keeps the stored one.\nWithout trusted algorithms, trusted publishers and raw algorithms, no algorithm can run."
     },
+    "v3ComputeOrder": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "type": "string",
+          "title": "Input the order is for, in the form \u003cdid\u003e#\u003cserviceId\u003e"
+        },
+        "txHash": {
+          "type": "string",
+          "title": "Order transaction hash; a reused order has the hash of the earlier order"
+        },
+        "reused": {
+          "type": "boolean",
+          "title": "true when an earlier order still in force was used and nothing was sent, false when\nthe transaction was sent for this job; unset when the chain could not be read"
+        }
+      },
+      "description": "An order transaction of a compute job input."
+    },
     "v3ComputeResource": {
       "type": "object",
       "properties": {
@@ -634,9 +652,45 @@
             "type": "string"
           },
           "title": "ocean-node job ids in the form \u003cenvironmentHash\u003e-\u003cjobId\u003e"
+        },
+        "consumerAddress": {
+          "type": "string",
+          "title": "Address of the gateway wallet that started and pays for the job"
+        },
+        "computeEnv": {
+          "type": "string",
+          "title": "Compute environment the job runs in"
+        },
+        "orders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3ComputeOrder"
+          },
+          "description": "Order transactions of the algorithm and every dataset; empty for a free job.\nThe escrow deposit and authorization transactions are not included: nautilus does\nnot report them."
+        },
+        "escrowPayment": {
+          "$ref": "#/definitions/v3EscrowPayment",
+          "title": "Escrow payment the node quoted for the job; unset for a free job"
+        },
+        "providerFees": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v3ProviderFee"
+          },
+          "title": "Provider fees the node quoted per input; empty for a free job and inputs without fee"
+        },
+        "submittedAt": {
+          "type": "string",
+          "title": "When the gateway received the request (ISO 8601)"
+        },
+        "startedAt": {
+          "type": "string",
+          "description": "When the node accepted the job (ISO 8601). From submittedAt to here: waiting for the\ngateway wallet, initialize, escrow, orders and start."
         }
       },
-      "description": "Response returned after starting a compute-to-data job."
+      "description": "Response returned after starting a compute-to-data job.\nThe fields after jobId are only set when the gateway runs with EXTENDED_RESPONSES=true."
     },
     "v3ComputeToDataResponseState": {
       "type": "string",
@@ -948,6 +1002,33 @@
         }
       },
       "description": "Wallet address allowlist and denylist for Pontus-X, checked by the ocean-node or its\npolicy server before anything is ordered or paid."
+    },
+    "v3EscrowPayment": {
+      "type": "object",
+      "properties": {
+        "escrowAddress": {
+          "type": "string",
+          "title": "Escrow contract the payment is locked in"
+        },
+        "token": {
+          "type": "string",
+          "title": "Payment token"
+        },
+        "amount": {
+          "type": "string",
+          "title": "Amount in the token's smallest unit, as a decimal string"
+        },
+        "payee": {
+          "type": "string",
+          "title": "Account the payment goes to: the compute environment's"
+        },
+        "minLockSeconds": {
+          "type": "string",
+          "format": "uint64",
+          "title": "Shortest time in seconds the payment is locked for"
+        }
+      },
+      "description": "The escrow payment of a paid compute job, as the node quoted it."
     },
     "v3Files": {
       "type": "object",
@@ -1305,6 +1386,32 @@
         }
       },
       "title": "Information about the price for the asset for consumption in the ecosystem"
+    },
+    "v3ProviderFee": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "type": "string",
+          "title": "Input the fee is for, in the form \u003cdid\u003e#\u003cserviceId\u003e"
+        },
+        "token": {
+          "type": "string",
+          "title": "Fee token"
+        },
+        "amount": {
+          "type": "string",
+          "title": "Amount in the token's smallest unit, as a decimal string"
+        },
+        "payee": {
+          "type": "string",
+          "title": "Account the fee goes to"
+        },
+        "validUntil": {
+          "type": "string",
+          "title": "Until when the quote is valid, as the node gives it (Unix seconds)"
+        }
+      },
+      "description": "The provider fee of a compute job input, as the node quoted it."
     },
     "v3PublishInfo": {
       "type": "object",

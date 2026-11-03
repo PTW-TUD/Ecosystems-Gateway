@@ -17,6 +17,25 @@ import { ConfigService } from '@nestjs/config';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { extractErrorDetails, formatErrorMessage } from './grpc-error.util.js';
 
+/**
+ * The response without the oneof markers @grpc/proto-loader adds for each set `optional`
+ * field (`_name: 'name'`), which are not part of the message. Real oneofs are kept.
+ */
+export function withoutSyntheticOneofs(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutSyntheticOneofs);
+  if (!value || typeof value !== 'object' || Buffer.isBuffer(value)) {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(
+        ([key, entry]) =>
+          !(key.startsWith('_') && entry === key.slice(1) && entry in value),
+      )
+      .map(([key, entry]) => [key, withoutSyntheticOneofs(entry)]),
+  );
+}
+
 @ApiTags('grpc')
 @Controller('grpc')
 export class GrpcGatewayController {
@@ -76,7 +95,9 @@ export class GrpcGatewayController {
     }
 
     try {
-      return await this.callGrpcMethod(methodName, body);
+      return withoutSyntheticOneofs(
+        await this.callGrpcMethod(methodName, body),
+      );
     } catch (error) {
       const grpcCode: number | undefined =
         typeof error?.code === 'number' ? error.code : undefined;

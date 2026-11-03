@@ -43,6 +43,7 @@ function createService(nautilus: Record<string, Mock> = {}) {
     wallet: { getAddress: vi.fn().mockResolvedValue(OWNER) },
     remoteStore: {},
     waitForIndexer: true,
+    extendedResponses: false,
     mutex: new Mutex(),
     nautilus,
   });
@@ -1160,6 +1161,7 @@ describe('PontusxService', () => {
 
   describe('requestComputeToData', () => {
     const JOB_ID = JOB('1');
+    const DATATOKEN = '0x00000000000000000000000000000000000000d1';
 
     function computeService(nautilus: Record<string, Mock>) {
       const dataset = assetV5([
@@ -1167,6 +1169,7 @@ describe('PontusxService', () => {
         {
           id: 'compute-1',
           type: 'compute',
+          datatokenAddress: DATATOKEN,
           consumerParameters: [{ name: 'rows', type: 'number' }],
         },
       ]);
@@ -1226,7 +1229,7 @@ describe('PontusxService', () => {
           resources: [{ id: 'cpu', amount: 2 }],
           maxJobDuration: 600,
         }),
-      ).resolves.toEqual([JOB_ID]);
+      ).resolves.toEqual({ jobId: [JOB_ID], orders: [], providerFees: [] });
 
       expect(compute).toHaveBeenCalledWith({
         dataset: {
@@ -1277,6 +1280,136 @@ describe('PontusxService', () => {
           userdata: { rows: 3 },
         },
       ]);
+    });
+
+    describe('with EXTENDED_RESPONSES', () => {
+      const ALGO_TX = '0x' + '1'.repeat(64);
+      const DATA_TX = '0x' + '2'.repeat(64);
+
+      function extended(nautilus: Record<string, Mock>) {
+        const service = computeService(nautilus);
+        Object.assign(service as any, {
+          extendedResponses: true,
+          provider: {
+            getBlockNumber: vi.fn().mockResolvedValue(100),
+            // the algorithm's order is older than the job, the dataset's new
+            getTransactionReceipt: vi.fn(async (hash: string) => ({
+              blockNumber: hash === ALGO_TX ? 90 : 101,
+            })),
+          },
+        });
+        return service;
+      }
+
+      it('returns the orders, payments and timing of a paid job', async () => {
+        const compute = vi.fn().mockResolvedValue({
+          jobs: [{ jobId: JOB_ID }],
+          environment: { id: 'env-1', consumerAddress: '0xpayee' },
+          orders: {
+            'did:ope:algo#access-a': ALGO_TX,
+            'did:ope:1234#compute-1': DATA_TX,
+          },
+          initializeResults: {
+            datasets: [
+              {
+                datatoken: DATATOKEN.toUpperCase().replace('0X', '0x'),
+                providerFee: {
+                  providerFeeAddress: '0xnode',
+                  providerFeeToken: '0xtoken',
+                  providerFeeAmount: '1000',
+                  validUntil: '1800000000',
+                  v: 27,
+                  r: '0xsignature-r',
+                  s: '0xsignature-s',
+                  providerData: '0xdata',
+                },
+              },
+            ],
+            payment: {
+              escrowAddress: '0xescrow',
+              chainId: 11155420,
+              payee: '0xpayee',
+              token: '0xtoken',
+              amount: 2500000,
+              minLockSeconds: 3600,
+            },
+          },
+        });
+
+        const response = await extended({ compute }).requestComputeToData(
+          request,
+        );
+
+        expect(response).toEqual({
+          jobId: [JOB_ID],
+          consumerAddress: OWNER,
+          computeEnv: 'env-1',
+          orders: [
+            { input: 'did:ope:algo#access-a', txHash: ALGO_TX, reused: true },
+            { input: 'did:ope:1234#compute-1', txHash: DATA_TX, reused: false },
+          ],
+          escrowPayment: {
+            escrowAddress: '0xescrow',
+            token: '0xtoken',
+            amount: '2500000',
+            payee: '0xpayee',
+            minLockSeconds: 3600,
+          },
+          providerFees: [
+            {
+              input: 'did:ope:1234#compute-1',
+              token: '0xtoken',
+              amount: '1000',
+              payee: '0xnode',
+              validUntil: '1800000000',
+            },
+          ],
+          submittedAt: expect.any(String),
+          startedAt: expect.any(String),
+        });
+        expect(Date.parse(response.startedAt!)).toBeGreaterThanOrEqual(
+          Date.parse(response.submittedAt!),
+        );
+        // no signatures or provider data
+        expect(JSON.stringify(response)).not.toMatch(/signature|0xdata/);
+      });
+
+      it('returns no orders or payments for a free job', async () => {
+        const freeCompute = vi.fn().mockResolvedValue({
+          jobs: [{ jobId: JOB_ID }],
+          environment: { id: 'env-1' },
+        });
+
+        const response = await extended({ freeCompute }).requestComputeToData({
+          ...request,
+          free: true,
+        });
+
+        expect(response).toMatchObject({
+          jobId: [JOB_ID],
+          computeEnv: 'env-1',
+          orders: [],
+          providerFees: [],
+        });
+        expect(response).not.toHaveProperty('escrowPayment');
+      });
+
+      it('leaves reused unset when the chain cannot be read', async () => {
+        const compute = vi.fn().mockResolvedValue({
+          jobs: [{ jobId: JOB_ID }],
+          orders: { 'did:ope:1234#compute-1': DATA_TX },
+        });
+        const service = extended({ compute });
+        (service as any).provider.getBlockNumber.mockRejectedValue(
+          new Error('rpc down'),
+        );
+
+        const response = await service.requestComputeToData(request);
+
+        expect(response.orders).toEqual([
+          { input: 'did:ope:1234#compute-1', txHash: DATA_TX },
+        ]);
+      });
     });
 
     it('passes further datasets to a free job too', async () => {

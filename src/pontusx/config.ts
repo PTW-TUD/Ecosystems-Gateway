@@ -287,6 +287,15 @@ export function parseWaitForIndexer(
   return { timeoutMs: Number(timeout) };
 }
 
+/**
+ * Whether responses carry the transaction, payment and timing details of their call:
+ * receipts of publish and update, orders and payments of a started compute job, and the
+ * full job on request of the status. EXTENDED_RESPONSES, default false.
+ */
+export function parseExtendedResponses(env: EnvReader): boolean {
+  return parseFlag('EXTENDED_RESPONSES', env('EXTENDED_RESPONSES')) ?? false;
+}
+
 /** `true` / `false` from the environment, or `undefined` when unset. */
 function parseFlag(name: string, value: string | undefined) {
   const normalized = value?.trim().toLowerCase();

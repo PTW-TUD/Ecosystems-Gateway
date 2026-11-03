@@ -175,7 +175,11 @@ describe('HTTP and gRPC gateway (e2e)', () => {
   });
 
   it('passes the compute options of a job to the service', async () => {
-    requestComputeToData.mockResolvedValue(['0xenv-job']);
+    requestComputeToData.mockResolvedValue({
+      jobId: ['0xenv-job'],
+      orders: [],
+      providerFees: [],
+    });
     const response = await request(app.getHttpServer())
       .post('/grpc/RunComputeToDataJob')
       .send({
@@ -195,7 +199,12 @@ describe('HTTP and gRPC gateway (e2e)', () => {
         ],
       })
       .expect(201);
-    expect(response.body).toEqual({ jobId: ['0xenv-job'] });
+    // the HTTP gateway writes empty lists for unset repeated fields
+    expect(response.body).toEqual({
+      jobId: ['0xenv-job'],
+      orders: [],
+      providerFees: [],
+    });
     expect(requestComputeToData).toHaveBeenCalledWith(
       expect.objectContaining({
         did: 'did:ope:data',
@@ -219,6 +228,39 @@ describe('HTTP and gRPC gateway (e2e)', () => {
     expect(requestComputeToData.mock.calls[0][0]).not.toHaveProperty(
       'maxJobDuration',
     );
+  });
+
+  it('returns the transaction details of a started job', async () => {
+    const details = {
+      jobId: ['0xenv-job'],
+      consumerAddress: '0xconsumer',
+      computeEnv: 'env-1',
+      orders: [{ input: 'did:ope:data#compute', txHash: '0x1', reused: false }],
+      escrowPayment: {
+        escrowAddress: '0xescrow',
+        token: '0xtoken',
+        amount: '2500000',
+        payee: '0xpayee',
+        minLockSeconds: 3600,
+      },
+      providerFees: [
+        { input: 'did:ope:data#compute', token: '0xtoken', amount: '0' },
+      ],
+      submittedAt: '2026-11-03T10:00:00.000Z',
+      startedAt: '2026-11-03T10:00:30.000Z',
+    };
+    requestComputeToData.mockResolvedValue(details);
+
+    const response = await request(app.getHttpServer())
+      .post('/grpc/RunComputeToDataJob')
+      .send({ did: 'did:ope:data', algorithm: 'did:ope:algo' })
+      .expect(201);
+
+    expect(response.body).toEqual({
+      ...details,
+      // a 64-bit integer is a string in JSON
+      escrowPayment: { ...details.escrowPayment, minLockSeconds: '3600' },
+    });
   });
 
   it('maps gRPC errors to HTTP status codes', async () => {
