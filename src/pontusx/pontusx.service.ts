@@ -13,7 +13,7 @@ import {
   resolveNetworkConfig,
   selectNetwork,
 } from './config.js';
-import { JsonRpcProvider, Wallet } from 'ethers';
+import { Contract, getAddress, JsonRpcProvider, Wallet } from 'ethers';
 import {
   AssetBuilder,
   type AssetV5,
@@ -40,6 +40,7 @@ import {
   type NodeComputeJob,
   PolicyDeniedError,
   type PricingConfigWithoutOwner,
+  PublishIncompleteError,
   type PublishOptions,
   type PublishResponse,
   type RemoteStore,
@@ -122,6 +123,16 @@ const ENV_VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 // here: the gateway has no wallet to present credentials from.
 const PRESENTATION_REQUIRED =
   /^Service (\S+) of (\S+) requires a verifiable presentation, and no credential provider is set/;
+
+// How long to wait before each completePublish() attempt after a publish stopped once its
+// NFT was minted. Mostly an RPC node that has not seen the new NFT yet (getPermissions
+// reads "0x"), or a metadata transaction of the failed attempt that is still pending.
+const COMPLETE_PUBLISH_DELAYS_MS = [2_000, 5_000, 10_000];
+
+// The part of ocean's Dispenser contract the gateway reads itself.
+const DISPENSER_ABI = [
+  'function status(address datatoken) view returns (bool active, address owner, bool isMinter, uint256 maxTokens, uint256 maxBalance, uint256 balance, address allowedSwapper)',
+];
 
 type AlgorithmConsumerParameter = NonNullable<
   MetadataAlgorithmConfig['consumerParameters']
@@ -258,9 +269,7 @@ export class PontusxService implements OnModuleInit {
         return built;
       });
 
-      const result = await this.nautilus.publish(asset, {
-        waitForIndexer: this.waitForIndexer,
-      });
+      const result = await this.publishOrComplete(asset);
       if (!this.extendedResponses) return result;
       return {
         ...result,
@@ -274,6 +283,117 @@ export class PontusxService implements OnModuleInit {
     } finally {
       release();
     }
+  }
+
+  /**
+   * Publishes the asset, and finishes the publish on the minted NFT with completePublish()
+   * when nautilus stopped after the mint, instead of leaving an NFT without metadata behind.
+   */
+  private async publishOrComplete(
+    asset: Parameters<Nautilus['publish']>[0],
+  ): Promise<PublishResponse> {
+    try {
+      return await this.nautilus.publish(asset, {
+        waitForIndexer: this.waitForIndexer,
+      });
+    } catch (err) {
+      if (!(err instanceof PublishIncompleteError)) throw err;
+      return this.completePublish(err, asset);
+    }
+  }
+
+  private async completePublish(
+    incomplete: PublishIncompleteError,
+    asset: Parameters<Nautilus['publish']>[0],
+  ): Promise<PublishResponse> {
+    const { nftAddress } = incomplete;
+    const metadataTxHash = incomplete.stored?.txHash;
+    this.logger.warn(
+      `${incomplete.message} Completing the publish on ${nftAddress}.`,
+    );
+
+    let lastError: any;
+    for (const [index, delayMs] of COMPLETE_PUBLISH_DELAYS_MS.entries()) {
+      await this.sleep(delayMs);
+      await this.alignFactoryDispensers(asset);
+      try {
+        const result = await this.nautilus.completePublish(nftAddress, asset, {
+          waitForIndexer: this.waitForIndexer,
+          ...(metadataTxHash ? { metadataTxHash } : {}),
+        });
+        this.logger.log(`Completed the publish on NFT ${nftAddress}.`);
+        return result;
+      } catch (err: any) {
+        lastError = err;
+        // the metadata is on chain: the publish went through, only indexing failed
+        if (typeof err?.published?.ddo?.id === 'string') throw err;
+        // the failed attempt's metadata transaction was mined after all: nothing to retry
+        if (/already has metadata/.test(String(err?.message))) break;
+        this.logger.warn(
+          `completePublish() on NFT ${nftAddress} failed (attempt ${index + 1} of ${COMPLETE_PUBLISH_DELAYS_MS.length}): ${err?.message ?? err}`,
+        );
+      }
+    }
+
+    throw Object.assign(
+      new Error(
+        `Publishing stopped after NFT ${nftAddress} was created (${String(incomplete.cause instanceof Error ? incomplete.cause.message : incomplete.cause)}), and completing it failed too: ${lastError?.message ?? lastError}`,
+        { cause: lastError },
+      ),
+      { opId: lastError?.opId ?? (incomplete as any).opId },
+    );
+  }
+
+  /**
+   * The ERC721 factory creates a free datatoken's dispenser with the datatoken itself as
+   * its allowed swapper, while nautilus' completePublish() expects the zero address there
+   * and refuses the datatoken as "priced differently". So a free service whose datatoken's
+   * dispenser names that datatoken as swapper gets the same in its dispenserParams, which
+   * completePublish() only compares with, as it does not change existing pricing.
+   * TODO: remove once nautilus accepts the factory's dispenser.
+   */
+  private async alignFactoryDispensers(
+    asset: Parameters<Nautilus['publish']>[0],
+  ): Promise<void> {
+    for (const service of asset.ddo.services) {
+      const { pricing, datatokenAddress } = service;
+      if (pricing?.type !== 'free' || !datatokenAddress) continue;
+      try {
+        const swapper = await this.dispenserSwapper(datatokenAddress);
+        if (!swapper || getAddress(swapper) !== getAddress(datatokenAddress))
+          continue;
+        service.pricing = {
+          ...pricing,
+          dispenserParams: {
+            ...pricing.dispenserParams,
+            allowedSwapper: swapper,
+          },
+        };
+      } catch (err: any) {
+        // completePublish() then reports the datatoken's pricing itself
+        this.logger.warn(
+          `Could not read the dispenser of datatoken ${datatokenAddress}: ${err?.message ?? err}`,
+        );
+      }
+    }
+  }
+
+  /** The allowed swapper of the datatoken's active dispenser, if it has one. */
+  private async dispenserSwapper(
+    datatokenAddress: string,
+  ): Promise<string | undefined> {
+    const dispenserAddress = this.networkConfig.dispenserAddress;
+    if (!dispenserAddress) return undefined;
+    const status = await new Contract(
+      dispenserAddress,
+      DISPENSER_ABI,
+      this.provider,
+    ).status(datatokenAddress);
+    return status.active ? status.allowedSwapper : undefined;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   async updateOffering(UpdateOffering: UpdateOfferingRequest_UpdateOffering) {

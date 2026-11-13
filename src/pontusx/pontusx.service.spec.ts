@@ -10,6 +10,7 @@ import {
   IndexingError,
   LifecycleStates,
   PolicyDeniedError,
+  PublishIncompleteError,
 } from '@deltadao/nautilus';
 import { Network, PRICING_CONFIGS, resolveNetworkConfig } from './config.js';
 
@@ -768,6 +769,183 @@ describe('PontusxService', () => {
         error: { code: GrpcStatusCode.FAILED_PRECONDITION },
       });
       expect(publish).not.toHaveBeenCalled();
+    });
+
+    describe('after a publish that stopped once its NFT was minted', () => {
+      const NFT = '0x5Aca629fE984E3b2E4051e50DD35b35474768Cc9';
+      const incomplete = () =>
+        new PublishIncompleteError(
+          NFT,
+          [],
+          new Error('could not decode result data (value="0x")'),
+        );
+
+      function serviceWith(nautilus: Record<string, Mock>) {
+        const service = createService(nautilus);
+        const sleep = vi
+          .spyOn(service as any, 'sleep')
+          .mockResolvedValue(undefined);
+        const dispenserSwapper = vi
+          .spyOn(service as any, 'dispenserSwapper')
+          .mockResolvedValue(undefined);
+        return { service, sleep, dispenserSwapper };
+      }
+
+      it('finishes it with completePublish() on the same NFT and asset', async () => {
+        const publish = vi.fn().mockRejectedValue(incomplete());
+        const completePublish = vi
+          .fn()
+          .mockResolvedValue({ ddo: { id: 'did:ope:1' } });
+        const { service } = serviceWith({ publish, completePublish });
+
+        await expect(service.publishAsset(datasetOffering())).resolves.toEqual({
+          ddo: { id: 'did:ope:1' },
+        });
+        expect(completePublish).toHaveBeenCalledTimes(1);
+        expect(completePublish.mock.calls[0][0]).toBe(NFT);
+        expect(completePublish.mock.calls[0][1]).toBe(publish.mock.calls[0][0]);
+        expect(completePublish.mock.calls[0][2]).toEqual({
+          waitForIndexer: true,
+        });
+      });
+
+      it('passes the metadata transaction the failed attempt sent', async () => {
+        const err = incomplete();
+        (err as any).stored = { cleanup: 'kept', txHash: '0xabc' };
+        const completePublish = vi
+          .fn()
+          .mockResolvedValue({ ddo: { id: 'did:ope:1' } });
+        const { service } = serviceWith({
+          publish: vi.fn().mockRejectedValue(err),
+          completePublish,
+        });
+
+        await service.publishAsset(datasetOffering());
+        expect(completePublish.mock.calls[0][2]).toEqual({
+          waitForIndexer: true,
+          metadataTxHash: '0xabc',
+        });
+      });
+
+      it('retries completePublish() after a wait', async () => {
+        const completePublish = vi
+          .fn()
+          .mockRejectedValueOnce(new Error('pending transactions'))
+          .mockResolvedValue({ ddo: { id: 'did:ope:1' } });
+        const { service, sleep } = serviceWith({
+          publish: vi.fn().mockRejectedValue(incomplete()),
+          completePublish,
+        });
+
+        await expect(service.publishAsset(datasetOffering())).resolves.toEqual({
+          ddo: { id: 'did:ope:1' },
+        });
+        expect(completePublish).toHaveBeenCalledTimes(2);
+        expect(sleep).toHaveBeenCalledTimes(2);
+      });
+
+      it('names the NFT when every attempt failed', async () => {
+        const completePublish = vi.fn().mockRejectedValue(new Error('nope'));
+        const { service } = serviceWith({
+          publish: vi.fn().mockRejectedValue(incomplete()),
+          completePublish,
+        });
+
+        const err = await service
+          .publishAsset(datasetOffering())
+          .catch((e) => e);
+        expect(completePublish).toHaveBeenCalledTimes(3);
+        expect(err).toBeInstanceOf(RpcException);
+        expect(err.getError().message).toContain(NFT);
+        expect(err.getError().message).toContain('nope');
+      });
+
+      it('stops retrying once the NFT has metadata', async () => {
+        const completePublish = vi
+          .fn()
+          .mockRejectedValue(
+            new Error(
+              `${NFT} already has metadata, so there is no publish left to complete.`,
+            ),
+          );
+        const { service } = serviceWith({
+          publish: vi.fn().mockRejectedValue(incomplete()),
+          completePublish,
+        });
+
+        await expect(
+          service.publishAsset(datasetOffering()),
+        ).rejects.toBeInstanceOf(RpcException);
+        expect(completePublish).toHaveBeenCalledTimes(1);
+      });
+
+      // the ERC721 factory makes the datatoken its dispenser's allowed swapper
+      it('takes over the allowed swapper of a dispenser the factory created', async () => {
+        const DATATOKEN = '0xbe723a76711ab20d3b428988EfEDAe02b8dC8f63';
+        const publish = vi.fn().mockImplementation(async (asset: any) => {
+          asset.ddo.services[0].datatokenAddress = DATATOKEN;
+          throw incomplete();
+        });
+        const completePublish = vi
+          .fn()
+          .mockResolvedValue({ ddo: { id: 'did:ope:1' } });
+        const { service, dispenserSwapper } = serviceWith({
+          publish,
+          completePublish,
+        });
+        dispenserSwapper.mockResolvedValue(DATATOKEN.toLowerCase());
+        const offering = datasetOffering();
+        offering.services[0].pricing!.pricingType = Pricing_PricingType.FREE;
+
+        await service.publishAsset(offering);
+        expect(dispenserSwapper).toHaveBeenCalledWith(DATATOKEN);
+        expect(
+          completePublish.mock.calls[0][1].ddo.services[0].pricing,
+        ).toEqual({
+          type: 'free',
+          dispenserParams: { allowedSwapper: DATATOKEN.toLowerCase() },
+        });
+        // the shared pricing configuration stays as it is
+        expect(PRICING_CONFIGS.OPSEPOLIA.FREE).toEqual({ type: 'free' });
+      });
+
+      it('keeps the pricing of a dispenser with another allowed swapper', async () => {
+        const DATATOKEN = '0xbe723a76711ab20d3b428988EfEDAe02b8dC8f63';
+        const publish = vi.fn().mockImplementation(async (asset: any) => {
+          asset.ddo.services[0].datatokenAddress = DATATOKEN;
+          throw incomplete();
+        });
+        const completePublish = vi
+          .fn()
+          .mockResolvedValue({ ddo: { id: 'did:ope:1' } });
+        const { service, dispenserSwapper } = serviceWith({
+          publish,
+          completePublish,
+        });
+        dispenserSwapper.mockResolvedValue(OWNER);
+        const offering = datasetOffering();
+        offering.services[0].pricing!.pricingType = Pricing_PricingType.FREE;
+
+        await service.publishAsset(offering);
+        expect(
+          completePublish.mock.calls[0][1].ddo.services[0].pricing,
+        ).toEqual({
+          type: 'free',
+        });
+      });
+
+      it('does not complete a publish that failed before the mint', async () => {
+        const completePublish = vi.fn();
+        const { service } = serviceWith({
+          publish: vi.fn().mockRejectedValue(new Error('no gas')),
+          completePublish,
+        });
+
+        await expect(
+          service.publishAsset(datasetOffering()),
+        ).rejects.toBeInstanceOf(RpcException);
+        expect(completePublish).not.toHaveBeenCalled();
+      });
     });
   });
 
