@@ -21,9 +21,31 @@ option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
     };
     // Host intentionally omitted to allow same-origin usage from Swagger UI
     base_path: "/";
-    schemes: HTTP; //add HTTPS in prod
+    // Swagger UI preselects the first scheme: HTTPS for a deployment behind a TLS proxy,
+    // HTTP stays selectable for local runs.
+    schemes: HTTPS;
+    schemes: HTTP;
     consumes: "application/json";
     produces: "application/json";
+    // Enforced by the reverse proxy in front of the HTTP gateway, not by the gateway itself.
+    security_definitions: {
+        security: {
+            key: "BearerAuth";
+            // Swagger 2.0 has no bearer type, so the token is an API key in the Authorization header.
+            value: {
+                type: TYPE_API_KEY;
+                in: IN_HEADER;
+                name: "Authorization";
+                description: "Bearer token, entered as 'Bearer <token>'. Checked by the reverse proxy (e.g. nginx).";
+            };
+        };
+    };
+    security: {
+        security_requirement: {
+            key: "BearerAuth";
+            value: {};
+        };
+    };
 };
 
 // Public gateway API for publishing, querying, and consuming offerings across supported ecosystems.

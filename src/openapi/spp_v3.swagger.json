@@ -13,6 +13,7 @@
   ],
   "basePath": "/",
   "schemes": [
+    "https",
     "http"
   ],
   "consumes": [
@@ -2224,5 +2225,18 @@
       },
       "description": "Lifecycle change of an XFSC offering."
     }
-  }
+  },
+  "securityDefinitions": {
+    "BearerAuth": {
+      "type": "apiKey",
+      "description": "Bearer token, entered as 'Bearer \u003ctoken\u003e'. Checked by the reverse proxy (e.g. nginx).",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ]
 }
